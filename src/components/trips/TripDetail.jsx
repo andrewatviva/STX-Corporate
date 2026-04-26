@@ -119,8 +119,9 @@ function SectorCard({ sector, index }) {
   const cost = (() => {
     const c = parseFloat(sector.cost) || 0;
     if (!c) return null;
-    if (sector.type === 'accommodation') {
-      return `A$${c.toFixed(2)} total`;
+    if (sector.type === 'accommodation' && sector.checkIn && sector.checkOut) {
+      const nights = Math.max(0, Math.round((new Date(sector.checkOut) - new Date(sector.checkIn)) / 86400000));
+      return nights > 0 ? `A$${(c * nights).toFixed(2)}` : `A$${c.toFixed(2)}`;
     }
     return `A$${c.toFixed(2)}`;
   })();
