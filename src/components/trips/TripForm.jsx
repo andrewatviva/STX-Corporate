@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestor
 import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { CITIES } from '../../data/cities';
 
 const SECTOR_TYPES = {
   flight:        { label: 'Flight',        Icon: Plane },
@@ -367,6 +368,7 @@ function SectorCard({ sector, index, onChange, onRemove }) {
 
 const EMPTY = {
   clientId: '', title: '', travellerName: '', travellerId: '', tripType: '', costCentre: '',
+  originCity: '', destinationCity: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
   costCentreChangeReason: '',
 };
@@ -402,16 +404,18 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     }
     if (!trip) return { ...EMPTY, clientId: clientIdProp || '', travellerName: autoName, travellerId: autoId, costCentre: autoCostCentre };
     return {
-      clientId:      trip.clientId      || clientIdProp || '',
-      title:         trip.title         || '',
-      travellerName: trip.travellerName || '',
-      travellerId:   trip.travellerId   || '',
-      tripType:      trip.tripType      || '',
-      costCentre:    trip.costCentre    || '',
-      purpose:       trip.purpose       || '',
-      startDate:     trip.startDate     || '',
-      endDate:       trip.endDate       || '',
-      internalNotes: trip.internalNotes || '',
+      clientId:        trip.clientId        || clientIdProp || '',
+      title:           trip.title           || '',
+      travellerName:   trip.travellerName   || '',
+      travellerId:     trip.travellerId     || '',
+      tripType:        trip.tripType        || '',
+      costCentre:      trip.costCentre      || '',
+      originCity:      trip.originCity      || '',
+      destinationCity: trip.destinationCity || '',
+      purpose:         trip.purpose         || '',
+      startDate:       trip.startDate       || '',
+      endDate:         trip.endDate         || '',
+      internalNotes:   trip.internalNotes   || '',
       sectors: (trip.sectors || []).map(s => ({ ...s, _key: Math.random().toString(36).slice(2) })),
     };
   });
@@ -608,6 +612,34 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           <label className={lbl}>End date</label>
           <input type="date" className={inp} value={form.endDate} onChange={e => set('endDate', e.target.value)} />
         </div>
+
+        <div>
+          <label className={lbl}>Origin city</label>
+          <input
+            className={inp}
+            list="trip-form-cities"
+            value={form.originCity}
+            onChange={e => set('originCity', e.target.value)}
+            placeholder="e.g. Brisbane"
+            autoComplete="off"
+          />
+        </div>
+
+        <div>
+          <label className={lbl}>Destination city</label>
+          <input
+            className={inp}
+            list="trip-form-cities"
+            value={form.destinationCity}
+            onChange={e => set('destinationCity', e.target.value)}
+            placeholder="e.g. Sydney"
+            autoComplete="off"
+          />
+        </div>
+
+        <datalist id="trip-form-cities">
+          {CITIES.map(c => <option key={c} value={c} />)}
+        </datalist>
 
         <div className="col-span-2">
           <label className={lbl}>Purpose / notes</label>

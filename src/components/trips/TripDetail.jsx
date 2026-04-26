@@ -523,6 +523,16 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               </div>
             )}
           </div>
+          {(trip.originCity || trip.destinationCity) && (
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Route</p>
+              <p className="text-gray-800">
+                {trip.originCity && trip.destinationCity
+                  ? `${trip.originCity} → ${trip.destinationCity}`
+                  : trip.originCity || trip.destinationCity}
+              </p>
+            </div>
+          )}
           {trip.startDate && (
             <div>
               <p className="text-xs text-gray-400 mb-0.5">Dates</p>
