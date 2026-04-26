@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { auth } from '../../firebase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LOGO_STX = 'https://www.supportedtravelx.com.au/wp-content/uploads/STX-Logo-Transparent-min-1024x434-1.png';
 
@@ -8,6 +10,13 @@ export default function LoginPage() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+
+  // If already signed in, go straight to dashboard
+  useEffect(() => {
+    if (currentUser) navigate('/dashboard', { replace: true });
+  }, [currentUser, navigate]);
   const [loading, setLoading]   = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [showReset, setShowReset] = useState(false);
