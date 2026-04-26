@@ -158,21 +158,56 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [declineReason, setDeclineReason] = useState('');
   const [showDeclineInput, setShowDeclineInput] = useState(false);
   const [showAmendPrompt, setShowAmendPrompt] = useState(false);
-  // For STX users: load the trip's client fee config (STX users have no tenant of their own)
-  const [tripClientFees, setTripClientFees] = useState(null);
-  const [feeConfigLoading, setFeeConfigLoading] = useState(isSTX && !!clientId);
+  // For STX users: load the trip's client config (fees + cost centres)
+  const [tripClientFees, setTripClientFees]               = useState(null);
+  const [tripClientCostCentres, setTripClientCostCentres] = useState([]);
+  const [feeConfigLoading, setFeeConfigLoading]           = useState(isSTX && !!clientId);
   useEffect(() => {
     if (!isSTX || !clientId) return;
     setFeeConfigLoading(true);
-    // Config is stored in a subcollection: clients/{id}/config/settings
     getDoc(doc(db, 'clients', clientId, 'config', 'settings'))
-      .then(snap => { setTripClientFees(snap.exists() ? (snap.data()?.fees ?? null) : null); })
+      .then(snap => {
+        const data = snap.exists() ? snap.data() : null;
+        setTripClientFees(data?.fees ?? null);
+        setTripClientCostCentres(data?.dropdowns?.costCentres || []);
+      })
       .catch(() => {})
       .finally(() => setFeeConfigLoading(false));
   }, [isSTX, clientId]);
 
+  const costCentres = isSTX ? tripClientCostCentres : (clientConfig?.dropdowns?.costCentres || []);
+
+  // Inline cost centre edit state
+  const [showCCEdit, setShowCCEdit] = useState(false);
+  const [newCC, setNewCC]           = useState('');
+  const [ccReason, setCCReason]     = useState('');
+  const [ccSaving, setCCSaving]     = useState(false);
+
+  const handleCostCentreChange = async () => {
+    if (!ccReason.trim()) return;
+    setCCSaving(true);
+    try {
+      await onUpdate({
+        costCentre: newCC,
+        amendments: arrayUnion({
+          at:     new Date().toISOString(),
+          by:     userProfile?.uid || '',
+          byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+          type:   'edit',
+          note:   `Cost centre change reason: ${ccReason.trim()}`,
+          changes: [{ field: 'Cost centre', from: trip.costCentre || '(none)', to: newCC || '(none)' }],
+        }),
+      });
+      setShowCCEdit(false);
+      setCCReason('');
+    } finally {
+      setCCSaving(false);
+    }
+  };
+
   const role = userProfile?.role;
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
+  const canEditCostCentre = ['stx_admin', 'stx_ops', 'client_ops'].includes(role);
 
   // Determine if this user can approve THIS specific trip.
   // client_approver respects their approveFor list (empty = all).
@@ -421,12 +456,58 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             <p className="text-xs text-gray-400 mb-0.5">Trip type</p>
             <p className="text-gray-800">{fmt(trip.tripType)}</p>
           </div>
-          {trip.costCentre && (
-            <div>
-              <p className="text-xs text-gray-400 mb-0.5">Cost centre</p>
-              <p className="text-gray-800">{trip.costCentre}</p>
-            </div>
-          )}
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Cost centre</p>
+            {showCCEdit ? (
+              <div className="space-y-2 mt-1 col-span-2">
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newCC}
+                  onChange={e => setNewCC(e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  {costCentres.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <textarea
+                  rows={2}
+                  className="w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  placeholder="Reason for change (required)…"
+                  value={ccReason}
+                  onChange={e => setCCReason(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCostCentreChange}
+                    disabled={ccSaving || !ccReason.trim()}
+                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {ccSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setShowCCEdit(false); setCCReason(''); }}
+                    className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-gray-800">
+                  {trip.costCentre || <span className="text-gray-400 italic">Not set</span>}
+                </p>
+                {canEditCostCentre && costCentres.length > 0 && trip.status !== 'cancelled' && (
+                  <button
+                    onClick={() => { setNewCC(trip.costCentre || ''); setShowCCEdit(true); }}
+                    className="p-0.5 text-gray-400 hover:text-blue-600 rounded"
+                    title="Change cost centre"
+                  >
+                    <Edit2 size={11} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           {trip.startDate && (
             <div>
               <p className="text-xs text-gray-400 mb-0.5">Dates</p>
