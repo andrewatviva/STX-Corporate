@@ -76,13 +76,31 @@ function calcSectorTotals(trip, gstRate = 0.1) {
 }
 
 function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
-  // Build set of all already-billed dedup keys, including fee keys bundled
-  // inside trip line items via extraDedupKeys.
+  // Build set of dedup keys + per-trip sector totals already billed.
+  // 'trip' line items bundle sector + fees; sectorAmount/sectorInclGST store
+  // the sector-only portion so future delta scans aren't inflated by bundled fees.
   const invoiced = new Set();
+  const billedSectorTotals = new Map(); // tripId → { exGST, inclGST }
+
   for (const inv of finalisedInvoices) {
     for (const item of (inv.lineItems || [])) {
       if (item.dedupKey) invoiced.add(item.dedupKey);
       for (const dk of (item.extraDedupKeys || [])) invoiced.add(dk);
+
+      if (item.tripId) {
+        if (item.lineType === 'trip') {
+          // Use sector-only fields when present; fall back to total (older invoices)
+          const exGST   = parseFloat(item.sectorAmount  ?? item.amount  ?? 0) || 0;
+          const inclGST = parseFloat(item.sectorInclGST ?? item.inclGST ?? 0) || 0;
+          const prev = billedSectorTotals.get(item.tripId) || { exGST: 0, inclGST: 0 };
+          billedSectorTotals.set(item.tripId, { exGST: prev.exGST + exGST, inclGST: prev.inclGST + inclGST });
+        } else if (item.lineType === 'adjustment') {
+          const exGST   = parseFloat(item.amount  || 0) || 0;
+          const inclGST = parseFloat(item.inclGST || 0) || 0;
+          const prev = billedSectorTotals.get(item.tripId) || { exGST: 0, inclGST: 0 };
+          billedSectorTotals.set(item.tripId, { exGST: prev.exGST + exGST, inclGST: prev.inclGST + inclGST });
+        }
+      }
     }
   }
 
@@ -131,6 +149,8 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
           costCentre:     trip.costCentre || '',
           description:    trip.title || `Trip ${trip.tripRef || trip.id}`,
           amount:         totalExGST,
+          sectorAmount:   sectorExGST,   // sector-only ex-GST — used by future delta scans
+          sectorInclGST:  sectorGross,   // sector-only gross — used by future delta scans
           gstRate:        null,          // mixed — not a single rate
           inclGST:        totalInclGST,
           isManual:       false,
@@ -138,7 +158,9 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
         });
       }
     } else {
-      // ── Already-invoiced trip or prior period: pick up new fees only ─────
+      // ── Already-invoiced trip or prior period: pick up new fees + cost delta ─
+
+      // 1. New fees applied within the invoice period that haven't been billed yet
       for (const fee of (trip.fees || [])) {
         if (fee.waived) continue;
         const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
@@ -167,12 +189,40 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
           lineType:      'fee',
         });
       }
+
+      // 2. Sector cost delta — only for trips whose sectors were previously billed
+      if (sectorsAlreadyBilled) {
+        const { exGST: currentExGST, gross: currentGross } = calcSectorTotals(trip);
+        const prev = billedSectorTotals.get(trip.id) || { exGST: 0, inclGST: 0 };
+        const deltaInclGST = parseFloat((currentGross - prev.inclGST).toFixed(2));
+        const deltaExGST   = parseFloat((currentExGST - prev.exGST).toFixed(2));
+
+        if (deltaInclGST > 0.01) {
+          items.push({
+            dedupKey:      null, // no static key — accumulated via billedSectorTotals
+            extraDedupKeys: [],
+            tripId:        trip.id,
+            tripRef:       trip.tripRef || '',
+            travellerName: trip.travellerName || '',
+            costCentre:    trip.costCentre || '',
+            description:   `Cost adjustment — ${trip.title || trip.tripRef || trip.id}`,
+            amount:        deltaExGST,
+            gstRate:       null,
+            inclGST:       deltaInclGST,
+            isManual:      false,
+            lineType:      'adjustment',
+          });
+        }
+      }
     }
   }
 
-  // Trip costs first, then amendment fees; within each group sort by tripRef
+  // Sort: trips → adjustments → fees; within each group by tripRef
+  const LINE_ORDER = { trip: 0, adjustment: 1, fee: 2 };
   items.sort((a, b) => {
-    if (a.lineType !== b.lineType) return a.lineType === 'trip' ? -1 : 1;
+    const ao = LINE_ORDER[a.lineType] ?? 3;
+    const bo = LINE_ORDER[b.lineType] ?? 3;
+    if (ao !== bo) return ao - bo;
     return (a.tripRef || '').localeCompare(b.tripRef || '');
   });
 
