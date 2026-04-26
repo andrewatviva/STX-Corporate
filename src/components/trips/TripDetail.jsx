@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock, Clock,
+  Lock, Clock, Trash2, Receipt,
 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, arrayRemove } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -158,13 +158,17 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [declineReason, setDeclineReason] = useState('');
   const [showDeclineInput, setShowDeclineInput] = useState(false);
   const [showAmendPrompt, setShowAmendPrompt] = useState(false);
-  // For STX users: load the trip's client fee config (STX has no fees of their own)
+  // For STX users: load the trip's client fee config (STX users have no tenant of their own)
   const [tripClientFees, setTripClientFees] = useState(null);
+  const [feeConfigLoading, setFeeConfigLoading] = useState(isSTX && !!clientId);
   useEffect(() => {
     if (!isSTX || !clientId) return;
-    getDoc(doc(db, 'clients', clientId))
-      .then(snap => { if (snap.exists()) setTripClientFees(snap.data()?.config?.fees ?? null); })
-      .catch(() => {});
+    setFeeConfigLoading(true);
+    // Config is stored in a subcollection: clients/{id}/config/settings
+    getDoc(doc(db, 'clients', clientId, 'config', 'settings'))
+      .then(snap => { setTripClientFees(snap.exists() ? (snap.data()?.fees ?? null) : null); })
+      .catch(() => {})
+      .finally(() => setFeeConfigLoading(false));
   }, [isSTX, clientId]);
 
   const role = userProfile?.role;
@@ -204,6 +208,10 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     return sum + c;
   }, 0);
 
+  const handleDeleteFee = async (fee) => {
+    await onUpdate({ fees: arrayRemove(fee) });
+  };
+
   return (
     <div>
       {/* Back + actions header */}
@@ -227,7 +235,8 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           {canEdit && trip.status !== 'cancelled' && !isDraftOrDeclined && (
             <button
               onClick={() => setShowAmendPrompt(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
+              disabled={feeConfigLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               <Edit2 size={13} /> Amend
             </button>
@@ -310,13 +319,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             {amendmentFeeApplies ? (
               <>
                 <button
-                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: true, amount: amendFeeAmount }); }}
+                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: true, amount: amendFeeAmount, gstRate: feeConfig?.gstRate ?? 0.1 }); }}
                   className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
                 >
                   Include fee (A${amendFeeAmount.toFixed(2)})
                 </button>
                 <button
-                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: false, amount: amendFeeAmount }); }}
+                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: false, amount: amendFeeAmount, gstRate: feeConfig?.gstRate ?? 0.1 }); }}
                   className="px-3 py-1.5 border border-amber-400 text-amber-800 text-sm rounded-lg hover:bg-amber-100"
                 >
                   Waive fee
@@ -440,6 +449,44 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             {trip.sectors.map((s, i) => (
               <SectorCard key={i} sector={s} index={i} />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fees */}
+      {(trip.fees || []).length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
+            <Receipt size={13} className="text-gray-400" />
+            Fees
+          </h3>
+          <div className="space-y-2">
+            {trip.fees.map((fee, i) => {
+              const incGST = parseFloat((fee.amount * (1 + (fee.gstRate || 0.1))).toFixed(2));
+              const label = fee.type === 'management' ? 'Management Fee' : fee.type === 'amendment' ? 'Amendment Fee' : fee.label || 'Fee';
+              return (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 font-medium">{fee.label || label}</p>
+                    <p className="text-xs text-gray-400">
+                      A${fee.amount?.toFixed(2)} ex-GST · A${incGST.toFixed(2)} inc. GST
+                      {fee.appliedByName && ` · ${fee.appliedByName}`}
+                      {fee.appliedAt && ` · ${new Date(fee.appliedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })}`}
+                    </p>
+                  </div>
+                  {role === 'stx_admin' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFee(fee)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
+                      title="Remove fee"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { arrayUnion } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
@@ -11,7 +12,7 @@ import Modal from '../components/shared/Modal';
 
 export default function TravelManagement() {
   const { userProfile } = useAuth();
-  const { clientId, isSTX } = useTenant();
+  const { clientId, isSTX, clientConfig } = useTenant();
 
   const { trips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX);
 
@@ -35,6 +36,17 @@ export default function TravelManagement() {
 
   const resolveClientId = (trip) => trip?.clientId || clientId || '';
 
+  // Load the fee config for a given client (handles STX users who have no own tenant)
+  const getClientFeeConfig = async (cid) => {
+    if (!isSTX) return clientConfig?.fees || {};
+    try {
+      const snap = await getDoc(doc(db, 'clients', cid, 'config', 'settings'));
+      return snap.exists() ? (snap.data()?.fees || {}) : {};
+    } catch {
+      return {};
+    }
+  };
+
   const makeAmendment = (type, extra = {}) => ({
     at: new Date().toISOString(),
     by: userProfile?.uid || '',
@@ -46,16 +58,54 @@ export default function TravelManagement() {
   const handleSave = async (data) => {
     const cid = data.clientId || resolveClientId(formTrip);
     if (!cid) throw new Error('No client ID — cannot save trip.');
+
     if (formTrip?.id) {
+      // Editing or amending an existing trip
       const amendExtra = isAmending
         ? { note: 'Trip amended', ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
         : { note: 'Trip details updated' };
       const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
-      await updateTrip(cid, formTrip.id, { ...data, amendments: arrayUnion(amendment) });
+      const updateData = { ...data, amendments: arrayUnion(amendment) };
+
+      // If the user confirmed the amendment fee, add it to trip.fees[]
+      if (isAmending && pendingAmendFee?.apply) {
+        updateData.fees = arrayUnion({
+          type: 'amendment',
+          label: 'Amendment Fee',
+          amount: pendingAmendFee.amount,
+          gstRate: pendingAmendFee.gstRate || 0.1,
+          appliedAt: new Date().toISOString(),
+          appliedBy: userProfile?.uid || '',
+          appliedByName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+        });
+      }
+
+      await updateTrip(cid, formTrip.id, updateData);
       setIsAmending(false);
       setPendingAmendFee(null);
     } else {
-      await addTrip(cid, { ...data, createdBy: userProfile?.uid || '' });
+      // Creating a new trip — auto-apply management fee if configured
+      const feeConfig = await getClientFeeConfig(cid);
+      const tripFees = [];
+      if (feeConfig.managementFeeEnabled && (feeConfig.managementFeeAmount || 0) > 0) {
+        const appliesTo = feeConfig.managementFeeAppliesTo || [];
+        if (appliesTo.length === 0 || appliesTo.includes(data.tripType)) {
+          tripFees.push({
+            type: 'management',
+            label: feeConfig.managementFeeLabel || 'Management Fee',
+            amount: feeConfig.managementFeeAmount,
+            gstRate: feeConfig.gstRate || 0.1,
+            appliedAt: new Date().toISOString(),
+            appliedBy: 'system',
+            appliedByName: 'Auto-applied',
+          });
+        }
+      }
+      await addTrip(cid, {
+        ...data,
+        createdBy: userProfile?.uid || '',
+        ...(tripFees.length > 0 ? { fees: tripFees } : {}),
+      });
     }
     setFormTrip(null);
   };

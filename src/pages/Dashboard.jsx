@@ -11,6 +11,16 @@ import { STATUS_CONFIG, StatusBadge, getDisplayStatus } from '../components/trip
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
+// Convert Firestore Timestamp or ISO string → YYYY-MM-DD
+function toDateStr(value) {
+  if (!value) return null;
+  try {
+    if (typeof value.toDate === 'function') return value.toDate().toISOString().slice(0, 10);
+    if (typeof value === 'string') return value.slice(0, 10);
+  } catch {}
+  return null;
+}
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) {
   if (!iso) return null;
@@ -105,28 +115,45 @@ export default function Dashboard() {
   const currentFYLabel = `FY${currentFY}/${String(currentFY + 1).slice(2)}`;
   const prevFYLabel    = `FY${prevFY}/${String(prevFY + 1).slice(2)}`;
 
-  const { monthlyData, costCentreData, currentFYTotal, prevFYTotal, hasPrevData } = useMemo(() => {
+  const { monthlyData, costCentreData, currentFYTotal, prevFYTotal, gstFreeTotal, hasPrevData } = useMemo(() => {
     const curMonths  = Array(12).fill(0);
     const prevMonths = Array(12).fill(0);
     const centres    = {};
-    let curTotal = 0, prevTotal = 0;
+    let curTotal = 0, prevTotal = 0, gstFree = 0;
 
     trips.forEach(t => {
       if (!SPEND_STATUSES.has(getDisplayStatus(t))) return;
       const cost = calcTripCost(t);
-      if (!cost || !t.startDate) return;
+      if (!cost) return;
 
-      const ci = fyMonthIndex(t.startDate, currentFY);
-      if (ci >= 0) { curMonths[ci] += cost; curTotal += cost; }
+      // Use createdAt (when expense is incurred) for FY grouping
+      const dateStr = toDateStr(t.createdAt);
+      if (!dateStr) return;
 
-      const pi = fyMonthIndex(t.startDate, prevFY);
-      if (pi >= 0) { prevMonths[pi] += cost; prevTotal += cost; }
-
-      // cost centre — only current FY
+      const ci = fyMonthIndex(dateStr, currentFY);
       if (ci >= 0) {
+        curMonths[ci] += cost;
+        curTotal += cost;
+
+        // Cost centre breakdown (current FY only)
         const cc = t.costCentre || 'Unallocated';
         centres[cc] = (centres[cc] || 0) + cost;
+
+        // GST-free component: sum of international sector costs
+        (t.sectors || []).forEach(s => {
+          if (!s.international) return;
+          const c = parseFloat(s.cost) || 0;
+          if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+            const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+            gstFree += c * nights;
+          } else {
+            gstFree += c;
+          }
+        });
       }
+
+      const pi = fyMonthIndex(dateStr, prevFY);
+      if (pi >= 0) { prevMonths[pi] += cost; prevTotal += cost; }
     });
 
     const monthlyData = FY_MONTH_LABELS.map((month, i) => ({
@@ -145,6 +172,7 @@ export default function Dashboard() {
       costCentreData,
       currentFYTotal: curTotal,
       prevFYTotal: prevTotal,
+      gstFreeTotal: gstFree,
       hasPrevData: prevTotal > 0,
     };
   }, [trips, currentFY, prevFY, currentFYLabel, prevFYLabel]);
@@ -210,6 +238,11 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-baseline gap-4 mb-4">
               <h2 className="text-sm font-semibold text-gray-700">Expenditure — {currentFYLabel}</h2>
               <span className="text-xl font-bold text-gray-900">{fmtAUD(currentFYTotal)}</span>
+              {gstFreeTotal > 0 && (
+                <span className="text-xs px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full border border-sky-200">
+                  {fmtAUD(gstFreeTotal)} GST-free (international)
+                </span>
+              )}
               {hasPrevData && (
                 <span className="text-sm text-gray-400">
                   vs {fmtAUD(prevFYTotal)} ({prevFYLabel})
