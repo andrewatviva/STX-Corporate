@@ -145,6 +145,11 @@ export default function Profiles() {
   // If viewing a detail
   if (selected) {
     const completeness = calcCompleteness(selected);
+    // Resolve manager name: find linked user, then find that user's manager
+    const linkedUser  = selected.userId ? teamMembers.find(m => m.id === selected.userId) : null;
+    const manager     = linkedUser?.managerId ? teamMembers.find(m => m.id === linkedUser.managerId) : null;
+    const managerName = manager ? [manager.firstName, manager.lastName].filter(Boolean).join(' ') : null;
+
     return (
       <div>
         <div className="flex items-center gap-3 mb-6">
@@ -159,6 +164,7 @@ export default function Profiles() {
           <PassengerDetail
             passenger={selected}
             completeness={completeness}
+            managerName={managerName}
             onEdit={() => handleEdit(selected)}
             onBack={() => setSelected(null)}
           />

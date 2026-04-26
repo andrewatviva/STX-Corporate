@@ -48,7 +48,9 @@ function formatDate(d) {
   return dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export default function PassengerDetail({ passenger, onEdit, onBack, completeness }) {
+const WHEELCHAIR_AIDS = ['Manual Wheelchair', 'Power Wheelchair'];
+
+export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName }) {
   const p = passenger;
   const fullName = [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
   const legalName = p.preferredName ? `${p.firstName} ${p.lastName}` : null;
@@ -95,6 +97,12 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
         <div className="grid grid-cols-2 gap-4">
           <Field label="Email" value={p.email} />
           <Field label="Phone" value={p.phone} />
+          {managerName && (
+            <div className="col-span-2">
+              <p className={lbl}>Reports to</p>
+              <p className="text-sm text-gray-800 mt-0.5">{managerName}</p>
+            </div>
+          )}
         </div>
       </Section>
 
@@ -139,6 +147,23 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
                 <p className={val}>{p.carerName ? `Travels with ${p.carerName}` : 'Carer travels with passenger'}</p>
               </div>
             )}
+
+            {/* Wheelchair details */}
+            {p.mobilityAids?.some(a => WHEELCHAIR_AIDS.includes(a)) && (
+              p.wheelchairTransfer || p.wheelchairModel || p.wheelchairDimensions || p.wheelchairWeight
+            ) && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Wheelchair details</p>
+                {p.wheelchairTransfer && <Field label="Transfer method" value={p.wheelchairTransfer} />}
+                <div className="grid grid-cols-2 gap-3">
+                  {p.wheelchairModel && <Field label="Model" value={p.wheelchairModel} />}
+                  {p.wheelchairWeight && <Field label="Weight" value={`${p.wheelchairWeight} kg`} />}
+                  {p.wheelchairDimensions && <Field label="Dimensions (L × W × H)" value={`${p.wheelchairDimensions} cm`} />}
+                  {p.wheelchairBatteryModel && <Field label="Battery model" value={p.wheelchairBatteryModel} />}
+                </div>
+              </div>
+            )}
+
             {p.dietaryRequirements?.length > 0 && <Tags label="Dietary requirements" values={p.dietaryRequirements} />}
             {p.allergyNotes && <Field label="Allergy / dietary notes" value={p.allergyNotes} />}
             {p.medicalNotes && <Field label="Medical conditions / notes" value={p.medicalNotes} />}

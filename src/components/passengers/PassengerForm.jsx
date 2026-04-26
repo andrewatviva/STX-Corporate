@@ -63,12 +63,23 @@ function CheckGroup({ options, value = [], onChange }) {
   );
 }
 
+const WHEELCHAIR_AIDS = ['Manual Wheelchair', 'Power Wheelchair'];
+
+const WHEELCHAIR_TRANSFERS = [
+  'Self Transfer — I can transfer by myself, unsupported',
+  'Self Transfer — I can transfer by myself with the use of a slide board (or equivalent)',
+  'Assistance Required — I need assistance from another person to transfer',
+  'Assistance Required — I need a hoist to transfer in and out of my wheelchair',
+];
+
 const EMPTY = {
   firstName: '', lastName: '', preferredName: '', dateOfBirth: '', gender: '',
   email: '', phone: '',
   emergencyName: '', emergencyPhone: '', emergencyRelationship: '', emergencyEmail: '',
   identityDocuments: [],
   disabilityType: [], mobilityAids: [], carerRequired: false, carerName: '',
+  wheelchairTransfer: '', wheelchairModel: '', wheelchairDimensions: '',
+  wheelchairWeight: '', wheelchairBatteryModel: '',
   dietaryRequirements: [], allergyNotes: '', medicalNotes: '', supportNotes: '',
   seatPreference: '', mealPreference: '', frequentFlyer: [], travelNotes: '',
   userId: '',
@@ -97,6 +108,11 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
       mobilityAids:         passenger.mobilityAids         || [],
       carerRequired:        passenger.carerRequired        || false,
       carerName:            passenger.carerName            || '',
+      wheelchairTransfer:   passenger.wheelchairTransfer   || '',
+      wheelchairModel:      passenger.wheelchairModel      || '',
+      wheelchairDimensions: passenger.wheelchairDimensions || '',
+      wheelchairWeight:     passenger.wheelchairWeight     || '',
+      wheelchairBatteryModel: passenger.wheelchairBatteryModel || '',
       dietaryRequirements:  passenger.dietaryRequirements  || [],
       allergyNotes:         passenger.allergyNotes         || '',
       medicalNotes:         passenger.medicalNotes         || '',
@@ -254,6 +270,48 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
             <F label="Carer name">
               <input className={inp} value={form.carerName} onChange={e => set('carerName', e.target.value)} placeholder="Support worker name" />
             </F>
+          )}
+
+          {/* Wheelchair details — shown when a wheelchair aid is selected */}
+          {form.mobilityAids.some(a => WHEELCHAIR_AIDS.includes(a)) && (
+            <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Wheelchair details</h4>
+
+              <F label="Transfer method" span2>
+                <div className="space-y-2 mt-1">
+                  {WHEELCHAIR_TRANSFERS.map(opt => (
+                    <label key={opt} className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name="wheelchairTransfer"
+                        value={opt}
+                        checked={form.wheelchairTransfer === opt}
+                        onChange={() => set('wheelchairTransfer', opt)}
+                        className="mt-0.5 border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700">{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </F>
+
+              <div className="grid grid-cols-2 gap-4">
+                <F label="Wheelchair model">
+                  <input className={inp} value={form.wheelchairModel} onChange={e => set('wheelchairModel', e.target.value)} placeholder="e.g. Permobil M3 Corpus" />
+                </F>
+                <F label="Weight (kg)">
+                  <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairWeight} onChange={e => set('wheelchairWeight', e.target.value)} placeholder="e.g. 23.5" />
+                </F>
+                <F label="Dimensions — L × W × H (cm)" span2>
+                  <input className={inp} value={form.wheelchairDimensions} onChange={e => set('wheelchairDimensions', e.target.value)} placeholder="e.g. 110 × 65 × 92" />
+                </F>
+                {form.mobilityAids.includes('Power Wheelchair') && (
+                  <F label="Battery model" span2>
+                    <input className={inp} value={form.wheelchairBatteryModel} onChange={e => set('wheelchairBatteryModel', e.target.value)} placeholder="e.g. Lithium-ion 80Ah — non-spillable" />
+                  </F>
+                )}
+              </div>
+            </div>
           )}
 
           <div>
