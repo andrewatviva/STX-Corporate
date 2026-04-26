@@ -643,12 +643,16 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                   </p>
                   {(a.changes || []).length > 0 && (
                     <ul className="mt-1.5 space-y-1 text-gray-500">
-                      {a.changes.map((c, j) => (
+                      {a.changes.map((c, j) => {
+                        const label = typeof c === 'string' ? c
+                          : c?.field ? `${c.field}: "${c.from}" → "${c.to}"` : JSON.stringify(c);
+                        return (
                         <li key={j} className="flex gap-1.5">
                           <span className="text-gray-300 shrink-0 select-none">·</span>
-                          <span>{c}</span>
+                          <span>{label}</span>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
