@@ -39,7 +39,7 @@ function fmtAUDShort(n) {
 }
 
 function calcTripCost(trip) {
-  return (trip.sectors || []).reduce((sum, s) => {
+  const sectors = (trip.sectors || []).reduce((sum, s) => {
     const c = parseFloat(s.cost) || 0;
     if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
       const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
@@ -47,6 +47,8 @@ function calcTripCost(trip) {
     }
     return sum + c;
   }, 0);
+  const fees = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0) * (1 + (f.gstRate ?? 0.1)), 0);
+  return sectors + fees;
 }
 
 // Australian financial year starts 1 July

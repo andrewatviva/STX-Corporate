@@ -195,7 +195,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
           type:   'edit',
           note:   `Cost centre change reason: ${ccReason.trim()}`,
-          changes: [{ field: 'Cost centre', from: trip.costCentre || '(none)', to: newCC || '(none)' }],
+          changes: [`Cost centre: "${trip.costCentre || '(none)'}" → "${newCC || '(none)'}"` ],
         }),
       });
       setShowCCEdit(false);
@@ -245,7 +245,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     }
   };
 
-  const totalCost = (trip.sectors || []).reduce((sum, s) => {
+  const sectorCostInclGST = (trip.sectors || []).reduce((sum, s) => {
     const c = parseFloat(s.cost) || 0;
     if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
       const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
@@ -253,6 +253,20 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     }
     return sum + c;
   }, 0);
+  const feesInclGST = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0) * (1 + (f.gstRate ?? 0.1)), 0);
+  const totalCost = sectorCostInclGST + feesInclGST;
+
+  const sectorCostExGST = (trip.sectors || []).reduce((sum, s) => {
+    const c = parseFloat(s.cost) || 0;
+    let gross = c;
+    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+      gross = c * nights;
+    }
+    return sum + (s.international ? gross : gross / 1.1);
+  }, 0);
+  const feesExGST = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+  const totalExGST = sectorCostExGST + feesExGST;
 
   const handleDeleteFee = async (fee) => {
     const feeLabel = fee.label || (fee.type === 'amendment' ? 'Amendment fee' : 'Management fee');
@@ -519,8 +533,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           )}
           {totalCost > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Estimated total</p>
+              <p className="text-xs text-gray-400 mb-0.5">Estimated total (incl. GST)</p>
               <p className="text-gray-800 font-medium">A${totalCost.toFixed(2)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">A${totalExGST.toFixed(2)} ex-GST</p>
             </div>
           )}
         </div>
