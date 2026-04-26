@@ -14,7 +14,7 @@ const NAV = [
   { to: '/profiles',  label: 'Profiles',           icon: Users,           permission: PERMISSIONS.PASSENGER_VIEW },
   { to: '/invoices',   label: 'Invoices',           icon: FileText,        permission: PERMISSIONS.INVOICE_VIEW,     feature: 'invoiceGeneration' },
   { to: '/reports',    label: 'Reports',            icon: BarChart2,       permission: PERMISSIONS.REPORT_VIEW,      feature: 'reports' },
-  { to: '/team',       label: 'Team',               icon: Users,           permission: PERMISSIONS.USER_MANAGE },
+  { to: '/team',       label: 'Team',               icon: Users,           permission: PERMISSIONS.TEAM_MANAGE },
   { to: '/admin',      label: 'Admin Panel',        icon: Shield,          permission: PERMISSIONS.CLIENT_MANAGE },
   { to: '/contact',    label: 'Contact',            icon: Phone,           permission: null },
 ];

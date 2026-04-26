@@ -16,6 +16,7 @@ export const PERMISSIONS = {
   REPORT_VIEW_ALL:  'report:view_all',
 
   USER_MANAGE:      'user:manage',
+  TEAM_MANAGE:      'team:manage',
   CLIENT_MANAGE:    'client:manage',
   SETTINGS_EDIT:    'settings:edit',
 };
@@ -28,7 +29,7 @@ export const ROLE_PERMISSIONS = {
     'passenger:view', 'passenger:edit',
     'invoice:view', 'invoice:generate',
     'report:view', 'report:view_all',
-    'user:manage',
+    'user:manage', 'team:manage',
   ],
 
   client_ops: [
@@ -36,6 +37,7 @@ export const ROLE_PERMISSIONS = {
     'passenger:view', 'passenger:edit',
     'invoice:view',
     'report:view',
+    'team:manage',
   ],
 
   client_approver: [
