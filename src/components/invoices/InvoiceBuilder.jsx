@@ -76,6 +76,10 @@ function calcSectorTotals(trip, gstRate = 0.1) {
 }
 
 function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
+  // Build trip lookup so we can reconstruct sector amounts from old invoice line
+  // items that predate the sectorAmount/sectorInclGST fields.
+  const tripMap = new Map(trips.map(t => [t.id, t]));
+
   // Build set of dedup keys + per-trip sector totals already billed.
   // 'trip' line items bundle sector + fees; sectorAmount/sectorInclGST store
   // the sector-only portion so future delta scans aren't inflated by bundled fees.
@@ -89,16 +93,35 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
 
       if (item.tripId) {
         if (item.lineType === 'trip') {
-          // Use sector-only fields when present; fall back to total (older invoices)
-          const exGST   = parseFloat(item.sectorAmount  ?? item.amount  ?? 0) || 0;
-          const inclGST = parseFloat(item.sectorInclGST ?? item.inclGST ?? 0) || 0;
+          let exGST, inclGST;
+          if (item.sectorAmount != null) {
+            // New format — sector-only amounts stored explicitly
+            exGST   = parseFloat(item.sectorAmount)  || 0;
+            inclGST = parseFloat(item.sectorInclGST) || 0;
+          } else {
+            // Old format — reconstruct sector amounts by subtracting bundled fees
+            const trip = tripMap.get(item.tripId);
+            const bundledKeys = new Set(item.extraDedupKeys || []);
+            let feeExGST = 0, feeInclGST = 0;
+            for (const fee of (trip?.fees || [])) {
+              const fdk = `${item.tripId}_${fee.type}_${fee.appliedAt}`;
+              if (!bundledKeys.has(fdk)) continue;
+              const amt = parseFloat(fee.amount) || 0;
+              const gst = parseFloat(fee.gstRate ?? 0.1);
+              feeExGST   += amt;
+              feeInclGST += amt * (1 + gst);
+            }
+            exGST   = (parseFloat(item.amount  || 0) - feeExGST);
+            inclGST = (parseFloat(item.inclGST || 0) - feeInclGST);
+          }
           const prev = billedSectorTotals.get(item.tripId) || { exGST: 0, inclGST: 0 };
           billedSectorTotals.set(item.tripId, { exGST: prev.exGST + exGST, inclGST: prev.inclGST + inclGST });
         } else if (item.lineType === 'adjustment') {
-          const exGST   = parseFloat(item.amount  || 0) || 0;
-          const inclGST = parseFloat(item.inclGST || 0) || 0;
           const prev = billedSectorTotals.get(item.tripId) || { exGST: 0, inclGST: 0 };
-          billedSectorTotals.set(item.tripId, { exGST: prev.exGST + exGST, inclGST: prev.inclGST + inclGST });
+          billedSectorTotals.set(item.tripId, {
+            exGST:   prev.exGST   + (parseFloat(item.amount  || 0) || 0),
+            inclGST: prev.inclGST + (parseFloat(item.inclGST || 0) || 0),
+          });
         }
       }
     }
