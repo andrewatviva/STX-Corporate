@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
-import { Plus, Edit2, UserCheck, UserX, RefreshCw, Mail } from 'lucide-react';
+import { Plus, Edit2, UserCheck, UserX, Mail } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Toggle from '../shared/Toggle';
 import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES } from '../../utils/permissions';
