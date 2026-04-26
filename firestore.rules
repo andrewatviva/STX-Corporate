@@ -28,6 +28,14 @@ service cloud.firestore {
       );
     }
 
+    function isClientWriter(clientId) {
+      return isClientMember(clientId) && (
+        request.auth.token.role == 'client_ops' ||
+        request.auth.token.role == 'client_approver' ||
+        request.auth.token.role == 'client_traveller'
+      );
+    }
+
     // Client root document (name, active status) — STX can list all clients
     match /clients/{clientId} {
       allow read:  if isSTX() || isClientMember(clientId);
@@ -40,11 +48,11 @@ service cloud.firestore {
       allow write: if isSTXAdmin();
     }
 
-    // Trips — strict tenant isolation
+    // Trips — all client roles can create/update; only STX admin can delete
     match /clients/{clientId}/trips/{tripId} {
       allow read:   if isSTX() || isClientMember(clientId);
-      allow create: if isSTX() || isClientOps(clientId);
-      allow update: if isSTX() || isClientOps(clientId);
+      allow create: if isSTX() || isClientWriter(clientId);
+      allow update: if isSTX() || isClientWriter(clientId);
       allow delete: if isSTXAdmin();
     }
 

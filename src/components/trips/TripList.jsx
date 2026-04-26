@@ -27,7 +27,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
   const [statusFilter, setStatusFilter] = useState('');
 
   const isAdmin = userProfile?.role === 'stx_admin';
-  const canEditTrip = ['stx_admin', 'stx_ops', 'client_ops'].includes(userProfile?.role);
+  const canEditTrip = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(userProfile?.role);
 
   const filtered = trips.filter(t => {
     const q = search.toLowerCase();

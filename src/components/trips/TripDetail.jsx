@@ -149,7 +149,7 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
 
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
-  const canEdit = ['stx_admin', 'stx_ops', 'client_ops'].includes(role);
+  const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
 
   const act = async (newStatus, extra = {}) => {
     setActing(true);

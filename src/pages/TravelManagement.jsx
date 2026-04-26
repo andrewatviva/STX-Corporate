@@ -19,7 +19,7 @@ export default function TravelManagement() {
   const [deleteTarget, setDelete]   = useState(null);
 
   const role = userProfile?.role;
-  const canCreate = ['stx_admin', 'stx_ops', 'client_ops'].includes(role);
+  const canCreate = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
 
   // Resolve the clientId to write to (STX creates trips under the correct tenant)
   const resolveClientId = (trip) => trip?.clientId || clientId || '';
