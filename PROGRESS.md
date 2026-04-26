@@ -16,7 +16,8 @@
 | 3 | Tenant config + Admin Panel + Team Management | ✅ Complete |
 | 4 | Trip management + Dashboard + STX client context | ✅ Complete |
 | 5 | Passenger profiles | ✅ Complete |
-| 6 | Hotel booking (Nuitee) | ⏳ Pending |
+| — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
+| 6 | Hotel booking (Nuitee) | ⏳ Next |
 | 7 | Invoice generation | ⏳ Pending |
 | 8 | Reports | ⏳ Pending |
 | 9 | QA, security testing + production deploy | ⏳ Pending |
@@ -150,8 +151,6 @@
 
 ---
 
-## Coming Up
-
 ### Phase 5 — Passenger Profiles ✅
 
 **Files built:**
@@ -163,12 +162,67 @@
 **Key features:**
 - Profile completeness indicator (% of 10 key fields filled; green/amber/red badge)
 - Accessibility tags in list view (disability needs, mobility aids, carer, dietary)
+- Wheelchair details: transfer method (4 options), model, dimensions, weight, battery model (power wheelchair only)
+- Loyalty programs: Airline, Hotel/Accommodation, Car Rental, Rail, Other (replaces frequentFlyer — migration code included)
 - Team scope: `filterPassengersByScope()` applied — managers see team, individuals see own only
 - STX staff see passengers for active client; "select a client" prompt when none selected
 - Identity documents: configurable types from `clientConfig.dropdowns.idTypes`; multiple docs supported
-- Frequent flyer numbers: dynamic add/remove list
 - TripForm traveller autocomplete now searches passenger profiles first, then team members; deduplicates entries
 - `travellerId` set from passenger's linked `userId` when matched by name
+- Passenger profile button per Team member row (pre-fills name/email from user data)
+- "Reports to" manager shown read-only in PassengerDetail when linked user has a manager
+
+---
+
+### Post-Phase 5 Enhancements ✅
+
+These improvements were built across multiple sessions after Phases 0–5 were complete.
+
+#### Trip Cost Calculation Fixes
+- **GST consistency**: all three cost functions now consistent:
+  - `calcTripCost` (Dashboard "Incl. GST") = sectors + fees at `amount × (1 + gstRate)`
+  - `calcTripExGST` (TripList "Ex-GST") = sectors back-calculated ÷ 1.1 + fees at ex-GST `amount`
+  - `sectorGross()` helper extracted; accommodation = `cost × nights`
+- **Accommodation sector**: was displaying nightly rate as total — fixed to show `cost × nights` in sector card
+- **TripDetail estimated total**: now includes fees at incl-GST value and shows ex-GST breakdown beneath it
+
+#### Amendment History Improvements
+- `diffTrip()` rewritten to track field-level changes **within** existing sectors (index-matched), not just sector count changes:
+  - Flight: route, date, airline, flight number, cabin class
+  - Accommodation: property name, check-in/out dates, reporting city
+  - Car hire: route, vehicle type; Parking: facility; Transfers: transfer type
+  - All types: per-sector cost change
+- Added `originCity` + `destinationCity` to top-level field tracking
+- `changes[]` entries always stored as strings (fixed legacy object format; rendering code has backward-compat guard)
+
+#### Trip Origin / Destination Cities
+- `src/data/cities.js` — canonical list of ~150 cities (all Australian + major international) sorted A–Z
+- `originCity` + `destinationCity` fields added to TripForm (datalist autocomplete from canonical list)
+- TripList: "Destination" column shows `Origin → Destination` route; destination city filter added
+- TripDetail: "Route" field in trip header when cities are set
+
+#### Travel Management Filters (TripList)
+- Filter row: Status · Trip type · Cost centre · Destination city (all derived from actual trip data; dropdowns only appear if data exists)
+- Date range row: quick pills — This month / Last month / This quarter / Last quarter / This FY / Last FY — plus custom From / To date inputs; active pill highlighted blue
+- "Clear filters" link; result count shows "X of Y trips · filters active"
+- Search also matches `originCity` and `destinationCity`
+
+#### Accommodation Reporting City Override
+- Each accommodation sector has `reportingCity` field (blank = use `trip.destinationCity`)
+- In TripForm AccommodationFields: shows "Using trip destination: [city]" with Override button
+- Override reveals city selector (same canonical list); "Use trip destination" clears it
+- **Reporting query pattern**: `sector.reportingCity || trip.destinationCity`
+- TripDetail shows "Reporting city: X (override)" in sector rows when set
+
+#### Cost Centre Enhancements
+- **User cost centre field**: Team page and UserManager now include cost centre dropdown (loaded from client config); saved via direct `updateDoc` (not CF — outside CF allowlist)
+- **Trip cost centre**: always visible in TripDetail (previously hidden when blank); inline edit with pencil icon for `stx_admin`, `stx_ops`, `client_ops`
+- **Cost centre change requires reason**: validation in TripForm + inline edit in TripDetail; reason recorded in amendment history
+- **Auto-default from traveller profile**: when selecting a traveller in TripForm, `costCentre` auto-fills from matched user's profile
+
+#### Other Fixes
+- React error #31 crash when viewing trips where cost centre had been changed — fixed: `changes[]` now always strings
+- Legacy `{ field, from, to }` object entries in `changes[]` render gracefully with backward-compat guard
 
 ---
 
@@ -216,9 +270,10 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/components/admin/ClientManager.jsx` | List + create/edit tenants |
 | `src/components/admin/ClientForm.jsx` | Full tenant config form |
 | `src/components/admin/UserManager.jsx` | List + create/edit/delete users (STX Admin Panel) |
-| `src/components/trips/TripList.jsx` | Trip table; exports calcTripExGST, StatusBadge, getDisplayStatus |
-| `src/components/trips/TripForm.jsx` | Trip creation/edit form with sector sub-forms |
-| `src/components/trips/TripDetail.jsx` | Trip detail view with workflow actions + history |
+| `src/data/cities.js` | Canonical ~150-city list for trip origin/destination autocomplete |
+| `src/components/trips/TripList.jsx` | Trip table with enhanced filters; exports calcTripExGST, StatusBadge, getDisplayStatus |
+| `src/components/trips/TripForm.jsx` | Trip creation/edit form with sector sub-forms; origin/destination city fields |
+| `src/components/trips/TripDetail.jsx` | Trip detail view with workflow actions + history; inline cost centre edit |
 | `src/components/trips/Attachments.jsx` | Firebase Storage upload/download/delete |
 | `src/hooks/useTrips.js` | Real-time trips listener; supports filterClientId param |
 | `src/hooks/useTeamScope.js` | Team hierarchy scope; filterTripsByScope() |
@@ -241,4 +296,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 26 April 2026 — Phases 0–5 complete, Phase 6 (Hotel Booking) next*
+*Last updated: 26 April 2026 — Phases 0–5 + post-phase enhancements complete, Phase 6 (Hotel Booking) next*

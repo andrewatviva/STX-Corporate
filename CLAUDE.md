@@ -38,6 +38,7 @@ React + Firebase. All client-specific configuration is stored in Firestore, not 
 | `src/contexts/PermissionsContext.jsx` | Derives permission set from user role |
 | `src/utils/permissions.js` | PERMISSIONS constants + ROLE_PERMISSIONS map |
 | `src/utils/formatters.js` | Date/currency formatting helpers |
+| `src/data/cities.js` | Canonical city list (~150 AU + international) — used for trip origin/destination autocomplete |
 | `firestore.rules` | Firestore security rules (tenant isolation) |
 | `firebase.json` | Firebase hosting + rules + functions config |
 | `functions/index.js` | All Cloud Functions |
@@ -98,15 +99,25 @@ src/
 trip {
   clientId, title, travellerName, travellerId,  // travellerId links to users/{uid}
   tripType, costCentre, startDate, endDate,
+  originCity, destinationCity,   // from src/data/cities.js canonical list
   status,          // draft | pending_approval | approved | declined | booked | cancelled
   sectors[],       // flight | accommodation | car-hire | parking | transfers | meals | other
-  fees[],          // management fee, amendment fee — stored ex-GST
+  fees[],          // management fee, amendment fee — stored ex-GST; incl-GST = amount × (1 + gstRate)
   attachments[],   // Firebase Storage refs
-  amendments[],    // full audit trail with diff (changes[])
+  amendments[],    // full audit trail with diff (changes[] — always strings, never objects)
   createdBy, createdAt, updatedAt
+}
+
+// Accommodation sector extra field:
+sector {
+  type: 'accommodation',
+  reportingCity: '',   // blank = use trip.destinationCity; set only when hotel is in a different city
+  cost: 0,            // nightly rate (incl. GST); total = cost × nights
+  ...
 }
 ```
 Note: `travelling` and `completed` are **derived** from `status === 'booked'` + travel dates — not stored.
+Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` — never use `sector.reportingCity` alone.
 
 ### Cloud Functions (functions/index.js)
 | Function | Trigger | Purpose |
@@ -128,12 +139,20 @@ Note: `travelling` and `completed` are **derived** from `status === 'booked'` + 
 
 ### Important implementation notes
 - `getDisplayStatus(trip)` — derives `travelling`/`completed` from `booked` + dates; use this for all status display
-- `calcTripExGST(trip)` — domestic sectors ÷ 1.1, international at face value, fees added directly (already ex-GST)
-- `diffTrip()` and `calcSectorCost()` are **module-level** functions in `TravelManagement.jsx` (not inside the component) — important for closure correctness
+- **Cost calculations (all three must be consistent):**
+  - `calcTripCost(trip)` in `Dashboard.jsx` — sectors (incl. GST as entered) + fees at `amount × (1 + gstRate)` → "Incl. GST" total
+  - `calcTripExGST(trip)` in `TripList.jsx` — domestic sectors ÷ 1.1, international at face value, fees at `amount` (ex-GST) → "Ex-GST" total
+  - `sectorGross(s)` / `calcSectorCost()` in `TravelManagement.jsx` — accommodation: `cost × nights`; all others: raw `cost`
+  - **Accommodation cost stored as nightly rate** — always multiply by nights for display and totals
+- `diffTrip()` in `TravelManagement.jsx` tracks: top-level field changes (incl. `originCity`, `destinationCity`), sector count add/remove, **and field-level changes within existing sectors** (index-matched): flight route/date/airline/number/class, accommodation property/dates/reportingCity, car hire route/vehicle, parking facility, transfer type, per-sector cost changes
+- `amendments[].changes[]` entries must always be **strings** — never objects. Rendering code in TripDetail has a legacy guard but new entries must be strings.
 - Amendment fee prompt lives in `TripDetail` (sets `pendingAmendFee`); amendment save logic lives in `TravelManagement.handleSave`
 - Firestore client config path is `clients/{id}/config/settings` (subcollection), **not** `clients/{id}.config`
 - `useTeamScope(userProfile, clientId)` returns `{ type: 'all' | 'team' | 'self', uids: Set<string> }` — apply with `filterTripsByScope()`
+- **TripList filters** — status, trip type, cost centre, destination city (all derived from actual trip data), plus date range with quick picks (this/last month, this/last quarter, this/last FY) and custom date inputs. Date filter applies to `trip.startDate`.
+- **Cost centre auto-default** — when selecting a traveller in TripForm, `costCentre` is auto-set from the matched passenger's linked user profile (`costCentre` field on `/users/{uid}`)
+- User `costCentre` field is **not** in the `updateClientUser` CF allowlist — must be saved via direct `updateDoc` after CF call (applies in Team.jsx and UserManager.jsx)
 
 ### Current status
-**Phases 0–5 complete. Phase 6 (Hotel Booking) next.**
+**Phases 0–5 complete plus post-phase enhancements. Phase 6 (Hotel Booking) next.**
 See `PROGRESS.md` for full phase breakdown.
