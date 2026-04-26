@@ -17,37 +17,49 @@ const SECTOR_LABELS = {
   parking: 'Parking', transfers: 'Transfers', meals: 'Meals', other: 'Other',
 };
 
+function sectorGross(s) {
+  const c = parseFloat(s.cost) || 0;
+  if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+    const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+    return c * nights;
+  }
+  return c;
+}
+
 function calcSectorCost(sectors) {
-  return (sectors || []).reduce((sum, s) => {
-    const c = parseFloat(s.cost) || 0;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      return sum + c * nights;
-    }
-    return sum + c;
-  }, 0);
+  return (sectors || []).reduce((sum, s) => sum + sectorGross(s), 0);
+}
+
+function str(v) { return (v || '').toString().trim(); }
+function fmtChange(label, o, n) {
+  if (!o) return `${label} set to "${n}"`;
+  if (!n) return `${label} cleared`;
+  return `${label}: "${o}" → "${n}"`;
 }
 
 function diffTrip(oldTrip, newData) {
   const changes = [];
 
-  const fields = [
-    ['title', 'Title'], ['tripType', 'Trip type'], ['travellerName', 'Traveller'],
-    ['startDate', 'Start date'], ['endDate', 'End date'], ['costCentre', 'Cost centre'],
+  // ── Top-level fields ──────────────────────────────────────────────────────
+  const topFields = [
+    ['title',           'Title'],
+    ['tripType',        'Trip type'],
+    ['travellerName',   'Traveller'],
+    ['startDate',       'Start date'],
+    ['endDate',         'End date'],
+    ['costCentre',      'Cost centre'],
+    ['originCity',      'Origin city'],
+    ['destinationCity', 'Destination city'],
   ];
-  for (const [field, label] of fields) {
-    const o = (oldTrip[field] || '').toString().trim();
-    const n = (newData[field] || '').toString().trim();
-    if (o !== n) {
-      if (!o)      changes.push(`${label} set to "${n}"`);
-      else if (!n) changes.push(`${label} cleared`);
-      else         changes.push(`${label}: "${o}" → "${n}"`);
-    }
+  for (const [field, label] of topFields) {
+    const o = str(oldTrip[field]);
+    const n = str(newData[field]);
+    if (o !== n) changes.push(fmtChange(label, o, n));
   }
+  if (str(oldTrip.purpose)       !== str(newData.purpose))       changes.push('Purpose / notes updated');
+  if (str(oldTrip.internalNotes) !== str(newData.internalNotes)) changes.push('Internal notes updated');
 
-  if ((oldTrip.purpose || '') !== (newData.purpose || '')) changes.push('Purpose / notes updated');
-  if ((oldTrip.internalNotes || '') !== (newData.internalNotes || '')) changes.push('Internal notes updated');
-
+  // ── Sector count changes ──────────────────────────────────────────────────
   const countBy = arr => (arr || []).reduce((m, s) => {
     const t = SECTOR_LABELS[s.type] || s.type;
     m[t] = (m[t] || 0) + 1; return m;
@@ -60,10 +72,65 @@ function diffTrip(oldTrip, newData) {
     if (diff < 0) changes.push(`${t} sector removed${Math.abs(diff) > 1 ? ` (×${Math.abs(diff)})` : ''}`);
   }
 
-  const oldCost = calcSectorCost(oldTrip.sectors);
-  const newCost = calcSectorCost(newData.sectors);
-  if (Math.abs(oldCost - newCost) > 0.005) {
-    changes.push(`Est. cost: A$${oldCost.toFixed(2)} → A$${newCost.toFixed(2)}`);
+  // ── Field-level changes within existing sectors (index-matched) ───────────
+  const oldS = oldTrip.sectors || [];
+  const newS = newData.sectors || [];
+  const minLen = Math.min(oldS.length, newS.length);
+
+  for (let i = 0; i < minLen; i++) {
+    const o = oldS[i];
+    const n = newS[i];
+    if (o.type !== n.type) continue; // type swap is captured as add/remove above
+
+    const lbl = SECTOR_LABELS[o.type] || o.type;
+
+    // Cost change for this sector
+    const oCost = sectorGross(o);
+    const nCost = sectorGross(n);
+    if (Math.abs(oCost - nCost) > 0.005) {
+      changes.push(`${lbl} cost: A$${oCost.toFixed(2)} → A$${nCost.toFixed(2)}`);
+    }
+
+    if (o.type === 'flight') {
+      const oRoute = `${str(o.from)} → ${str(o.to)}`;
+      const nRoute = `${str(n.from)} → ${str(n.to)}`;
+      if (oRoute !== nRoute)                           changes.push(`Flight route: ${oRoute} → ${nRoute}`);
+      if (str(o.date)         !== str(n.date))         changes.push(`Flight date: ${str(o.date) || '—'} → ${str(n.date) || '—'}`);
+      if (str(o.airline)      !== str(n.airline))      changes.push(fmtChange('Airline',       str(o.airline),      str(n.airline)));
+      if (str(o.flightNumber) !== str(n.flightNumber)) changes.push(fmtChange('Flight number', str(o.flightNumber), str(n.flightNumber)));
+      if (str(o.cabinClass)   !== str(n.cabinClass))   changes.push(fmtChange('Cabin class',   str(o.cabinClass),   str(n.cabinClass)));
+    }
+
+    if (o.type === 'accommodation') {
+      if (str(o.propertyName) !== str(n.propertyName)) changes.push(fmtChange('Property',    str(o.propertyName), str(n.propertyName)));
+      if (str(o.checkIn)      !== str(n.checkIn))      changes.push(`Check-in: ${str(o.checkIn) || '—'} → ${str(n.checkIn) || '—'}`);
+      if (str(o.checkOut)     !== str(n.checkOut))      changes.push(`Check-out: ${str(o.checkOut) || '—'} → ${str(n.checkOut) || '—'}`);
+      const oCity = str(o.reportingCity) || '(trip destination)';
+      const nCity = str(n.reportingCity) || '(trip destination)';
+      if (oCity !== nCity) changes.push(`Accommodation reporting city: ${oCity} → ${nCity}`);
+    }
+
+    if (o.type === 'car-hire') {
+      const oRoute = `${str(o.pickupLocation)} → ${str(o.dropOffLocation)}`;
+      const nRoute = `${str(n.pickupLocation)} → ${str(n.dropOffLocation)}`;
+      if (oRoute !== nRoute) changes.push(`Car hire route: ${oRoute} → ${nRoute}`);
+      if (str(o.vehicleType) !== str(n.vehicleType)) changes.push(fmtChange('Vehicle type', str(o.vehicleType), str(n.vehicleType)));
+    }
+
+    if (o.type === 'parking') {
+      if (str(o.facility) !== str(n.facility)) changes.push(fmtChange('Parking facility', str(o.facility), str(n.facility)));
+    }
+
+    if (o.type === 'transfers') {
+      if (str(o.transferType) !== str(n.transferType)) changes.push(fmtChange('Transfer type', str(o.transferType), str(n.transferType)));
+    }
+  }
+
+  // ── Overall cost summary (only when no per-sector cost change was logged) ──
+  const oldTotal = calcSectorCost(oldTrip.sectors);
+  const newTotal = calcSectorCost(newData.sectors);
+  if (Math.abs(oldTotal - newTotal) > 0.005 && !changes.some(c => c.includes(' cost:'))) {
+    changes.push(`Est. cost: A$${oldTotal.toFixed(2)} → A$${newTotal.toFixed(2)}`);
   }
 
   return changes;
