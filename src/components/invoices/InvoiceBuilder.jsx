@@ -12,7 +12,14 @@ const QUICK_PERIODS = [
   { key: 'lastFY',      label: 'Last FY' },
 ];
 
-function toISO(d) { return d.toISOString().slice(0, 10); }
+// Use local calendar date — toISOString() would shift to UTC and produce
+// the wrong date for Australian users (UTC+10/11).
+function toISO(d) {
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
 function getQuickRange(key) {
   const now = new Date();
@@ -43,8 +50,9 @@ function getQuickRange(key) {
   }
 }
 
-// Statuses that should appear on an invoice (exclude draft/declined/cancelled)
-const BILLABLE_STATUSES = new Set(['pending_approval', 'approved', 'booked', 'travelling', 'completed']);
+// Must match the dashboard's SPEND_STATUSES so invoice totals are comparable.
+// Pending-approval trips are excluded — they're not confirmed costs yet.
+const BILLABLE_STATUSES = new Set(['approved', 'booked', 'travelling', 'completed']);
 
 function toDate(val) {
   if (!val) return null;

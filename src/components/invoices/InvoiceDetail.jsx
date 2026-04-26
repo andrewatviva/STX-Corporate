@@ -368,7 +368,7 @@ export default function InvoiceDetail({
                             <td className="px-5 py-3 text-right">
                               <button
                                 onClick={() => startEdit(item)}
-                                className="p-1 rounded text-gray-300 hover:text-blue-500 transition-colors"
+                                className="p-1 rounded text-gray-400 hover:text-blue-600 transition-colors"
                                 title="Edit this item"
                               >
                                 <Edit2 size={13} />
