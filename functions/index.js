@@ -53,19 +53,21 @@ exports.createClientUser = onCall({ enforceAppCheck: false }, async (request) =>
     throw new HttpsError('permission-denied', 'Only STX staff can create users.');
   }
 
-  const { email, password, displayName, role, clientId } = request.data;
+  const { email, password, firstName, lastName, role, clientId } = request.data;
   if (!email || !password || !role) {
     throw new HttpsError('invalid-argument', 'email, password and role are required.');
   }
 
-  // Create Firebase Auth user
-  const authUser = await getAuth().createUser({ email, password, displayName: displayName || email });
+  const displayName = [firstName, lastName].filter(Boolean).join(' ') || email;
 
-  // Write Firestore profile (syncUserClaims fires automatically)
+  const authUser = await getAuth().createUser({ email, password, displayName });
+
   await db.collection('users').doc(authUser.uid).set({
     uid: authUser.uid,
     email,
-    displayName: displayName || '',
+    firstName: firstName || '',
+    lastName:  lastName  || '',
+    displayName,
     role,
     clientId: clientId || null,
     active: true,
@@ -76,7 +78,7 @@ exports.createClientUser = onCall({ enforceAppCheck: false }, async (request) =>
   return { uid: authUser.uid };
 });
 
-// Update an existing user's role/clientId/active status (STX admin only)
+// Update an existing user (STX admin only)
 exports.updateClientUser = onCall({ enforceAppCheck: false }, async (request) => {
   const callerUid = request.auth?.uid;
   if (!callerUid) throw new HttpsError('unauthenticated', 'Must be signed in.');
@@ -90,9 +92,44 @@ exports.updateClientUser = onCall({ enforceAppCheck: false }, async (request) =>
   const { targetUid, updates } = request.data;
   if (!targetUid) throw new HttpsError('invalid-argument', 'targetUid required.');
 
-  const allowed = ['displayName', 'role', 'clientId', 'active'];
+  const allowed = ['firstName', 'lastName', 'displayName', 'role', 'clientId', 'active'];
   const safe = Object.fromEntries(Object.entries(updates).filter(([k]) => allowed.includes(k)));
 
-  await db.collection('users').doc(targetUid).update(safe);
+  // Keep displayName in sync with first/last name if either changed
+  if (safe.firstName !== undefined || safe.lastName !== undefined) {
+    const targetSnap = await db.collection('users').doc(targetUid).get();
+    const current = targetSnap.data() || {};
+    const first = safe.firstName ?? current.firstName ?? '';
+    const last  = safe.lastName  ?? current.lastName  ?? '';
+    safe.displayName = [first, last].filter(Boolean).join(' ') || current.email;
+  }
+
+  await db.collection('users').doc(targetUid).update({ ...safe, updatedAt: FieldValue.serverTimestamp() });
+
+  // Sync displayName to Firebase Auth as well
+  if (safe.displayName) {
+    await getAuth().updateUser(targetUid, { displayName: safe.displayName });
+  }
+
   return { success: true };
+});
+
+// Send password reset email to a user (STX admin only)
+exports.sendPasswordReset = onCall({ enforceAppCheck: false }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const db = getFirestore();
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (callerSnap.data()?.role !== 'stx_admin') {
+    throw new HttpsError('permission-denied', 'Only STX admins can send password resets.');
+  }
+
+  const { email } = request.data;
+  if (!email) throw new HttpsError('invalid-argument', 'email required.');
+
+  const link = await getAuth().generatePasswordResetLink(email);
+  // Link generated — in production wire this to an email provider.
+  // For now, return the link so the admin can share it manually.
+  return { link };
 });
