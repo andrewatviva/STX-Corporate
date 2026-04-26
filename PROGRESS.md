@@ -13,8 +13,8 @@
 | 0 | Project bootstrap | ✅ Complete |
 | 1 | Core architecture | ✅ Complete |
 | 2 | Security rules + custom claims | ✅ Complete |
-| 3 | Tenant config + Admin Panel | 🔜 Next |
-| 4 | Trip management | ⏳ Pending |
+| 3 | Tenant config + Admin Panel | ✅ Complete |
+| 4 | Trip management | 🔜 Next |
 | 5 | Passenger profiles | ⏳ Pending |
 | 6 | Hotel booking (Nuitee) | ⏳ Pending |
 | 7 | Invoice generation | ⏳ Pending |
@@ -47,34 +47,56 @@
 - `AppShell` layout with permission-filtered sidebar and tenant-aware top bar
 - Login page with email/password + forgot password
 - `PermissionGate` component for conditionally rendering UI by permission
-- Stub pages for all routes (placeholders until each phase builds them out)
+- Stub pages for all routes
 
 ### Phase 2 — Security Rules + Custom Claims ✅
 - Firestore security rules written and deployed to `stx-corporate-dev`
   - Client users strictly isolated to their own tenant's data
   - STX staff have cross-tenant read/write access
   - Unauthenticated users denied everything
-- `syncUserClaims` Cloud Function — fires automatically when a user profile is written to Firestore; sets `role` + `clientId` as JWT custom claims
-- `refreshUserClaims` Cloud Function — HTTPS callable; STX admin can force-refresh a user's claims after a role change
+- `syncUserClaims` Cloud Function — fires automatically when a user profile is written; sets `role` + `clientId` as JWT custom claims
+- `refreshUserClaims` Cloud Function — HTTPS callable; STX admin can force-refresh claims after a role change
 - First STX admin user created: `andrew@travelwithviva.com` (role: `stx_admin`)
 - Login → Dashboard flow confirmed working
+
+### Phase 3 — Tenant Configuration + Admin Panel ✅
+- **Admin Panel** page with two tabs: Clients and Users (visible to `stx_admin` only)
+- **Client Manager** — list all tenants, create new clients, edit existing config
+- **Client Form** — full config UI covering:
+  - Identity (name, auto-generated clientId)
+  - Branding (logo URL, portal title, primary/secondary colours)
+  - Cost centres (tag-based add/remove list)
+  - Trip and sector types (configurable lists)
+  - Fees (management fee, amendment fee, GST rate — each with enable toggle)
+  - Approval workflow (requires approval toggle, email notifications toggle)
+  - Feature flags (hotel booking, invoicing, reports, accessibility toolbar, group events, file attachments, self-managed trips)
+  - Hotel booking config (Nuitee feed selector, booking password toggle)
+- **User Manager** — list all users, sorted by email
+  - Create user: first name, last name, email, password, role, client assignment
+  - Edit user: update name, role, client, active/inactive status
+  - Password reset: generates a Firebase reset link (copy and share manually until email provider is wired up)
+  - Delete user: `stx_admin` only, with confirmation modal warning deletion is permanent
+- **Cloud Functions added:**
+  - `createClientUser` — server-side user creation with proper error handling
+  - `updateClientUser` — updates profile + syncs displayName to Firebase Auth
+  - `deleteClientUser` — removes from Auth + Firestore, cannot delete own account
+  - `sendPasswordReset` — generates a password reset link
+- **Shared components added:** `Modal`, `Toggle`, `TagInput`
+- Firestore rules updated to cover client root documents
 
 ---
 
 ## Coming Up
 
-### Phase 3 — Tenant Configuration + Admin Panel 🔜
+### Phase 4 — Trip Management 🔜
 **What gets built:**
-- STX Admin Panel page (only visible to `stx_admin`)
-- Create and configure client tenants through the UI (no code changes needed to add a new client)
-- Fields: branding (logo, colours, portal title), cost centres, fees, workflow rules, feature flags
-- User management: create users, assign roles, assign to clients
-- Two seeded mock tenants to demonstrate the multi-tenant system working
-
-**Why this matters:** After Phase 3, onboarding a new corporate client is just a few clicks.
-
-### Phase 4 — Trip Management
-Full trip lifecycle: create, submit, approve, amend, complete. All dropdowns and fees driven by tenant config.
+- `useTrips` hook — real-time Firestore listener, automatically tenant-scoped for client users, global for STX
+- Trip list page — searchable, filterable table with status badges
+- Trip creation form — all dropdowns driven by tenant config (cost centres, trip types, sector types)
+- Sector sub-forms — separate component for each sector type: Flight, Accommodation, Car Hire, Parking, Transfers, Meals, Other
+- Approval workflow — submit → pending approval → approved/declined (behaviour driven by `clientConfig.workflow`)
+- Trip detail view — full trip info, amendment history, STX-only internal notes field
+- File attachments — upload/download via Firebase Storage
 
 ### Phase 5 — Passenger Profiles
 Accessibility-aware passenger profiles, tenant-scoped, linked to traveller user accounts.
@@ -106,17 +128,24 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/contexts/TenantContext.jsx` | Tenant config loader |
 | `src/contexts/PermissionsContext.jsx` | Permission set from role |
 | `src/utils/permissions.js` | All permissions + role mappings |
+| `src/utils/formatters.js` | Date/currency formatting helpers |
 | `src/components/layout/AppShell.jsx` | Main layout wrapper |
 | `src/components/layout/Sidebar.jsx` | Permission-filtered nav |
 | `src/components/layout/TopBar.jsx` | Tenant branding + user menu |
 | `src/components/auth/LoginPage.jsx` | Login + forgot password |
 | `src/components/shared/PermissionGate.jsx` | Conditional render by permission |
+| `src/components/shared/Modal.jsx` | Reusable modal wrapper |
+| `src/components/shared/Toggle.jsx` | Reusable toggle switch |
+| `src/components/shared/TagInput.jsx` | Add/remove tag list input |
+| `src/components/admin/ClientManager.jsx` | List + create/edit tenants |
+| `src/components/admin/ClientForm.jsx` | Full tenant config form |
+| `src/components/admin/UserManager.jsx` | List + create/edit/delete users |
+| `src/pages/AdminPanel.jsx` | Admin Panel page (Clients + Users tabs) |
 | `firestore.rules` | Firestore security rules |
-| `functions/index.js` | Cloud Functions (custom claims) |
-| `scripts/createAdminUser.js` | One-off script to create first admin |
+| `functions/index.js` | All Cloud Functions |
+| `scripts/createAdminUser.js` | One-off script used to create first admin |
 | `.github/workflows/deploy-dev.yml` | CI/CD → dev on push to main |
 | `.github/workflows/deploy-prod.yml` | CI/CD → prod on push to prod branch |
-| `Commercialisation/IMPLEMENTATION_PLAN.md` | Full technical plan (in stx-portal repo) |
 
 ---
 
@@ -127,4 +156,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 26 April 2026 — Phase 2 complete*
+*Last updated: 26 April 2026 — Phase 3 complete*
