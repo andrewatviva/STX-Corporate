@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true },
   hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false },
+  contact: { email: '' },
 };
 
 function slugify(str) {
@@ -98,6 +99,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       workflow:     { ...DEFAULT_CONFIG.workflow,     ...existing.config?.workflow },
       features:     { ...DEFAULT_CONFIG.features,     ...existing.config?.features },
       hotelBooking: { ...DEFAULT_CONFIG.hotelBooking, ...existing.config?.hotelBooking },
+      contact:      { ...DEFAULT_CONFIG.contact,      ...existing.config?.contact },
     };
   });
   const [saving, setSaving]   = useState(false);
@@ -228,6 +230,21 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
         ].map(([key, label, desc]) => (
           <Toggle key={key} checked={cfg.features[key]} onChange={v => set('features',key,v)} label={label} description={desc} />
         ))}
+      </Section>
+
+      <Section title="Contact">
+        <Field label="Contact email">
+          <input
+            type="email"
+            className={inp}
+            value={cfg.contact.email}
+            onChange={e => set('contact', 'email', e.target.value)}
+            placeholder="enquiries@supportedtravelx.com.au"
+          />
+        </Field>
+        <p className="text-xs text-gray-400">
+          Shown on the Contact page for client users. Leave blank to use the default STX enquiries address.
+        </p>
       </Section>
 
       <Section title="Hotel Booking">

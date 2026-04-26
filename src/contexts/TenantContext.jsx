@@ -48,6 +48,9 @@ const CONFIG_DEFAULTS = {
     nuiteeFeed: 'vivatravelholdingscug',
     bookingPasswordEnabled: false,
   },
+  contact: {
+    email: 'enquiries@supportedtravelx.com.au',
+  },
 };
 
 function mergeWithDefaults(config) {
@@ -61,6 +64,7 @@ function mergeWithDefaults(config) {
     workflow:     { ...CONFIG_DEFAULTS.workflow,     ...config.workflow },
     features:     { ...CONFIG_DEFAULTS.features,     ...config.features },
     hotelBooking: { ...CONFIG_DEFAULTS.hotelBooking, ...config.hotelBooking },
+    contact:      { ...CONFIG_DEFAULTS.contact,      ...config.contact },
   };
 }
 
