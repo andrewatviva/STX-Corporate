@@ -368,6 +368,7 @@ function SectorCard({ sector, index, onChange, onRemove }) {
 const EMPTY = {
   clientId: '', title: '', travellerName: '', travellerId: '', tripType: '', costCentre: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
+  costCentreChangeReason: '',
 };
 
 const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
@@ -375,6 +376,7 @@ const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
 export default function TripForm({ trip, clientId: clientIdProp, onSave, onCancel }) {
   const { userProfile } = useAuth();
   const { clientConfig, isSTX } = useTenant();
+  const originalCostCentre = trip?.costCentre || '';
   const [clients, setClients]         = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [passengers, setPassengers]   = useState([]);
@@ -453,6 +455,9 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     if (isSTX && !form.clientId) return setError('Please select a client for this trip.');
     if (!form.title.trim())         return setError('Trip title is required.');
     if (!form.travellerName.trim()) return setError('Traveller name is required.');
+    if (trip && form.costCentre !== originalCostCentre && !form.costCentreChangeReason.trim()) {
+      return setError('Please provide a reason for changing the cost centre.');
+    }
 
     setSaving(true);
     try {
@@ -565,6 +570,20 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               <option value="">Select…</option>
               {costCentres.map(c => <option key={c}>{c}</option>)}
             </select>
+          </div>
+        )}
+
+        {/* Reason required when changing cost centre on an existing trip */}
+        {trip && form.costCentre !== originalCostCentre && (
+          <div className="col-span-2">
+            <label className={`${lbl} text-amber-600`}>Reason for cost centre change *</label>
+            <textarea
+              className={`${inp} border-amber-300 focus:ring-amber-500`}
+              rows={2}
+              value={form.costCentreChangeReason}
+              onChange={e => set('costCentreChangeReason', e.target.value)}
+              placeholder="Explain why the cost centre is being changed for this trip…"
+            />
           </div>
         )}
 

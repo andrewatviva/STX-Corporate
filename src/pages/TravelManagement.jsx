@@ -127,12 +127,17 @@ export default function TravelManagement() {
 
     if (formTrip?.id) {
       // Editing or amending an existing trip
-      const changes = diffTrip(formTrip, data);
+      const { costCentreChangeReason, ...tripData } = data;
+      const changes = diffTrip(formTrip, tripData);
+      const baseNote = isAmending ? 'Trip amended' : 'Trip details updated';
+      const note = costCentreChangeReason?.trim()
+        ? `${baseNote} · Cost centre change reason: ${costCentreChangeReason.trim()}`
+        : baseNote;
       const amendExtra = isAmending
-        ? { note: 'Trip amended', changes, ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
-        : { note: 'Trip details updated', changes };
+        ? { note, changes, ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
+        : { note, changes };
       const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
-      const updateData = { ...data, amendments: arrayUnion(amendment) };
+      const updateData = { ...tripData, amendments: arrayUnion(amendment) };
 
       // If the user confirmed the amendment fee, add it to trip.fees[]
       if (isAmending && pendingAmendFee?.apply) {
@@ -168,8 +173,9 @@ export default function TravelManagement() {
           });
         }
       }
+      const { costCentreChangeReason: _ignored, ...newTripData } = data;
       await addTrip(cid, {
-        ...data,
+        ...newTripData,
         createdBy: userProfile?.uid || '',
         ...(tripFees.length > 0 ? { fees: tripFees } : {}),
       });

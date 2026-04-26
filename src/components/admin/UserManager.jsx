@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import { Plus, Edit2, UserCheck, UserX, Mail, Trash2 } from 'lucide-react';
@@ -29,16 +29,29 @@ function ClientSelect({ value, onChange, clients }) {
   );
 }
 
+// ── Cost centres loader hook ──────────────────────────────────────────────────
+function useCostCentres(clientId) {
+  const [costCentres, setCostCentres] = useState([]);
+  useEffect(() => {
+    if (!clientId) { setCostCentres([]); return; }
+    getDoc(doc(db, 'clients', clientId, 'config', 'settings')).then(snap => {
+      setCostCentres(snap.data()?.dropdowns?.costCentres || []);
+    });
+  }, [clientId]);
+  return costCentres;
+}
+
 // ── Create user form ──────────────────────────────────────────────────────────
 function CreateUserForm({ clients, onCreated, onCancel }) {
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', password: '',
-    role: 'client_ops', clientId: '',
+    role: 'client_ops', clientId: '', costCentre: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
-  const needsClient = CLIENT_ROLES.includes(form.role);
+  const needsClient  = CLIENT_ROLES.includes(form.role);
+  const costCentres  = useCostCentres(needsClient ? form.clientId : null);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSubmit = async (e) => {
@@ -50,10 +63,19 @@ function CreateUserForm({ clients, onCreated, onCancel }) {
     setSaving(true);
     try {
       const fns = getFunctions();
-      await httpsCallable(fns, 'createClientUser')({
-        ...form,
-        clientId: needsClient ? form.clientId : null,
+      const result = await httpsCallable(fns, 'createClientUser')({
+        firstName: form.firstName,
+        lastName:  form.lastName,
+        email:     form.email,
+        password:  form.password,
+        role:      form.role,
+        clientId:  needsClient ? form.clientId : null,
       });
+      // Store cost centre directly in Firestore (not handled by CF)
+      const uid = result.data?.uid;
+      if (uid && form.costCentre) {
+        await updateDoc(doc(db, 'users', uid), { costCentre: form.costCentre });
+      }
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -86,10 +108,18 @@ function CreateUserForm({ clients, onCreated, onCancel }) {
         </Field>
         {needsClient && (
           <Field label="Client *">
-            <ClientSelect value={form.clientId} onChange={v => set('clientId', v)} clients={clients} />
+            <ClientSelect value={form.clientId} onChange={v => { set('clientId', v); set('costCentre', ''); }} clients={clients} />
           </Field>
         )}
       </div>
+      {needsClient && costCentres.length > 0 && (
+        <Field label="Cost centre">
+          <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
+            <option value="">Not assigned</option>
+            {costCentres.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+      )}
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex justify-end gap-3 pt-1">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
@@ -104,18 +134,20 @@ function CreateUserForm({ clients, onCreated, onCancel }) {
 // ── Edit user form ────────────────────────────────────────────────────────────
 function EditUserForm({ user, clients, onSaved, onCancel }) {
   const [form, setForm] = useState({
-    firstName: user.firstName || '',
-    lastName:  user.lastName  || '',
-    role:      user.role      || 'client_ops',
-    clientId:  user.clientId  || '',
-    active:    user.active !== false,
+    firstName:  user.firstName  || '',
+    lastName:   user.lastName   || '',
+    role:       user.role       || 'client_ops',
+    clientId:   user.clientId   || '',
+    active:     user.active !== false,
+    costCentre: user.costCentre || '',
   });
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetLink, setResetLink] = useState('');
-  const [error, setError]     = useState('');
+  const [error, setError]         = useState('');
 
   const needsClient = CLIENT_ROLES.includes(form.role);
+  const costCentres = useCostCentres(needsClient ? form.clientId : null);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSubmit = async (e) => {
@@ -136,6 +168,8 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
           active:    form.active,
         },
       });
+      // Store cost centre directly (not in CF allowlist)
+      await updateDoc(doc(db, 'users', user.id), { costCentre: form.costCentre || null });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -183,6 +217,14 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
           </Field>
         )}
       </div>
+      {needsClient && costCentres.length > 0 && (
+        <Field label="Cost centre">
+          <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
+            <option value="">Not assigned</option>
+            {costCentres.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+      )}
       <Toggle checked={form.active} onChange={v => set('active', v)} label="Active account" description="Inactive users cannot log in" />
 
       {/* Password reset section */}

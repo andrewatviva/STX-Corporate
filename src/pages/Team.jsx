@@ -110,10 +110,10 @@ function HierarchyView({ members }) {
 
 // ── Create member form ────────────────────────────────────────────────────────
 
-function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
+function CreateMemberForm({ clientId, members, costCentres = [], onCreated, onCancel }) {
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', password: '',
-    role: 'client_traveller', managerId: '',
+    role: 'client_traveller', managerId: '', costCentre: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -128,7 +128,7 @@ function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
     if (!form.password)         return setError('A temporary password is required.');
     setSaving(true);
     try {
-      await httpsCallable(getFunctions(), 'createClientUser')({
+      const result = await httpsCallable(getFunctions(), 'createClientUser')({
         firstName: form.firstName,
         lastName:  form.lastName,
         email:     form.email,
@@ -136,9 +136,14 @@ function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
         role:      form.role,
         clientId,
       });
-      // Set managerId separately via Firestore (Cloud Function handles user creation)
-      // managerId will be set after we know the new user's UID
-      // For now, created users can have their manager set via Edit
+      // Set hierarchy and cost centre fields directly in Firestore
+      const uid = result.data?.uid;
+      if (uid && (form.managerId || form.costCentre)) {
+        await updateDoc(doc(db, 'users', uid), {
+          ...(form.managerId   ? { managerId: form.managerId }     : {}),
+          ...(form.costCentre  ? { costCentre: form.costCentre }   : {}),
+        });
+      }
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -168,14 +173,24 @@ function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
-      <Field label="Reports to" hint="You can also set this via Edit after creating the member.">
-        <select className={inp} value={form.managerId} onChange={e => set('managerId', e.target.value)}>
-          <option value="">No manager</option>
-          {members.map(m => (
-            <option key={m.id} value={m.id}>{memberName(m)} — {ROLE_LABELS[m.role] ?? m.role}</option>
-          ))}
-        </select>
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Reports to">
+          <select className={inp} value={form.managerId} onChange={e => set('managerId', e.target.value)}>
+            <option value="">No manager</option>
+            {members.map(m => (
+              <option key={m.id} value={m.id}>{memberName(m)} — {ROLE_LABELS[m.role] ?? m.role}</option>
+            ))}
+          </select>
+        </Field>
+        {costCentres.length > 0 && (
+          <Field label="Cost centre">
+            <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
+              <option value="">Not assigned</option>
+              {costCentres.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
+        )}
+      </div>
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex justify-end gap-3 pt-1">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
@@ -189,7 +204,7 @@ function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
 
 // ── Edit member form ──────────────────────────────────────────────────────────
 
-function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel }) {
+function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, onDeleted, onCancel }) {
   const [form, setForm] = useState({
     firstName:  user.firstName  || '',
     lastName:   user.lastName   || '',
@@ -197,6 +212,7 @@ function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel
     active:     user.active !== false,
     managerId:  user.managerId  || '',
     approveFor: user.approveFor || [],
+    costCentre: user.costCentre || '',
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -230,10 +246,11 @@ function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel
           active:    form.active,
         },
       });
-      // Direct Firestore update for hierarchy metadata
+      // Direct Firestore update for hierarchy metadata and cost centre
       await updateDoc(doc(db, 'users', user.id), {
         managerId:  form.managerId || null,
         approveFor: form.role === 'client_approver' ? (form.approveFor || []) : [],
+        costCentre: form.costCentre || null,
       });
       onSaved();
     } catch (err) {
@@ -306,6 +323,16 @@ function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
+
+      {/* Cost centre */}
+      {costCentres.length > 0 && (
+        <Field label="Cost centre">
+          <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
+            <option value="">Not assigned</option>
+            {costCentres.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+      )}
 
       {/* Reporting structure */}
       <div className="border border-gray-200 rounded-lg p-4 space-y-4">
@@ -412,7 +439,8 @@ function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel
 
 export default function Team() {
   const { userProfile } = useAuth();
-  const { isSTX, clientId, activeClientId, clientsList } = useTenant();
+  const { isSTX, clientId, activeClientId, clientsList, clientConfig, activeClientConfig } = useTenant();
+  const effectiveCostCentres = (isSTX ? activeClientConfig : clientConfig)?.dropdowns?.costCentres || [];
 
   const role = userProfile?.role;
   const isAdmin = role === 'stx_admin';
@@ -513,6 +541,7 @@ export default function Team() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Reports to</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Cost centre</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Profile</th>
                   <th className="px-4 py-3" />
@@ -532,6 +561,9 @@ export default function Team() {
                       <td className="px-4 py-3"><RoleBadge role={m.role} /></td>
                       <td className="px-4 py-3 text-gray-500 text-xs">
                         {manager ? memberName(manager) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
+                        {m.costCentre || <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         {m.active === false
@@ -575,6 +607,7 @@ export default function Team() {
           <CreateMemberForm
             clientId={effectiveClientId}
             members={members}
+            costCentres={effectiveCostCentres}
             onCreated={() => setCreate(false)}
             onCancel={() => setCreate(false)}
           />
@@ -590,6 +623,7 @@ export default function Team() {
           <EditMemberForm
             user={editing}
             members={members}
+            costCentres={effectiveCostCentres}
             canDelete={isAdmin}
             onSaved={() => setEditing(null)}
             onDeleted={() => setEditing(null)}
