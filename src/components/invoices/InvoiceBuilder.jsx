@@ -54,30 +54,27 @@ function toDate(val) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Returns { exGST, gross } for all sectors on a trip.
-// gross = what was entered (incl. GST where applicable)
-// exGST = back-calculated ex-GST (international sectors stay as-is)
+// Returns { exGST, gross } for all sectors.
+// sector.cost is the total cost as entered (incl. GST for domestic; GST-free for international).
 function calcSectorTotals(trip, gstRate = 0.1) {
   let exGST = 0;
   let gross  = 0;
   for (const s of (trip.sectors || [])) {
     const c = parseFloat(s.cost) || 0;
-    let g = c;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      g = c * nights;
-    }
-    gross += g;
-    exGST += s.international ? g : g / (1 + gstRate);
+    gross += c;
+    exGST += s.international ? c : c / (1 + gstRate);
   }
   return { exGST: parseFloat(exGST.toFixed(2)), gross: parseFloat(gross.toFixed(2)) };
 }
 
 function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
+  // Build set of all already-billed dedup keys, including fee keys bundled
+  // inside trip line items via extraDedupKeys.
   const invoiced = new Set();
   for (const inv of finalisedInvoices) {
     for (const item of (inv.lineItems || [])) {
       if (item.dedupKey) invoiced.add(item.dedupKey);
+      for (const dk of (item.extraDedupKeys || [])) invoiced.add(dk);
     }
   }
 
@@ -86,64 +83,86 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
   const items = [];
 
   for (const trip of trips) {
-    // ── Trip sector costs (trips created within the period) ───────────────
-    if (BILLABLE_STATUSES.has(trip.status)) {
-      const createdAt = toDate(trip.createdAt);
-      if (createdAt && createdAt >= from && createdAt <= to) {
-        const dedupKey = `${trip.id}_sectors`;
-        if (!invoiced.has(dedupKey)) {
-          const { exGST, gross } = calcSectorTotals(trip);
-          if (gross > 0) {
-            items.push({
-              dedupKey,
-              tripId:        trip.id,
-              tripRef:       trip.tripRef || '',
-              travellerName: trip.travellerName || '',
-              costCentre:    trip.costCentre || '',
-              description:   trip.title || `Trip ${trip.tripRef || trip.id}`,
-              amount:        exGST,
-              gstRate:       null,   // mixed domestic/international — not a single rate
-              inclGST:       gross,
-              isManual:      false,
-              lineType:      'trip',
-            });
-          }
-        }
+    if (!BILLABLE_STATUSES.has(trip.status)) continue;
+
+    const sectorsDedupKey      = `${trip.id}_sectors`;
+    const sectorsAlreadyBilled = invoiced.has(sectorsDedupKey);
+    const createdAt            = toDate(trip.createdAt);
+    const tripCreatedInPeriod  = createdAt && createdAt >= from && createdAt <= to;
+
+    if (!sectorsAlreadyBilled && tripCreatedInPeriod) {
+      // ── New trip: sectors + all in-period fees → single line item ────────
+      const { exGST: sectorExGST, gross: sectorGross } = calcSectorTotals(trip);
+
+      let feeExGST   = 0;
+      let feeInclGST = 0;
+      const feeDedupKeys = [];
+      for (const fee of (trip.fees || [])) {
+        if (fee.waived) continue;
+        const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
+        if (!appliedAt || appliedAt < from || appliedAt > to) continue;
+        const fdk = `${trip.id}_${fee.type}_${fee.appliedAt}`;
+        if (invoiced.has(fdk)) continue;
+        const amt  = parseFloat(fee.amount) || 0;
+        const gst  = parseFloat(fee.gstRate ?? 0.1);
+        feeExGST   += amt;
+        feeInclGST += parseFloat((amt * (1 + gst)).toFixed(2));
+        feeDedupKeys.push(fdk);
       }
-    }
 
-    // ── Fees applied within the period ────────────────────────────────────
-    for (const fee of (trip.fees || [])) {
-      if (fee.waived) continue;
-      const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
-      if (!appliedAt || appliedAt < from || appliedAt > to) continue;
+      const totalExGST   = parseFloat((sectorExGST  + feeExGST).toFixed(2));
+      const totalInclGST = parseFloat((sectorGross   + feeInclGST).toFixed(2));
 
-      const dedupKey = `${trip.id}_${fee.type}_${fee.appliedAt}`;
-      if (invoiced.has(dedupKey)) continue;
+      if (totalInclGST > 0) {
+        items.push({
+          dedupKey:       sectorsDedupKey,
+          extraDedupKeys: feeDedupKeys,  // stored so future scans skip these fees
+          tripId:         trip.id,
+          tripRef:        trip.tripRef || '',
+          travellerName:  trip.travellerName || '',
+          costCentre:     trip.costCentre || '',
+          description:    trip.title || `Trip ${trip.tripRef || trip.id}`,
+          amount:         totalExGST,
+          gstRate:        null,          // mixed — not a single rate
+          inclGST:        totalInclGST,
+          isManual:       false,
+          lineType:       'trip',
+        });
+      }
+    } else {
+      // ── Already-invoiced trip or prior period: pick up new fees only ─────
+      for (const fee of (trip.fees || [])) {
+        if (fee.waived) continue;
+        const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
+        if (!appliedAt || appliedAt < from || appliedAt > to) continue;
+        const dedupKey = `${trip.id}_${fee.type}_${fee.appliedAt}`;
+        if (invoiced.has(dedupKey)) continue;
 
-      const amount  = parseFloat(fee.amount) || 0;
-      const gstRate = parseFloat(fee.gstRate ?? 0.1);
-      const label   = fee.type === 'management' ? 'Management fee'
-                    : fee.type === 'amendment'  ? 'Amendment fee'
-                    : fee.label || 'Fee';
+        const amount  = parseFloat(fee.amount) || 0;
+        const gstRate = parseFloat(fee.gstRate ?? 0.1);
+        const label   = fee.type === 'management' ? 'Management fee'
+                      : fee.type === 'amendment'  ? 'Amendment fee'
+                      : fee.label || 'Fee';
 
-      items.push({
-        dedupKey,
-        tripId:        trip.id,
-        tripRef:       trip.tripRef || '',
-        travellerName: trip.travellerName || '',
-        costCentre:    trip.costCentre || '',
-        description:   `${label} — ${trip.title || trip.tripRef || trip.id}`,
-        amount,
-        gstRate,
-        inclGST:       parseFloat((amount * (1 + gstRate)).toFixed(2)),
-        isManual:      false,
-        lineType:      'fee',
-      });
+        items.push({
+          dedupKey,
+          extraDedupKeys: [],
+          tripId:        trip.id,
+          tripRef:       trip.tripRef || '',
+          travellerName: trip.travellerName || '',
+          costCentre:    trip.costCentre || '',
+          description:   `${label} — ${trip.title || trip.tripRef || trip.id}`,
+          amount,
+          gstRate,
+          inclGST:       parseFloat((amount * (1 + gstRate)).toFixed(2)),
+          isManual:      false,
+          lineType:      'fee',
+        });
+      }
     }
   }
 
-  // Trip costs first, then fees; within each group sort by tripRef
+  // Trip costs first, then amendment fees; within each group sort by tripRef
   items.sort((a, b) => {
     if (a.lineType !== b.lineType) return a.lineType === 'trip' ? -1 : 1;
     return (a.tripRef || '').localeCompare(b.tripRef || '');

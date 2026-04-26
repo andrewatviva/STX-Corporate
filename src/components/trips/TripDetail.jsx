@@ -120,10 +120,6 @@ function SectorCard({ sector, index }) {
   const cost = (() => {
     const c = parseFloat(sector.cost) || 0;
     if (!c) return null;
-    if (sector.type === 'accommodation' && sector.checkIn && sector.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(sector.checkOut) - new Date(sector.checkIn)) / 86400000));
-      return nights > 0 ? `A$${(c * nights).toFixed(2)}` : `A$${c.toFixed(2)}`;
-    }
     return `A$${c.toFixed(2)}`;
   })();
 
@@ -247,25 +243,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     }
   };
 
-  const sectorCostInclGST = (trip.sectors || []).reduce((sum, s) => {
-    const c = parseFloat(s.cost) || 0;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      return sum + c * nights;
-    }
-    return sum + c;
-  }, 0);
+  const sectorCostInclGST = (trip.sectors || []).reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
   const feesInclGST = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0) * (1 + (f.gstRate ?? 0.1)), 0);
   const totalCost = sectorCostInclGST + feesInclGST;
 
   const sectorCostExGST = (trip.sectors || []).reduce((sum, s) => {
     const c = parseFloat(s.cost) || 0;
-    let gross = c;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      gross = c * nights;
-    }
-    return sum + (s.international ? gross : gross / 1.1);
+    return sum + (s.international ? c : c / 1.1);
   }, 0);
   const feesExGST = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
   const totalExGST = sectorCostExGST + feesExGST;

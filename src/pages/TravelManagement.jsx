@@ -18,12 +18,7 @@ const SECTOR_LABELS = {
 };
 
 function sectorGross(s) {
-  const c = parseFloat(s.cost) || 0;
-  if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-    const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-    return c * nights;
-  }
-  return c;
+  return parseFloat(s.cost) || 0;
 }
 
 function calcSectorCost(sectors) {

@@ -39,15 +39,8 @@ function fmtAUDShort(n) {
 }
 
 function calcTripCost(trip) {
-  const sectors = (trip.sectors || []).reduce((sum, s) => {
-    const c = parseFloat(s.cost) || 0;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      return sum + c * nights;
-    }
-    return sum + c;
-  }, 0);
-  const fees = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0) * (1 + (f.gstRate ?? 0.1)), 0);
+  const sectors = (trip.sectors || []).reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
+  const fees    = (trip.fees    || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0) * (1 + (f.gstRate ?? 0.1)), 0);
   return sectors + fees;
 }
 
@@ -150,14 +143,7 @@ export default function Dashboard() {
 
         // GST-free component: sum of international sector costs
         (t.sectors || []).forEach(s => {
-          if (!s.international) return;
-          const c = parseFloat(s.cost) || 0;
-          if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-            const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-            gstFree += c * nights;
-          } else {
-            gstFree += c;
-          }
+          if (s.international) gstFree += parseFloat(s.cost) || 0;
         });
       }
 

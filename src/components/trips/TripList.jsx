@@ -7,12 +7,7 @@ import { useTenant } from '../../contexts/TenantContext';
 export function calcTripExGST(trip, gstRate = 0.1) {
   const sectors = (trip.sectors || []).reduce((sum, s) => {
     const c = parseFloat(s.cost) || 0;
-    let gross = c;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      gross = c * nights;
-    }
-    return sum + (s.international ? gross : gross / (1 + gstRate));
+    return sum + (s.international ? c : c / (1 + gstRate));
   }, 0);
   const fees = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
   return sectors + fees;
