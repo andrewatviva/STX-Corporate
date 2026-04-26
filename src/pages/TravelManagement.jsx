@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { arrayUnion } from 'firebase/firestore';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
@@ -14,10 +15,12 @@ export default function TravelManagement() {
 
   const { trips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX);
 
+  const [searchParams] = useSearchParams();
   const [view, setView]             = useState('list');   // 'list' | 'detail'
   const [selectedTrip, setSelected] = useState(null);
   const [formTrip, setFormTrip]     = useState(null);     // null = no modal, undefined = new, obj = edit
   const [deleteTarget, setDelete]   = useState(null);
+  const [isAmending, setIsAmending]         = useState(false);
   const [pendingAmendFee, setPendingAmendFee] = useState(null); // { apply, amount } | null
 
   const role = userProfile?.role;
@@ -44,12 +47,12 @@ export default function TravelManagement() {
     const cid = data.clientId || resolveClientId(formTrip);
     if (!cid) throw new Error('No client ID — cannot save trip.');
     if (formTrip?.id) {
-      const isAmendment = pendingAmendFee !== undefined; // set by openAmend, null if fee waived
-      const amendExtra = isAmendment
+      const amendExtra = isAmending
         ? { note: 'Trip amended', ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
         : { note: 'Trip details updated' };
-      const amendment = makeAmendment(isAmendment ? 'amendment' : 'edit', amendExtra);
+      const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
       await updateTrip(cid, formTrip.id, { ...data, amendments: arrayUnion(amendment) });
+      setIsAmending(false);
       setPendingAmendFee(null);
     } else {
       await addTrip(cid, { ...data, createdBy: userProfile?.uid || '' });
@@ -89,12 +92,14 @@ export default function TravelManagement() {
   };
 
   const openEdit = (trip) => {
+    setIsAmending(false);
     setPendingAmendFee(null);
     setFormTrip(trip);
   };
 
   // Called from TripDetail after the amendment fee prompt
   const openAmend = (trip, feeDecision) => {
+    setIsAmending(true);
     setPendingAmendFee(feeDecision); // null = no fee applicable, { apply, amount } = fee decision made
     setFormTrip(trip);
   };
@@ -117,6 +122,7 @@ export default function TravelManagement() {
           onView={openDetail}
           onEdit={openEdit}
           onDelete={setDelete}
+          initialStatusFilter={searchParams.get('status') || ''}
         />
       )}
 
@@ -136,17 +142,17 @@ export default function TravelManagement() {
       {formTrip !== null && (
         <Modal
           title={formTrip?.id
-            ? (pendingAmendFee !== null ? `Amend — ${formTrip.title || 'trip'}` : `Edit — ${formTrip.title || 'trip'}`)
+            ? (isAmending ? `Amend — ${formTrip.title || 'trip'}` : `Edit — ${formTrip.title || 'trip'}`)
             : 'New trip'
           }
-          onClose={() => { setFormTrip(null); setPendingAmendFee(null); }}
+          onClose={() => { setFormTrip(null); setIsAmending(false); setPendingAmendFee(null); }}
           wide
         >
           <TripForm
             trip={formTrip?.id ? formTrip : null}
             clientId={resolveClientId(formTrip)}
             onSave={handleSave}
-            onCancel={() => { setFormTrip(null); setPendingAmendFee(null); }}
+            onCancel={() => { setFormTrip(null); setIsAmending(false); setPendingAmendFee(null); }}
           />
         </Modal>
       )}

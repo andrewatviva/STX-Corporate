@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
   Lock, Clock,
 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { StatusBadge, getDisplayStatus } from './TripList';
@@ -156,6 +158,14 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [declineReason, setDeclineReason] = useState('');
   const [showDeclineInput, setShowDeclineInput] = useState(false);
   const [showAmendPrompt, setShowAmendPrompt] = useState(false);
+  // For STX users: load the trip's client fee config (STX has no fees of their own)
+  const [tripClientFees, setTripClientFees] = useState(null);
+  useEffect(() => {
+    if (!isSTX || !clientId) return;
+    getDoc(doc(db, 'clients', clientId))
+      .then(snap => { if (snap.exists()) setTripClientFees(snap.data()?.config?.fees ?? null); })
+      .catch(() => {});
+  }, [isSTX, clientId]);
 
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
@@ -163,9 +173,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   // client_ops and client_approver can book self-managed trips on behalf of travellers
   const canBook = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver', 'client_traveller'].includes(role);
 
-  // Amendment fee applicability
+  // Amendment fee: STX users use the trip's client config, client users use their own
   const isDraftOrDeclined = ['draft', 'declined'].includes(trip.status);
-  const feeConfig = clientConfig?.fees;
+  const feeConfig = isSTX ? tripClientFees : clientConfig?.fees;
   const amendFeeAmount  = feeConfig?.amendmentFeeAmount || 0;
   const amendFeeGST     = parseFloat((amendFeeAmount * (1 + (feeConfig?.gstRate ?? 0.1))).toFixed(2));
   const amendFeeAppliesTo = feeConfig?.amendmentFeeAppliesTo || [];

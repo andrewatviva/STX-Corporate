@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, Paperclip } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 
@@ -40,11 +40,11 @@ export function StatusBadge({ status }) {
   );
 }
 
-export default function TripList({ trips, loading, onNew, onView, onEdit, onDelete, canCreate }) {
+export default function TripList({ trips, loading, onNew, onView, onEdit, onDelete, canCreate, initialStatusFilter = '' }) {
   const { userProfile } = useAuth();
   const { isSTX } = useTenant();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
 
   const isAdmin = userProfile?.role === 'stx_admin';
   const canEditTrip = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(userProfile?.role);
@@ -123,7 +123,14 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                   className={`border-b border-gray-100 last:border-0 hover:bg-blue-50 cursor-pointer transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                   onClick={() => onView(trip)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">{trip.title || '—'}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">
+                    <span className="flex items-center gap-1.5">
+                      {trip.title || '—'}
+                      {(trip.attachments?.length ?? 0) > 0 && (
+                        <Paperclip size={11} className="text-gray-400 shrink-0" title={`${trip.attachments.length} attachment${trip.attachments.length !== 1 ? 's' : ''}`} />
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{trip.travellerName || '—'}</td>
                   {isSTX && <td className="px-4 py-3 text-gray-500 text-xs">{trip.clientId || '—'}</td>}
                   <td className="px-4 py-3 text-gray-500">{trip.tripType || '—'}</td>
