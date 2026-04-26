@@ -575,22 +575,33 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={() => handleSave(false)}
-          disabled={saving}
-          className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50"
-        >
-          {saving ? 'Saving…' : 'Save draft'}
-        </button>
-        {isDraftOrDeclined && (
+        {isDraftOrDeclined ? (
+          <>
+            <button
+              type="button"
+              onClick={() => handleSave(false)}
+              disabled={saving}
+              className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save draft'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? 'Submitting…' : 'Submit for approval'}
+            </button>
+          </>
+        ) : (
           <button
             type="button"
-            onClick={() => handleSave(true)}
+            onClick={() => handleSave(false)}
             disabled={saving}
             className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? 'Submitting…' : 'Submit for approval'}
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         )}
       </div>

@@ -11,6 +11,13 @@ export const STATUS_CONFIG = {
   cancelled:        { label: 'Cancelled',        cls: 'bg-gray-200 text-gray-500' },
 };
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(iso) {
+  if (!iso) return null;
+  const [y, m, d] = iso.split('-');
+  return `${d}-${MONTHS[parseInt(m, 10) - 1]}-${y.slice(2)}`;
+}
+
 export function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || { label: status, cls: 'bg-gray-100 text-gray-600' };
   return (
@@ -109,7 +116,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                   <td className="px-4 py-3 text-gray-500">{trip.tripType || '—'}</td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
                     {trip.startDate
-                      ? `${trip.startDate}${trip.endDate && trip.endDate !== trip.startDate ? ` → ${trip.endDate}` : ''}`
+                      ? `${fmtDate(trip.startDate)}${trip.endDate && trip.endDate !== trip.startDate ? ` → ${fmtDate(trip.endDate)}` : ''}`
                       : '—'}
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={trip.status} /></td>
@@ -122,7 +129,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                       >
                         <Eye size={14} />
                       </button>
-                      {canEditTrip && ['draft', 'declined'].includes(trip.status) && (
+                      {canEditTrip && trip.status !== 'cancelled' && (
                         <button
                           onClick={() => onEdit(trip)}
                           className="text-gray-400 hover:text-gray-700 p-1 rounded"

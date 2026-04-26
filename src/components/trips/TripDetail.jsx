@@ -183,7 +183,7 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
         </button>
         <div className="ml-auto flex items-center gap-2">
           {/* Edit — only on draft or declined */}
-          {canEdit && ['draft', 'declined'].includes(trip.status) && (
+          {canEdit && trip.status !== 'cancelled' && (
             <button
               onClick={() => onEdit(trip)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
