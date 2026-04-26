@@ -391,14 +391,16 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   }, [isSTX]);
 
   const [form, setForm] = useState(() => {
-    // Auto-fill travellerName + travellerId for non-manager users creating their own trip
+    // Auto-fill travellerName + travellerId + costCentre for non-manager users creating their own trip
     let autoName = '';
     let autoId   = '';
+    let autoCostCentre = '';
     if (!trip && userProfile && !MANAGER_ROLES.includes(userProfile.role)) {
-      autoName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ');
-      autoId   = userProfile.uid || '';
+      autoName       = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ');
+      autoId         = userProfile.uid || '';
+      autoCostCentre = userProfile.costCentre || '';
     }
-    if (!trip) return { ...EMPTY, clientId: clientIdProp || '', travellerName: autoName, travellerId: autoId };
+    if (!trip) return { ...EMPTY, clientId: clientIdProp || '', travellerName: autoName, travellerId: autoId, costCentre: autoCostCentre };
     return {
       clientId:      trip.clientId      || clientIdProp || '',
       title:         trip.title         || '',
@@ -519,8 +521,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
             className={inp}
             value={form.travellerName}
             onChange={e => {
-              const name = e.target.value;
-              set('travellerName', name);
+              const name  = e.target.value;
               const lower = name.toLowerCase();
               // Match against passenger profiles first (preferred), then team members
               const paxMatch = passengers.find(p =>
@@ -528,12 +529,23 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
                 [p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower
               );
               if (paxMatch) {
-                set('travellerId', paxMatch.userId || '');
+                const linkedUser = paxMatch.userId ? teamMembers.find(m => m.id === paxMatch.userId) : null;
+                setForm(p => ({
+                  ...p,
+                  travellerName: name,
+                  travellerId:   paxMatch.userId || '',
+                  ...(linkedUser?.costCentre ? { costCentre: linkedUser.costCentre } : {}),
+                }));
               } else {
                 const memberMatch = teamMembers.find(m =>
                   [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === lower
                 );
-                set('travellerId', memberMatch ? memberMatch.id : '');
+                setForm(p => ({
+                  ...p,
+                  travellerName: name,
+                  travellerId:   memberMatch ? memberMatch.id : '',
+                  ...(memberMatch?.costCentre ? { costCentre: memberMatch.costCentre } : {}),
+                }));
               }
             }}
             placeholder="Type name or select from passenger profiles"
