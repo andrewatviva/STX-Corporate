@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { StatusBadge } from './TripList';
+import { StatusBadge, getDisplayStatus } from './TripList';
 
 const SECTOR_ICONS = {
   flight:        Plane,
@@ -225,8 +225,20 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
             </>
           )}
 
-          {/* Cancel — approved only, STX */}
-          {isSTX && trip.status === 'approved' && (
+          {/* Mark as Booked — approved trips only.
+              STX can always book; non-STX only if it's a self-managed trip. */}
+          {trip.status === 'approved' && (isSTX || (canEdit && trip.tripType?.toLowerCase() === 'self-managed')) && (
+            <button
+              onClick={() => act('booked')}
+              disabled={acting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <CheckCircle size={13} /> Mark as booked
+            </button>
+          )}
+
+          {/* Cancel — approved or booked trips, STX only */}
+          {isSTX && ['approved', 'booked'].includes(trip.status) && (
             <button
               onClick={() => act('cancelled')}
               disabled={acting}
@@ -276,7 +288,7 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
               <p className="text-sm text-red-600 mt-1">Declined: {trip.declineReason}</p>
             )}
           </div>
-          <StatusBadge status={trip.status} />
+          <StatusBadge status={getDisplayStatus(trip)} />
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">

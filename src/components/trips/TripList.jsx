@@ -8,8 +8,21 @@ export const STATUS_CONFIG = {
   pending_approval: { label: 'Pending Approval', cls: 'bg-amber-100 text-amber-700' },
   approved:         { label: 'Approved',         cls: 'bg-green-100 text-green-700' },
   declined:         { label: 'Declined',         cls: 'bg-red-100 text-red-700' },
+  booked:           { label: 'Booked',           cls: 'bg-indigo-100 text-indigo-700' },
+  travelling:       { label: 'Travelling',       cls: 'bg-purple-100 text-purple-700' },
+  completed:        { label: 'Completed',        cls: 'bg-teal-100 text-teal-700' },
   cancelled:        { label: 'Cancelled',        cls: 'bg-gray-200 text-gray-500' },
 };
+
+// Derives the display status from stored status + trip dates.
+// Travelling and Completed are computed — only Booked is stored in Firestore.
+export function getDisplayStatus(trip) {
+  if (trip.status !== 'booked') return trip.status;
+  const today = new Date().toISOString().slice(0, 10);
+  if (trip.endDate && today > trip.endDate)     return 'completed';
+  if (trip.startDate && today >= trip.startDate) return 'travelling';
+  return 'booked';
+}
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) {
@@ -43,7 +56,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
       t.travellerName?.toLowerCase().includes(q) ||
       t.tripType?.toLowerCase().includes(q) ||
       t.costCentre?.toLowerCase().includes(q);
-    const matchStatus = !statusFilter || t.status === statusFilter;
+    const matchStatus = !statusFilter || getDisplayStatus(t) === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -119,7 +132,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                       ? `${fmtDate(trip.startDate)}${trip.endDate && trip.endDate !== trip.startDate ? ` → ${fmtDate(trip.endDate)}` : ''}`
                       : '—'}
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={trip.status} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={getDisplayStatus(trip)} /></td>
                   <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       <button
