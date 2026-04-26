@@ -112,9 +112,8 @@ function SectorCard({ sector, index }) {
   const cost = (() => {
     const c = parseFloat(sector.cost) || 0;
     if (!c) return null;
-    if (sector.type === 'accommodation' && sector.checkIn && sector.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(sector.checkOut) - new Date(sector.checkIn)) / 86400000));
-      return `A$${c.toFixed(2)} / night · A$${(c * nights).toFixed(2)} total`;
+    if (sector.type === 'accommodation') {
+      return `A$${c.toFixed(2)} total`;
     }
     return `A$${c.toFixed(2)}`;
   })();
@@ -125,6 +124,11 @@ function SectorCard({ sector, index }) {
         <span className="text-xs text-gray-400 w-5">{index + 1}</span>
         <Icon size={14} className="text-gray-400" />
         <span className="text-xs font-semibold text-gray-700">{label}</span>
+        {sector.international && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-sky-100 text-sky-700">
+            International · GST-free
+          </span>
+        )}
         {cost && <span className="ml-auto text-xs text-gray-500">{cost}</span>}
       </div>
       <div className="px-4 py-3 space-y-1.5">

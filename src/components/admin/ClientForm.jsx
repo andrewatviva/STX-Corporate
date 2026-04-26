@@ -182,7 +182,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           <div className="space-y-3 pl-12">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Fee label"><input className={inp} value={cfg.fees.managementFeeLabel} onChange={e => set('fees','managementFeeLabel',e.target.value)} /></Field>
-              <Field label="Amount ($)"><input type="number" className={inp} value={cfg.fees.managementFeeAmount} onChange={e => set('fees','managementFeeAmount',Number(e.target.value))} /></Field>
+              <Field label="Amount ($ ex-GST)"><input type="number" className={inp} value={cfg.fees.managementFeeAmount} onChange={e => set('fees','managementFeeAmount',Number(e.target.value))} /></Field>
             </div>
             <FeeAppliesTo
               value={cfg.fees.managementFeeAppliesTo}
@@ -194,7 +194,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
         <Toggle checked={cfg.fees.amendmentFeeEnabled} onChange={v => set('fees','amendmentFeeEnabled',v)} label="Amendment fee" />
         {cfg.fees.amendmentFeeEnabled && (
           <div className="space-y-3 pl-12">
-            <Field label="Amount ($)"><input type="number" className={inp} value={cfg.fees.amendmentFeeAmount} onChange={e => set('fees','amendmentFeeAmount',Number(e.target.value))} /></Field>
+            <Field label="Amount ($ ex-GST)"><input type="number" className={inp} value={cfg.fees.amendmentFeeAmount} onChange={e => set('fees','amendmentFeeAmount',Number(e.target.value))} /></Field>
             <FeeAppliesTo
               value={cfg.fees.amendmentFeeAppliesTo}
               onChange={v => set('fees','amendmentFeeAppliesTo',v)}

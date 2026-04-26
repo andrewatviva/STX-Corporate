@@ -71,7 +71,7 @@ function FlightFields({ s, upd }) {
       <F label="Baggage allowance">
         <input className={inp} value={s.baggageAllowance || ''} onChange={e => upd('baggageAllowance', e.target.value)} placeholder="e.g. 23kg / 1 piece" />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Notes / special requirements" span2>
@@ -99,7 +99,7 @@ function AccommodationFields({ s, upd }) {
       <F label="Room type">
         <input className={inp} value={s.roomType || ''} onChange={e => upd('roomType', e.target.value)} placeholder="Accessible King Room" />
       </F>
-      <F label={`Total cost of stay (AUD)${nights != null ? ` · ${nights} night${nights !== 1 ? 's' : ''}` : ''}`}>
+      <F label={`Total cost of stay incl. GST (AUD)${nights != null ? ` · ${nights} night${nights !== 1 ? 's' : ''}` : ''}`}>
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Booking reference" span2>
@@ -139,7 +139,7 @@ function CarHireFields({ s, upd }) {
       <F label="Booking reference">
         <input className={inp} value={s.bookingRef || ''} onChange={e => upd('bookingRef', e.target.value)} />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Inclusions" span2>
@@ -167,7 +167,7 @@ function ParkingFields({ s, upd }) {
       <F label="Booking reference">
         <input className={inp} value={s.bookingRef || ''} onChange={e => upd('bookingRef', e.target.value)} />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Notes" span2>
@@ -201,7 +201,7 @@ function TransfersFields({ s, upd }) {
       <F label="Provider">
         <input className={inp} value={s.provider || ''} onChange={e => upd('provider', e.target.value)} placeholder="Silver Service" />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Notes / special requirements" span2>
@@ -229,7 +229,7 @@ function MealsFields({ s, upd }) {
       <F label="Number of people">
         <input type="number" min="1" className={inp} value={s.numberOfPeople || ''} onChange={e => upd('numberOfPeople', e.target.value)} placeholder="1" />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Notes / dietary requirements" span2>
@@ -251,7 +251,7 @@ function OtherFields({ s, upd }) {
       <F label="Date">
         <input type="date" className={inp} value={s.date || ''} onChange={e => upd('date', e.target.value)} />
       </F>
-      <F label="Cost (AUD)">
+      <F label="Cost incl. GST (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Notes" span2>
@@ -342,8 +342,20 @@ function SectorCard({ sector, index, onChange, onRemove }) {
       </div>
 
       {expanded && sector.type && (
-        <div className="px-4 py-4 border-t border-gray-100">
+        <div className="px-4 py-4 border-t border-gray-100 space-y-4">
           {fields}
+          <div className="pt-2 border-t border-gray-100">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sector.international || false}
+                onChange={e => onChange({ ...sector, international: e.target.checked })}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-gray-700 font-medium">International sector</span>
+              <span className="text-xs text-gray-400">(GST-free — no GST applied on invoice)</span>
+            </label>
+          </div>
         </div>
       )}
     </div>
