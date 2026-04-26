@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Search, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Search, CheckCircle, Edit2, Check, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -198,6 +198,8 @@ export default function InvoiceBuilder({
   const [notes,      setNotes]        = useState(editInvoice?.notes || '');
   const [scanned,    setScanned]      = useState(!!editInvoice);
   const [saving,     setSaving]       = useState(false);
+  const [editingIdx, setEditingIdx]   = useState(null);
+  const [editDraft,  setEditDraft]    = useState({ description: '', amount: '', inclGST: '' });
 
   const finalisedInvoices = useMemo(
     () => invoices.filter(inv => ['finalised', 'paid'].includes(inv.status) && inv.id !== editInvoice?.id),
@@ -251,6 +253,29 @@ export default function InvoiceBuilder({
 
   function removeItem(idx) {
     setLineItems(prev => prev.filter((_, i) => i !== idx));
+    if (editingIdx === idx) setEditingIdx(null);
+  }
+
+  function startItemEdit(idx, item) {
+    setEditingIdx(idx);
+    setEditDraft({
+      description: item.description || '',
+      amount:      String(item.amount || 0),
+      inclGST:     String(item.inclGST || 0),
+    });
+  }
+
+  function saveItemEdit(idx) {
+    const item   = lineItems[idx];
+    const amt    = parseFloat(editDraft.amount) || 0;
+    const isMixedGST = item.lineType === 'trip' || item.gstRate == null;
+    const inclGST = isMixedGST
+      ? parseFloat(editDraft.inclGST) || 0
+      : parseFloat((amt * (1 + (item.gstRate ?? 0.1))).toFixed(2));
+    setLineItems(prev => prev.map((li, i) => i !== idx ? li : {
+      ...li, description: editDraft.description, amount: amt, inclGST,
+    }));
+    setEditingIdx(null);
   }
 
   const totals = useMemo(() => {
@@ -389,92 +414,119 @@ export default function InvoiceBuilder({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {lineItems.map((item, idx) => (
-                  <tr key={item.dedupKey || idx} className={item.isManual ? 'bg-blue-50/40' : ''}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                      {item.isManual ? (
-                        <input
-                          className="border border-gray-300 rounded px-2 py-1 text-xs w-20 font-mono"
-                          value={item.tripRef}
-                          placeholder="Ref"
-                          onChange={e => updateItem(idx, 'tripRef', e.target.value)}
-                        />
-                      ) : (item.tripRef || '—')}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {item.isManual ? (
-                        <input
-                          className="border border-gray-300 rounded px-2 py-1 text-xs w-28"
-                          value={item.travellerName}
-                          placeholder="Traveller"
-                          onChange={e => updateItem(idx, 'travellerName', e.target.value)}
-                        />
-                      ) : (item.travellerName || '—')}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {item.isManual ? (
-                        <input
-                          className="border border-gray-300 rounded px-2 py-1 text-xs w-28"
-                          value={item.costCentre}
-                          placeholder="Cost centre"
-                          onChange={e => updateItem(idx, 'costCentre', e.target.value)}
-                        />
-                      ) : (item.costCentre || <span className="text-gray-300">—</span>)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {item.isManual ? (
-                        <input
-                          className="border border-gray-300 rounded px-2 py-1 text-xs w-52"
-                          value={item.description}
-                          placeholder="Description"
-                          onChange={e => updateItem(idx, 'description', e.target.value)}
-                        />
-                      ) : item.description}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {item.isManual ? (
-                        <input
-                          type="number"
-                          className="border border-gray-300 rounded px-2 py-1 text-xs w-20 text-right"
-                          value={item.amount}
-                          step="0.01"
-                          min="0"
-                          onChange={e => updateItem(idx, 'amount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        <span className="text-gray-700">{formatCurrency(item.amount)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">
-                      {item.isManual ? (
-                        <select
-                          className="border border-gray-300 rounded px-1 py-1 text-xs"
-                          value={item.gstRate}
-                          onChange={e => updateItem(idx, 'gstRate', parseFloat(e.target.value))}
-                        >
-                          <option value={0.1}>10%</option>
-                          <option value={0}>GST-free</option>
-                        </select>
-                      ) : (
-                        formatCurrency((parseFloat(item.inclGST) || 0) - (parseFloat(item.amount) || 0))
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-800">
-                      {formatCurrency(item.inclGST)}
-                    </td>
-                    {!isReadOnly && (
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => removeItem(idx)}
-                          className="text-gray-300 hover:text-red-500 transition-colors"
-                          title="Remove"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                {lineItems.map((item, idx) => {
+                  const isEditing    = !item.isManual && editingIdx === idx;
+                  const isMixedGST   = item.lineType === 'trip' || item.gstRate == null;
+                  const draftAmt     = parseFloat(editDraft.amount) || 0;
+                  const draftInclGST = isMixedGST
+                    ? parseFloat(editDraft.inclGST) || 0
+                    : parseFloat((draftAmt * (1 + (item.gstRate ?? 0.1))).toFixed(2));
+
+                  if (isEditing) {
+                    return (
+                      <tr key={item.dedupKey || idx} className="bg-blue-50/50">
+                        <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">{item.travellerName || '—'}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">{item.costCentre || '—'}</td>
+                        <td className="px-4 py-2">
+                          <input
+                            autoFocus
+                            className="border border-blue-400 rounded px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={editDraft.description}
+                            onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <input
+                            type="number" step="0.01"
+                            className="border border-blue-400 rounded px-2 py-1 text-xs w-22 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={editDraft.amount}
+                            onChange={e => setEditDraft(d => ({ ...d, amount: e.target.value }))}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right text-xs">
+                          {isMixedGST ? (
+                            <input
+                              type="number" step="0.01" title="Incl. GST (gross)"
+                              className="border border-blue-400 rounded px-2 py-1 text-xs w-22 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              value={editDraft.inclGST}
+                              onChange={e => setEditDraft(d => ({ ...d, inclGST: e.target.value }))}
+                            />
+                          ) : (
+                            <span className="text-gray-400">{formatCurrency(draftInclGST - draftAmt)}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right text-xs font-medium text-gray-700">
+                          {formatCurrency(isMixedGST ? (parseFloat(editDraft.inclGST) || 0) : draftInclGST)}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex items-center justify-end gap-0.5">
+                            <button onClick={() => saveItemEdit(idx)} className="p-1 text-blue-600 hover:text-blue-800" title="Save"><Check size={13} /></button>
+                            <button onClick={() => setEditingIdx(null)} className="p-1 text-gray-400 hover:text-gray-600" title="Cancel"><X size={13} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500" title="Remove"><Trash2 size={13} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  if (item.isManual) {
+                    return (
+                      <tr key={item.dedupKey || idx} className="bg-blue-50/40">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                          <input className="border border-gray-300 rounded px-2 py-1 text-xs w-20 font-mono" value={item.tripRef} placeholder="Ref" onChange={e => updateItem(idx, 'tripRef', e.target.value)} />
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          <input className="border border-gray-300 rounded px-2 py-1 text-xs w-28" value={item.travellerName} placeholder="Traveller" onChange={e => updateItem(idx, 'travellerName', e.target.value)} />
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          <input className="border border-gray-300 rounded px-2 py-1 text-xs w-28" value={item.costCentre} placeholder="Cost centre" onChange={e => updateItem(idx, 'costCentre', e.target.value)} />
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          <input className="border border-gray-300 rounded px-2 py-1 text-xs w-52" value={item.description} placeholder="Description" onChange={e => updateItem(idx, 'description', e.target.value)} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <input type="number" className="border border-gray-300 rounded px-2 py-1 text-xs w-20 text-right" value={item.amount} step="0.01" min="0" onChange={e => updateItem(idx, 'amount', parseFloat(e.target.value) || 0)} />
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-500">
+                          <select className="border border-gray-300 rounded px-1 py-1 text-xs" value={item.gstRate} onChange={e => updateItem(idx, 'gstRate', parseFloat(e.target.value))}>
+                            <option value={0.1}>10%</option>
+                            <option value={0}>GST-free</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-gray-800">{formatCurrency(item.inclGST)}</td>
+                        {!isReadOnly && (
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-500 transition-colors" title="Remove"><Trash2 size={14} /></button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }
+
+                  // Scanned item — view mode
+                  return (
+                    <tr key={item.dedupKey || idx}>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                      <td className="px-4 py-3 text-gray-700">{item.travellerName || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{item.costCentre || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-4 py-3 text-gray-700">{item.description}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(item.amount)}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {formatCurrency((parseFloat(item.inclGST) || 0) - (parseFloat(item.amount) || 0))}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="px-4 py-3 text-right font-medium text-gray-800">{formatCurrency(item.inclGST)}</td>
+                      {!isReadOnly && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-0.5">
+                            <button onClick={() => startItemEdit(idx, item)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={13} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500 transition-colors" title="Remove"><Trash2 size={13} /></button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
