@@ -10,15 +10,15 @@ import PermissionGate from '../components/shared/PermissionGate';
 import InvoiceBuilder from '../components/invoices/InvoiceBuilder';
 import InvoiceDetail from '../components/invoices/InvoiceDetail';
 
+const STATUS_CFG = {
+  draft:     { cls: 'bg-amber-100 text-amber-700', label: 'Draft' },
+  finalised: { cls: 'bg-green-100 text-green-700', label: 'Finalised' },
+  paid:      { cls: 'bg-teal-100 text-teal-700',   label: 'Paid' },
+};
+
 function StatusBadge({ status }) {
-  const cls = status === 'finalised'
-    ? 'bg-green-100 text-green-700'
-    : 'bg-amber-100 text-amber-700';
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {status === 'finalised' ? 'Finalised' : 'Draft'}
-    </span>
-  );
+  const { cls, label } = STATUS_CFG[status] || { cls: 'bg-gray-100 text-gray-600', label: status };
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
 }
 
 export default function Invoices() {
@@ -29,7 +29,7 @@ export default function Invoices() {
   const clientId            = isSTX ? activeClientId  : tenantClientId;
   const currentClientConfig = isSTX ? activeClientConfig : clientConfig;
 
-  const { invoices, loading: invLoading, createInvoice, updateInvoice } = useInvoices(clientId);
+  const { invoices, loading: invLoading, createInvoice, updateInvoice, deleteInvoice } = useInvoices(clientId);
   const { trips } = useTrips(clientId, isSTX, isSTX ? activeClientId : null);
 
   const [view,              setView]              = useState('list');
@@ -198,8 +198,12 @@ export default function Invoices() {
           <InvoiceDetail
             invoice={selectedInvoice}
             clientConfig={currentClientConfig}
+            clientId={clientId}
             onBack={backToList}
             onEdit={() => openEdit(selectedInvoice)}
+            updateInvoice={updateInvoice}
+            deleteInvoice={deleteInvoice}
+            onDeleted={backToList}
           />
         )}
       </div>

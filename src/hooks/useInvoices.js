@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   collection, onSnapshot, query, orderBy,
-  updateDoc, doc, serverTimestamp, runTransaction,
+  updateDoc, deleteDoc, doc, serverTimestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -47,5 +47,8 @@ export function useInvoices(clientId) {
       updatedAt: serverTimestamp(),
     });
 
-  return { invoices, loading, createInvoice, updateInvoice };
+  const deleteInvoice = (cid, invoiceId) =>
+    deleteDoc(doc(db, 'clients', cid, 'invoices', invoiceId));
+
+  return { invoices, loading, createInvoice, updateInvoice, deleteInvoice };
 }

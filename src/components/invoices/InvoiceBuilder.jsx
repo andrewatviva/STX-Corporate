@@ -43,6 +43,36 @@ function getQuickRange(key) {
   }
 }
 
+// Statuses that should appear on an invoice (exclude draft/declined/cancelled)
+const BILLABLE_STATUSES = new Set(['pending_approval', 'approved', 'booked', 'travelling', 'completed']);
+
+function toDate(val) {
+  if (!val) return null;
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val._seconds != null) return new Date(val._seconds * 1000);
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Returns { exGST, gross } for all sectors on a trip.
+// gross = what was entered (incl. GST where applicable)
+// exGST = back-calculated ex-GST (international sectors stay as-is)
+function calcSectorTotals(trip, gstRate = 0.1) {
+  let exGST = 0;
+  let gross  = 0;
+  for (const s of (trip.sectors || [])) {
+    const c = parseFloat(s.cost) || 0;
+    let g = c;
+    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+      g = c * nights;
+    }
+    gross += g;
+    exGST += s.international ? g : g / (1 + gstRate);
+  }
+  return { exGST: parseFloat(exGST.toFixed(2)), gross: parseFloat(gross.toFixed(2)) };
+}
+
 function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
   const invoiced = new Set();
   for (const inv of finalisedInvoices) {
@@ -56,6 +86,33 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
   const items = [];
 
   for (const trip of trips) {
+    // ── Trip sector costs (trips created within the period) ───────────────
+    if (BILLABLE_STATUSES.has(trip.status)) {
+      const createdAt = toDate(trip.createdAt);
+      if (createdAt && createdAt >= from && createdAt <= to) {
+        const dedupKey = `${trip.id}_sectors`;
+        if (!invoiced.has(dedupKey)) {
+          const { exGST, gross } = calcSectorTotals(trip);
+          if (gross > 0) {
+            items.push({
+              dedupKey,
+              tripId:        trip.id,
+              tripRef:       trip.tripRef || '',
+              travellerName: trip.travellerName || '',
+              costCentre:    trip.costCentre || '',
+              description:   trip.title || `Trip ${trip.tripRef || trip.id}`,
+              amount:        exGST,
+              gstRate:       null,   // mixed domestic/international — not a single rate
+              inclGST:       gross,
+              isManual:      false,
+              lineType:      'trip',
+            });
+          }
+        }
+      }
+    }
+
+    // ── Fees applied within the period ────────────────────────────────────
     for (const fee of (trip.fees || [])) {
       if (fee.waived) continue;
       const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
@@ -81,9 +138,16 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
         gstRate,
         inclGST:       parseFloat((amount * (1 + gstRate)).toFixed(2)),
         isManual:      false,
+        lineType:      'fee',
       });
     }
   }
+
+  // Trip costs first, then fees; within each group sort by tripRef
+  items.sort((a, b) => {
+    if (a.lineType !== b.lineType) return a.lineType === 'trip' ? -1 : 1;
+    return (a.tripRef || '').localeCompare(b.tripRef || '');
+  });
 
   return items;
 }
@@ -109,7 +173,7 @@ export default function InvoiceBuilder({
   const [saving,     setSaving]       = useState(false);
 
   const finalisedInvoices = useMemo(
-    () => invoices.filter(inv => inv.status === 'finalised' && inv.id !== editInvoice?.id),
+    () => invoices.filter(inv => ['finalised', 'paid'].includes(inv.status) && inv.id !== editInvoice?.id),
     [invoices, editInvoice]
   );
 
@@ -279,8 +343,8 @@ export default function InvoiceBuilder({
         {lineItems.length === 0 ? (
           <div className="py-12 text-center text-gray-400 text-sm">
             {scanned
-              ? 'No unbilled fees found for this period.'
-              : 'Click "Scan for unbilled items" to find fees, or add a manual item.'}
+              ? 'No unbilled trips or fees found for this period.'
+              : 'Click "Scan for unbilled items" to find trips booked and fees applied in this period, or add a manual item.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
