@@ -464,6 +464,12 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+          {trip.tripRef && (
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Reference</p>
+              <p className="text-gray-800 font-mono text-sm">{trip.tripRef}</p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-gray-400 mb-0.5">Traveller</p>
             <p className="text-gray-800">{fmt(trip.travellerName)}</p>

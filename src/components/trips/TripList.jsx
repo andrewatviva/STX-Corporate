@@ -269,6 +269,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Ref</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Trip</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Traveller</th>
                 {isSTX && <th className="text-left px-4 py-3 font-medium text-gray-600">Client</th>}
@@ -287,6 +288,9 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                   className={`border-b border-gray-100 last:border-0 hover:bg-blue-50 cursor-pointer transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                   onClick={() => onView(trip)}
                 >
+                  <td className="px-4 py-3 text-xs text-gray-400 font-mono hidden sm:table-cell whitespace-nowrap">
+                    {trip.tripRef || '—'}
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-800">
                     <span className="flex items-center gap-1.5">
                       {trip.title || '—'}
