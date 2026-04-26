@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
-import { Plus, Edit2, UserCheck, UserX, Mail } from 'lucide-react';
+import { Plus, Edit2, UserCheck, UserX, Mail, Trash2 } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Toggle from '../shared/Toggle';
 import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES } from '../../utils/permissions';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ALL_ROLES = [...STX_ROLES, ...CLIENT_ROLES];
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
@@ -222,11 +223,15 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
 
 // ── Main UserManager component ────────────────────────────────────────────────
 export default function UserManager() {
+  const { userProfile } = useAuth();
+  const isSTXAdmin = userProfile?.role === 'stx_admin';
+
   const [users, setUsers]       = useState([]);
   const [clients, setClients]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing]   = useState(null);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(
@@ -240,6 +245,18 @@ export default function UserManager() {
   }, []);
 
   const clientName = (cid) => clients.find(c => c.id === cid)?.name ?? cid ?? '—';
+
+  const handleDelete = async (user) => {
+    setDeleting(user.id);
+    try {
+      const fns = getFunctions();
+      await httpsCallable(fns, 'deleteClientUser')({ targetUid: user.id });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   if (loading) return <p className="text-sm text-gray-400">Loading users…</p>;
 
@@ -283,10 +300,21 @@ export default function UserManager() {
                       : <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} /> Inactive</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => setEditing(user)}
-                      className="text-blue-600 hover:text-blue-800 p-1">
-                      <Edit2 size={14} />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setEditing(user)}
+                        className="text-blue-600 hover:text-blue-800 p-1" title="Edit user">
+                        <Edit2 size={14} />
+                      </button>
+                      {isSTXAdmin && (
+                        <button
+                          onClick={() => setDeleting(user.id)}
+                          className="text-gray-400 hover:text-red-600 p-1" title="Delete user"
+                          disabled={deleting === user.id}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -306,6 +334,35 @@ export default function UserManager() {
           <EditUserForm user={editing} clients={clients} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)} />
         </Modal>
       )}
+
+      {deleting && deleting !== true && (() => {
+        const user = users.find(u => u.id === deleting);
+        if (!user) return null;
+        const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+        return (
+          <Modal title="Delete user" onClose={() => setDeleting(null)}>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-700">
+                Are you sure you want to permanently delete <strong>{name}</strong> ({user.email})?
+              </p>
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                This cannot be undone. The user will be removed from Firebase Auth and all portal access will be revoked immediately.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setDeleting(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { handleDelete(user); setDeleting(null); }}
+                  className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                >
+                  Yes, delete permanently
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

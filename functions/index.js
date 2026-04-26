@@ -125,6 +125,31 @@ exports.updateClientUser = onCall({ enforceAppCheck: false }, async (request) =>
   return { success: true };
 });
 
+// Permanently delete a user from Auth + Firestore (STX admin only)
+exports.deleteClientUser = onCall({ enforceAppCheck: false }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const db = getFirestore();
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (callerSnap.data()?.role !== 'stx_admin') {
+    throw new HttpsError('permission-denied', 'Only STX admins can delete users.');
+  }
+
+  const { targetUid } = request.data;
+  if (!targetUid) throw new HttpsError('invalid-argument', 'targetUid required.');
+  if (targetUid === callerUid) throw new HttpsError('invalid-argument', 'You cannot delete your own account.');
+
+  try {
+    await getAuth().deleteUser(targetUid);
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') throw new HttpsError('internal', err.message);
+  }
+
+  await db.collection('users').doc(targetUid).delete();
+  return { success: true };
+});
+
 // Send password reset email to a user (STX admin only)
 exports.sendPasswordReset = onCall({ enforceAppCheck: false }, async (request) => {
   const callerUid = request.auth?.uid;
