@@ -1,4 +1,4 @@
-# CLAUDE.md — STX Corporate Portal V2
+# CLAUDE.md — STX Corporate Portal V2 (Phase 0 complete)
 
 ## Commands
 
