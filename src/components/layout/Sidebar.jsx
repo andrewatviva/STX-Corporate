@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Plane, Users, FileText, BarChart2,
-  Phone, Settings, Shield,
+  Phone, Shield,
 } from 'lucide-react';
 import { usePermissions } from '../../contexts/PermissionsContext';
 import { useTenant } from '../../contexts/TenantContext';
