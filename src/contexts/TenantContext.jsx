@@ -24,8 +24,10 @@ const CONFIG_DEFAULTS = {
     managementFeeEnabled: false,
     managementFeeAmount: 0,
     managementFeeLabel: 'Management Fee',
+    managementFeeAppliesTo: [],
     amendmentFeeEnabled: false,
     amendmentFeeAmount: 0,
+    amendmentFeeAppliesTo: [],
     gstRate: 0.10,
   },
   workflow: {

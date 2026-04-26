@@ -150,6 +150,8 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
+  // client_ops and client_approver can book self-managed trips on behalf of travellers
+  const canBook = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver', 'client_traveller'].includes(role);
 
   const act = async (newStatus, extra = {}) => {
     setActing(true);
@@ -226,8 +228,9 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
           )}
 
           {/* Mark as Booked — approved trips only.
-              STX can always book; non-STX only if it's a self-managed trip. */}
-          {trip.status === 'approved' && (isSTX || (canEdit && trip.tripType?.toLowerCase() === 'self-managed')) && (
+              STX can always book any trip type.
+              client_ops, client_approver, client_traveller can book self-managed trips only. */}
+          {trip.status === 'approved' && (isSTX || (canBook && trip.tripType?.toLowerCase() === 'self-managed')) && (
             <button
               onClick={() => act('booked')}
               disabled={acting}

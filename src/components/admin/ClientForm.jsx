@@ -12,7 +12,7 @@ const DEFAULT_CONFIG = {
     sectorTypes: ['Flight', 'Accommodation', 'Car Hire', 'Parking', 'Transfers', 'Meals', 'Other'],
     idTypes: ['Passport', 'Drivers Licence', 'Proof of Age Card', 'Other'],
   },
-  fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', amendmentFeeEnabled: true, amendmentFeeAmount: 30, gstRate: 0.10 },
+  fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true },
   hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false },
@@ -41,6 +41,47 @@ function Field({ label, children }) {
 }
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+function FeeAppliesTo({ value, onChange, tripTypes }) {
+  const types = tripTypes?.length ? tripTypes : ['Self-Managed', 'STX-Managed', 'Group Event'];
+  const appliesAll = !value || value.length === 0;
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium text-gray-500">Applies to</label>
+      <div className="flex gap-4 text-sm">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="radio" checked={appliesAll} onChange={() => onChange([])} className="text-blue-600" />
+          All trip types
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="radio" checked={!appliesAll} onChange={() => onChange([types[0]])} className="text-blue-600" />
+          Specific types only
+        </label>
+      </div>
+      {!appliesAll && (
+        <div className="flex flex-wrap gap-3 pt-1">
+          {types.map(type => (
+            <label key={type} className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={(value || []).includes(type)}
+                onChange={e => {
+                  const next = e.target.checked
+                    ? [...(value || []), type]
+                    : (value || []).filter(t => t !== type);
+                  onChange(next);
+                }}
+                className="rounded border-gray-300 text-blue-600"
+              />
+              <span className="text-gray-700">{type}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ClientForm({ existing, onSaved, onCancel }) {
   const isEdit = !!existing;
@@ -138,15 +179,27 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       <Section title="Fees">
         <Toggle checked={cfg.fees.managementFeeEnabled} onChange={v => set('fees','managementFeeEnabled',v)} label="Management fee" />
         {cfg.fees.managementFeeEnabled && (
-          <div className="grid grid-cols-2 gap-3 pl-12">
-            <Field label="Fee label"><input className={inp} value={cfg.fees.managementFeeLabel} onChange={e => set('fees','managementFeeLabel',e.target.value)} /></Field>
-            <Field label="Amount ($)"><input type="number" className={inp} value={cfg.fees.managementFeeAmount} onChange={e => set('fees','managementFeeAmount',Number(e.target.value))} /></Field>
+          <div className="space-y-3 pl-12">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Fee label"><input className={inp} value={cfg.fees.managementFeeLabel} onChange={e => set('fees','managementFeeLabel',e.target.value)} /></Field>
+              <Field label="Amount ($)"><input type="number" className={inp} value={cfg.fees.managementFeeAmount} onChange={e => set('fees','managementFeeAmount',Number(e.target.value))} /></Field>
+            </div>
+            <FeeAppliesTo
+              value={cfg.fees.managementFeeAppliesTo}
+              onChange={v => set('fees','managementFeeAppliesTo',v)}
+              tripTypes={cfg.dropdowns.tripTypes}
+            />
           </div>
         )}
         <Toggle checked={cfg.fees.amendmentFeeEnabled} onChange={v => set('fees','amendmentFeeEnabled',v)} label="Amendment fee" />
         {cfg.fees.amendmentFeeEnabled && (
-          <div className="pl-12">
+          <div className="space-y-3 pl-12">
             <Field label="Amount ($)"><input type="number" className={inp} value={cfg.fees.amendmentFeeAmount} onChange={e => set('fees','amendmentFeeAmount',Number(e.target.value))} /></Field>
+            <FeeAppliesTo
+              value={cfg.fees.amendmentFeeAppliesTo}
+              onChange={v => set('fees','amendmentFeeAppliesTo',v)}
+              tripTypes={cfg.dropdowns.tripTypes}
+            />
           </div>
         )}
         <Field label="GST rate">
