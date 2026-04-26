@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "stx-corporate-dev",
+    "dev":     "stx-corporate-dev",
+    "prod":    "stx-corporate"
+  }
+}
