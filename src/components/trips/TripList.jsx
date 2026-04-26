@@ -3,6 +3,21 @@ import { Plus, Search, Eye, Edit2, Trash2, Paperclip } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 
+// Returns the GST-exclusive total cost for a trip (sector costs back-calculated + fees already ex-GST)
+export function calcTripExGST(trip, gstRate = 0.1) {
+  const sectors = (trip.sectors || []).reduce((sum, s) => {
+    const c = parseFloat(s.cost) || 0;
+    let gross = c;
+    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+      gross = c * nights;
+    }
+    return sum + (s.international ? gross : gross / (1 + gstRate));
+  }, 0);
+  const fees = (trip.fees || []).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+  return sectors + fees;
+}
+
 export const STATUS_CONFIG = {
   draft:            { label: 'Draft',           cls: 'bg-gray-100 text-gray-600' },
   pending_approval: { label: 'Pending Approval', cls: 'bg-amber-100 text-amber-700' },
@@ -112,6 +127,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                 {isSTX && <th className="text-left px-4 py-3 font-medium text-gray-600">Client</th>}
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Dates</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Ex-GST</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -138,6 +154,9 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                     {trip.startDate
                       ? `${fmtDate(trip.startDate)}${trip.endDate && trip.endDate !== trip.startDate ? ` → ${fmtDate(trip.endDate)}` : ''}`
                       : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-600 text-xs tabular-nums whitespace-nowrap">
+                    {(() => { const v = calcTripExGST(trip); return v > 0 ? `A$${v.toFixed(2)}` : '—'; })()}
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={getDisplayStatus(trip)} /></td>
                   <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>

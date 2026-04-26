@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
-import { STATUS_CONFIG, StatusBadge, getDisplayStatus } from '../components/trips/TripList';
+import { STATUS_CONFIG, StatusBadge, getDisplayStatus, calcTripExGST } from '../components/trips/TripList';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -115,11 +115,11 @@ export default function Dashboard() {
   const currentFYLabel = `FY${currentFY}/${String(currentFY + 1).slice(2)}`;
   const prevFYLabel    = `FY${prevFY}/${String(prevFY + 1).slice(2)}`;
 
-  const { monthlyData, costCentreData, currentFYTotal, prevFYTotal, gstFreeTotal, hasPrevData } = useMemo(() => {
+  const { monthlyData, costCentreData, currentFYTotal, prevFYTotal, gstFreeTotal, exGSTTotal, hasPrevData } = useMemo(() => {
     const curMonths  = Array(12).fill(0);
     const prevMonths = Array(12).fill(0);
     const centres    = {};
-    let curTotal = 0, prevTotal = 0, gstFree = 0;
+    let curTotal = 0, prevTotal = 0, gstFree = 0, exGST = 0;
 
     trips.forEach(t => {
       if (!SPEND_STATUSES.has(getDisplayStatus(t))) return;
@@ -134,6 +134,7 @@ export default function Dashboard() {
       if (ci >= 0) {
         curMonths[ci] += cost;
         curTotal += cost;
+        exGST += calcTripExGST(t);
 
         // Cost centre breakdown (current FY only)
         const cc = t.costCentre || 'Unallocated';
@@ -173,6 +174,7 @@ export default function Dashboard() {
       currentFYTotal: curTotal,
       prevFYTotal: prevTotal,
       gstFreeTotal: gstFree,
+      exGSTTotal: exGST,
       hasPrevData: prevTotal > 0,
     };
   }, [trips, currentFY, prevFY, currentFYLabel, prevFYLabel]);
@@ -204,27 +206,24 @@ export default function Dashboard() {
         <div className="text-center text-gray-400 py-12 text-sm">Loading…</div>
       ) : (
         <>
-          {/* Status stat cards */}
+          {/* Status stat cards — all clickable, navigate to filtered trip list */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {STAT_ORDER.map(status => {
               const cfg = STATUS_CONFIG[status];
-              const isPending = status === 'pending_approval';
-              const clickable = isPending && counts[status] > 0 && isApprover;
+              const isPending = status === 'pending_approval' && counts[status] > 0 && isApprover;
               return (
                 <div
                   key={status}
-                  className={`bg-white border rounded-xl p-4 transition-colors
-                    ${clickable
-                      ? 'border-amber-300 cursor-pointer hover:bg-amber-50'
-                      : 'border-gray-200'}`}
-                  onClick={clickable ? () => navigate('/travel?status=pending_approval') : undefined}
-                  title={clickable ? 'Click to view trips awaiting approval' : undefined}
+                  className={`bg-white border rounded-xl p-4 transition-colors cursor-pointer
+                    ${isPending ? 'border-amber-300 hover:bg-amber-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                  onClick={() => navigate(`/travel?status=${status}`)}
+                  title={`View ${cfg.label} trips`}
                 >
                   <p className="text-2xl font-bold text-gray-800">{counts[status]}</p>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1.5 ${cfg.cls}`}>
                     {cfg.label}
                   </span>
-                  {clickable && (
+                  {isPending && (
                     <p className="text-xs text-amber-600 mt-1">Needs review →</p>
                   )}
                 </div>
@@ -235,16 +234,25 @@ export default function Dashboard() {
           {/* Expenditure section */}
           <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
             {/* FY summary header */}
-            <div className="flex flex-wrap items-baseline gap-4 mb-4">
-              <h2 className="text-sm font-semibold text-gray-700">Expenditure — {currentFYLabel}</h2>
-              <span className="text-xl font-bold text-gray-900">{fmtAUD(currentFYTotal)}</span>
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 w-full sm:w-auto">Expenditure — {currentFYLabel}</h2>
+              <div>
+                <p className="text-xs text-gray-400 leading-tight">Incl. GST</p>
+                <span className="text-xl font-bold text-gray-900">{fmtAUD(currentFYTotal)}</span>
+              </div>
+              {exGSTTotal > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 leading-tight">Ex-GST (incl. fees)</p>
+                  <span className="text-xl font-bold text-indigo-700">{fmtAUD(exGSTTotal)}</span>
+                </div>
+              )}
               {gstFreeTotal > 0 && (
-                <span className="text-xs px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full border border-sky-200">
+                <span className="text-xs px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full border border-sky-200 self-center">
                   {fmtAUD(gstFreeTotal)} GST-free (international)
                 </span>
               )}
               {hasPrevData && (
-                <span className="text-sm text-gray-400">
+                <span className="text-sm text-gray-400 self-center">
                   vs {fmtAUD(prevFYTotal)} ({prevFYLabel})
                   {fyChange !== null && (
                     <span className={`ml-1 font-medium ${fyChange >= 0 ? 'text-red-500' : 'text-green-600'}`}>
