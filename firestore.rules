@@ -28,6 +28,12 @@ service cloud.firestore {
       );
     }
 
+    // Client root document (name, active status) — STX can list all clients
+    match /clients/{clientId} {
+      allow read:  if isSTX() || isClientMember(clientId);
+      allow write: if isSTXAdmin();
+    }
+
     // Tenant config — readable by own client and STX; writable only by STX admin
     match /clients/{clientId}/config/{doc} {
       allow read:  if isSTX() || isClientMember(clientId);
