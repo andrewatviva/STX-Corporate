@@ -25,7 +25,7 @@ export default function TravelManagement() {
   const resolveClientId = (trip) => trip?.clientId || clientId || '';
 
   const handleSave = async (data) => {
-    const cid = resolveClientId(formTrip);
+    const cid = data.clientId || resolveClientId(formTrip);
     if (!cid) throw new Error('No client ID — cannot save trip.');
     if (formTrip?.id) {
       await updateTrip(cid, formTrip.id, data);

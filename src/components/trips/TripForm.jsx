@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus, Trash2, ChevronDown, ChevronUp,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
 } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
 
 const SECTOR_TYPES = {
@@ -15,9 +17,10 @@ const SECTOR_TYPES = {
   other:         { label: 'Other',          Icon: MoreHorizontal },
 };
 
-const CABIN_CLASSES   = ['Economy', 'Premium Economy', 'Business', 'First'];
-const TRANSFER_TYPES  = ['Taxi', 'Ride Share', 'Private Car', 'Shuttle', 'Accessible Vehicle', 'Other'];
-const MEAL_TYPES      = ['Breakfast', 'Morning Tea', 'Lunch', 'Afternoon Tea', 'Dinner', 'Event Catering'];
+const DEFAULT_TRIP_TYPES = ['Self-Managed', 'STX-Managed', 'Group Event'];
+const CABIN_CLASSES  = ['Economy', 'Premium Economy', 'Business', 'First'];
+const TRANSFER_TYPES = ['Taxi', 'Ride Share', 'Private Car', 'Shuttle', 'Accessible Vehicle', 'Other'];
+const MEAL_TYPES     = ['Breakfast', 'Morning Tea', 'Lunch', 'Afternoon Tea', 'Dinner', 'Event Catering'];
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 const lbl = 'block text-xs font-medium text-gray-500 mb-1';
@@ -65,6 +68,9 @@ function FlightFields({ s, upd }) {
           {CABIN_CLASSES.map(c => <option key={c}>{c}</option>)}
         </select>
       </F>
+      <F label="Baggage allowance">
+        <input className={inp} value={s.baggageAllowance || ''} onChange={e => upd('baggageAllowance', e.target.value)} placeholder="e.g. 23kg / 1 piece" />
+      </F>
       <F label="Cost (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
@@ -93,11 +99,14 @@ function AccommodationFields({ s, upd }) {
       <F label="Room type">
         <input className={inp} value={s.roomType || ''} onChange={e => upd('roomType', e.target.value)} placeholder="Accessible King Room" />
       </F>
-      <F label={`Cost per night (AUD)${nights != null ? ` · ${nights} night${nights !== 1 ? 's' : ''}` : ''}`}>
+      <F label={`Total cost of stay (AUD)${nights != null ? ` · ${nights} night${nights !== 1 ? 's' : ''}` : ''}`}>
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
       </F>
       <F label="Booking reference" span2>
         <input className={inp} value={s.bookingRef || ''} onChange={e => upd('bookingRef', e.target.value)} placeholder="BK12345" />
+      </F>
+      <F label="Inclusions" span2>
+        <input className={inp} value={s.inclusions || ''} onChange={e => upd('inclusions', e.target.value)} placeholder="e.g. Breakfast, parking, Wi-Fi" />
       </F>
       <F label="Notes / special requirements" span2>
         <textarea className={inp} rows={2} value={s.notes || ''} onChange={e => upd('notes', e.target.value)} placeholder="e.g. roll-in shower, ground floor, carer room required" />
@@ -132,6 +141,9 @@ function CarHireFields({ s, upd }) {
       </F>
       <F label="Cost (AUD)">
         <input type="number" min="0" step="0.01" className={inp} value={s.cost || ''} onChange={e => upd('cost', e.target.value)} placeholder="0.00" />
+      </F>
+      <F label="Inclusions" span2>
+        <input className={inp} value={s.inclusions || ''} onChange={e => upd('inclusions', e.target.value)} placeholder="e.g. Unlimited km, insurance, GPS" />
       </F>
       <F label="Notes / special requirements" span2>
         <textarea className={inp} rows={2} value={s.notes || ''} onChange={e => upd('notes', e.target.value)} />
@@ -341,16 +353,27 @@ function SectorCard({ sector, index, onChange, onRemove }) {
 // ── Main TripForm ─────────────────────────────────────────────────────────────
 
 const EMPTY = {
-  title: '', travellerName: '', tripType: '', costCentre: '',
+  clientId: '', title: '', travellerName: '', tripType: '', costCentre: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
 };
 
-export default function TripForm({ trip, clientId, onSave, onCancel }) {
+export default function TripForm({ trip, clientId: clientIdProp, onSave, onCancel }) {
   const { clientConfig, isSTX } = useTenant();
+  const [clients, setClients] = useState([]);
+
+  // Load client list for STX users so they can assign a trip to a client
+  useEffect(() => {
+    if (!isSTX) return;
+    const unsub = onSnapshot(collection(db, 'clients'), snap => {
+      setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+    });
+    return unsub;
+  }, [isSTX]);
 
   const [form, setForm] = useState(() => {
-    if (!trip) return EMPTY;
+    if (!trip) return { ...EMPTY, clientId: clientIdProp || '' };
     return {
+      clientId:      trip.clientId      || clientIdProp || '',
       title:         trip.title         || '',
       travellerName: trip.travellerName || '',
       tripType:      trip.tripType      || '',
@@ -368,7 +391,9 @@ export default function TripForm({ trip, clientId, onSave, onCancel }) {
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const tripTypes   = clientConfig?.dropdowns?.tripTypes   || [];
+  const tripTypes   = clientConfig?.dropdowns?.tripTypes?.length
+    ? clientConfig.dropdowns.tripTypes
+    : DEFAULT_TRIP_TYPES;
   const costCentres = clientConfig?.dropdowns?.costCentres || [];
 
   const updateSector = (i, updated) =>
@@ -380,17 +405,11 @@ export default function TripForm({ trip, clientId, onSave, onCancel }) {
   const addSector = () =>
     setForm(p => ({ ...p, sectors: [...p.sectors, { _key: Math.random().toString(36).slice(2), type: '' }] }));
 
-  const totalCost = form.sectors.reduce((sum, s) => {
-    const c = parseFloat(s.cost) || 0;
-    if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
-      const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
-      return sum + c * nights;
-    }
-    return sum + c;
-  }, 0);
+  const totalCost = form.sectors.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
 
   const handleSave = async (submitForApproval = false) => {
     setError('');
+    if (isSTX && !form.clientId) return setError('Please select a client for this trip.');
     if (!form.title.trim())         return setError('Trip title is required.');
     if (!form.travellerName.trim()) return setError('Traveller name is required.');
 
@@ -409,7 +428,7 @@ export default function TripForm({ trip, clientId, onSave, onCancel }) {
         status = 'draft';
       }
 
-      await onSave({ ...form, sectors, clientId, status, totalCost });
+      await onSave({ ...form, sectors, status, totalCost });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -421,6 +440,21 @@ export default function TripForm({ trip, clientId, onSave, onCancel }) {
 
   return (
     <div className="space-y-5">
+      {/* Client selector — STX users only */}
+      {isSTX && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <label className={lbl}>Client *</label>
+          <select
+            className={inp}
+            value={form.clientId}
+            onChange={e => set('clientId', e.target.value)}
+          >
+            <option value="">Select client…</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* Common fields */}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
@@ -435,7 +469,16 @@ export default function TripForm({ trip, clientId, onSave, onCancel }) {
 
         <div>
           <label className={lbl}>Traveller name *</label>
-          <input className={inp} value={form.travellerName} onChange={e => set('travellerName', e.target.value)} placeholder="Full name" />
+          <input
+            className={inp}
+            value={form.travellerName}
+            onChange={e => set('travellerName', e.target.value)}
+            placeholder="Type name or select from profiles"
+            list="trip-form-passengers"
+            autoComplete="off"
+          />
+          {/* datalist will be populated from passenger profiles in Phase 5 */}
+          <datalist id="trip-form-passengers" />
         </div>
 
         <div>
