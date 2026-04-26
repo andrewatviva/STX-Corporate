@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
+import { useTeamScope, filterTripsByScope } from '../hooks/useTeamScope';
 import { STATUS_CONFIG, StatusBadge, getDisplayStatus, calcTripExGST } from '../components/trips/TripList';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -90,10 +91,14 @@ export default function Dashboard() {
   const { clientConfig, isSTX, clientId, activeClientId, clientsList } = useTenant();
   const navigate = useNavigate();
 
-  const { trips, loading } = useTrips(clientId, isSTX, activeClientId);
+  const { trips: allTrips, loading } = useTrips(clientId, isSTX, activeClientId);
 
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
+
+  const effectiveClientId = activeClientId || clientId;
+  const scope = useTeamScope(userProfile, effectiveClientId);
+  const trips = useMemo(() => filterTripsByScope(allTrips, scope, userProfile), [allTrips, scope, userProfile]);
 
   const activeClient = clientsList?.find(c => c.id === activeClientId);
   const title = isSTX

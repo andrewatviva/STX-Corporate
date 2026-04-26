@@ -172,8 +172,19 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   }, [isSTX, clientId]);
 
   const role = userProfile?.role;
-  const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
+
+  // Determine if this user can approve THIS specific trip.
+  // client_approver respects their approveFor list (empty = all).
+  const isApprover = (() => {
+    if (['stx_admin', 'stx_ops'].includes(role)) return true;
+    if (role !== 'client_approver') return false;
+    const approveFor = userProfile?.approveFor || [];
+    if (approveFor.length === 0) return true;
+    // Check by travellerId (preferred) then by travellerName
+    if (trip.travellerId) return approveFor.includes(trip.travellerId);
+    return false; // can't determine without travellerId — don't show button
+  })();
   // client_ops and client_approver can book self-managed trips on behalf of travellers
   const canBook = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver', 'client_traveller'].includes(role);
 

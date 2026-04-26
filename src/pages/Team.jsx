@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebase';
-import { Plus, Edit2, UserCheck, UserX, Mail, Trash2, Users } from 'lucide-react';
+import {
+  Plus, Edit2, UserCheck, UserX, Mail, Trash2,
+  Users, GitBranch, ChevronRight,
+} from 'lucide-react';
 import Modal from '../components/shared/Modal';
 import Toggle from '../components/shared/Toggle';
 import { ROLE_LABELS, CLIENT_ROLES } from '../utils/permissions';
@@ -11,20 +14,104 @@ import { useTenant } from '../contexts/TenantContext';
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 
-function Field({ label, children }) {
+function Field({ label, children, hint }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
       {children}
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+const ROLE_COLORS = {
+  client_ops:       'bg-blue-100 text-blue-700',
+  client_approver:  'bg-purple-100 text-purple-700',
+  client_traveller: 'bg-gray-100 text-gray-600',
+};
+
+function RoleBadge({ role }) {
+  const cls = ROLE_COLORS[role] || 'bg-gray-100 text-gray-600';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {ROLE_LABELS[role] ?? role}
+    </span>
+  );
+}
+
+function memberName(m) {
+  return [m?.firstName, m?.lastName].filter(Boolean).join(' ') || m?.email || '—';
+}
+
+// ── Hierarchy tree view ───────────────────────────────────────────────────────
+
+function TreeNode({ member, members, depth = 0 }) {
+  const memberMap = useMemo(() => Object.fromEntries(members.map(m => [m.id, m])), [members]);
+  const directReports = members.filter(m => m.managerId === member.id);
+  const approveFor = (member.approveFor || [])
+    .map(uid => memberMap[uid])
+    .filter(Boolean)
+    .map(memberName);
+
+  return (
+    <div>
+      <div className="flex items-start gap-2 py-1.5 group" style={{ paddingLeft: depth * 24 }}>
+        {depth > 0 && (
+          <span className="text-gray-300 mt-0.5 shrink-0">
+            <ChevronRight size={14} />
+          </span>
+        )}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className={`font-medium text-sm ${member.active === false ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+            {memberName(member)}
+          </span>
+          <RoleBadge role={member.role} />
+          {member.role === 'client_approver' && (
+            <span className="text-xs text-purple-500">
+              {approveFor.length > 0
+                ? `Approves for: ${approveFor.join(', ')}`
+                : 'Approves for: all team members'}
+            </span>
+          )}
+        </div>
+      </div>
+      {directReports.map(r => (
+        <TreeNode key={r.id} member={r} members={members} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
+function HierarchyView({ members }) {
+  const memberIds = new Set(members.map(m => m.id));
+  const roots = members.filter(m => !m.managerId || !memberIds.has(m.managerId));
+
+  if (roots.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400 text-sm">
+        No team members yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <p className="text-xs text-gray-400 mb-4">
+        Reporting structure — edit members to assign managers and approver delegations.
+      </p>
+      {roots.map(m => (
+        <TreeNode key={m.id} member={m} members={members} depth={0} />
+      ))}
     </div>
   );
 }
 
 // ── Create member form ────────────────────────────────────────────────────────
-function CreateMemberForm({ clientId, onCreated, onCancel }) {
+
+function CreateMemberForm({ clientId, members, onCreated, onCancel }) {
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', password: '',
-    role: 'client_traveller',
+    role: 'client_traveller', managerId: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -40,9 +127,16 @@ function CreateMemberForm({ clientId, onCreated, onCancel }) {
     setSaving(true);
     try {
       await httpsCallable(getFunctions(), 'createClientUser')({
-        ...form,
+        firstName: form.firstName,
+        lastName:  form.lastName,
+        email:     form.email,
+        password:  form.password,
+        role:      form.role,
         clientId,
       });
+      // Set managerId separately via Firestore (Cloud Function handles user creation)
+      // managerId will be set after we know the new user's UID
+      // For now, created users can have their manager set via Edit
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -72,6 +166,14 @@ function CreateMemberForm({ clientId, onCreated, onCancel }) {
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
+      <Field label="Reports to" hint="You can also set this via Edit after creating the member.">
+        <select className={inp} value={form.managerId} onChange={e => set('managerId', e.target.value)}>
+          <option value="">No manager</option>
+          {members.map(m => (
+            <option key={m.id} value={m.id}>{memberName(m)} — {ROLE_LABELS[m.role] ?? m.role}</option>
+          ))}
+        </select>
+      </Field>
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex justify-end gap-3 pt-1">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
@@ -84,20 +186,31 @@ function CreateMemberForm({ clientId, onCreated, onCancel }) {
 }
 
 // ── Edit member form ──────────────────────────────────────────────────────────
-function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
+
+function EditMemberForm({ user, members, canDelete, onSaved, onDeleted, onCancel }) {
   const [form, setForm] = useState({
-    firstName: user.firstName || '',
-    lastName:  user.lastName  || '',
-    role:      user.role      || 'client_traveller',
-    active:    user.active !== false,
+    firstName:  user.firstName  || '',
+    lastName:   user.lastName   || '',
+    role:       user.role       || 'client_traveller',
+    active:     user.active !== false,
+    managerId:  user.managerId  || '',
+    approveFor: user.approveFor || [],
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetLink, setResetLink] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError]         = useState('');
+  const [error, setError] = useState('');
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // Other members in same client (exclude self)
+  const otherMembers = members.filter(m => m.id !== user.id);
+
+  const toggleApproveFor = (uid) => {
+    const current = form.approveFor || [];
+    set('approveFor', current.includes(uid) ? current.filter(id => id !== uid) : [...current, uid]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,6 +218,7 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
     if (!form.firstName.trim()) return setError('First name is required.');
     setSaving(true);
     try {
+      // Cloud Function handles name/role/active (may affect Auth claims)
       await httpsCallable(getFunctions(), 'updateClientUser')({
         targetUid: user.id,
         updates: {
@@ -113,6 +227,11 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
           role:      form.role,
           active:    form.active,
         },
+      });
+      // Direct Firestore update for hierarchy metadata
+      await updateDoc(doc(db, 'users', user.id), {
+        managerId:  form.managerId || null,
+        approveFor: form.role === 'client_approver' ? (form.approveFor || []) : [],
       });
       onSaved();
     } catch (err) {
@@ -145,10 +264,11 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
   };
 
   if (confirmDelete) {
-    const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
     return (
       <div className="space-y-4">
-        <p className="text-sm text-gray-700">Permanently delete <strong>{name}</strong> ({user.email})?</p>
+        <p className="text-sm text-gray-700">
+          Permanently delete <strong>{memberName(user)}</strong> ({user.email})?
+        </p>
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
           This cannot be undone. All portal access will be revoked immediately.
         </p>
@@ -165,6 +285,7 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Name */}
       <div className="grid grid-cols-2 gap-3">
         <Field label="First name *">
           <input className={inp} value={form.firstName} onChange={e => set('firstName', e.target.value)} />
@@ -176,11 +297,68 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
       <Field label="Email">
         <input className={`${inp} bg-gray-50`} value={user.email} readOnly />
       </Field>
+
+      {/* Role */}
       <Field label="Role">
         <select className={inp} value={form.role} onChange={e => set('role', e.target.value)}>
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
+
+      {/* Reporting structure */}
+      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+        <p className="text-sm font-semibold text-gray-700">Reporting structure</p>
+
+        <Field label="Reports to" hint="Who this person's travel is managed by.">
+          <select className={inp} value={form.managerId} onChange={e => set('managerId', e.target.value)}>
+            <option value="">No manager (top level)</option>
+            {otherMembers.map(m => (
+              <option key={m.id} value={m.id}>
+                {memberName(m)} — {ROLE_LABELS[m.role] ?? m.role}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Approver delegation — only shown for client_approver role */}
+        {form.role === 'client_approver' && (
+          <Field
+            label="Can approve travel for"
+            hint="Leave all unchecked to allow approving for any team member."
+          >
+            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!form.approveFor || form.approveFor.length === 0}
+                  onChange={() => set('approveFor', [])}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-700 font-medium">All team members</span>
+              </label>
+              <div className="pl-2 space-y-1.5">
+                {otherMembers.map(m => {
+                  const checked = (form.approveFor || []).includes(m.id);
+                  return (
+                    <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleApproveFor(m.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700">{memberName(m)}</span>
+                      <RoleBadge role={m.role} />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </Field>
+        )}
+      </div>
+
+      {/* Active toggle */}
       <Toggle checked={form.active} onChange={v => set('active', v)} label="Active account" description="Inactive users cannot log in" />
 
       {/* Password reset */}
@@ -189,7 +367,7 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
         {resetLink ? (
           <div className="space-y-2">
             <p className="text-xs text-green-700 bg-green-50 rounded p-2">
-              Reset link generated. Copy and share — expires in 1 hour.
+              Reset link generated — copy and share with the user. Expires in 1 hour.
             </p>
             <div className="flex gap-2">
               <input readOnly value={resetLink} className={`${inp} text-xs font-mono`} />
@@ -209,6 +387,7 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
+
       <div className="flex items-center justify-between pt-1">
         {canDelete ? (
           <button type="button" onClick={() => setConfirmDelete(true)}
@@ -227,23 +406,8 @@ function EditMemberForm({ user, canDelete, onSaved, onDeleted, onCancel }) {
   );
 }
 
-// ── Role badge ────────────────────────────────────────────────────────────────
-const ROLE_COLORS = {
-  client_ops:       'bg-blue-100 text-blue-700',
-  client_approver:  'bg-purple-100 text-purple-700',
-  client_traveller: 'bg-gray-100 text-gray-600',
-};
-
-function RoleBadge({ role }) {
-  const cls = ROLE_COLORS[role] || 'bg-gray-100 text-gray-600';
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {ROLE_LABELS[role] ?? role}
-    </span>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
+
 export default function Team() {
   const { userProfile } = useAuth();
   const { isSTX, clientId, activeClientId, clientsList } = useTenant();
@@ -251,12 +415,12 @@ export default function Team() {
   const role = userProfile?.role;
   const isAdmin = role === 'stx_admin';
 
-  // Effective client: STX uses activeClientId, client users use own clientId
   const effectiveClientId = isSTX ? activeClientId : clientId;
   const activeClientName  = clientsList?.find(c => c.id === activeClientId)?.name;
 
   const [members, setMembers]   = useState([]);
   const [loading, setLoading]   = useState(false);
+  const [tab, setTab]           = useState('members'); // 'members' | 'hierarchy'
   const [showCreate, setCreate] = useState(false);
   const [editing, setEditing]   = useState(null);
 
@@ -267,20 +431,13 @@ export default function Team() {
     const unsub = onSnapshot(q, snap => {
       const list = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const an = [a.firstName, a.lastName].filter(Boolean).join(' ') || a.email;
-          const bn = [b.firstName, b.lastName].filter(Boolean).join(' ') || b.email;
-          return an.localeCompare(bn);
-        });
+        .sort((a, b) => memberName(a).localeCompare(memberName(b)));
       setMembers(list);
       setLoading(false);
     });
     return unsub;
   }, [effectiveClientId]);
 
-  const closeEdit = () => setEditing(null);
-
-  // STX users who haven't selected a client yet
   if (isSTX && !activeClientId) {
     return (
       <div>
@@ -294,21 +451,36 @@ export default function Team() {
     );
   }
 
-  const heading = isSTX && activeClientName
-    ? `${activeClientName} — Team`
-    : 'Team';
+  const heading = isSTX && activeClientName ? `${activeClientName} — Team` : 'Team';
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-1">{heading}</h1>
-      <p className="text-gray-500 text-sm mb-6">
-        {isSTX ? 'Manage client team members and their access levels.' : 'Manage your team members and their portal access.'}
+      <p className="text-gray-500 text-sm mb-5">
+        {isSTX
+          ? 'Manage team members, reporting structure, and approver delegations.'
+          : 'Manage your team, who reports to whom, and who approves travel requests.'}
       </p>
 
+      {/* Tabs + actions */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-500">
-          {loading ? 'Loading…' : `${members.length} member${members.length !== 1 ? 's' : ''}`}
-        </p>
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setTab('members')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+              ${tab === 'members' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Users size={14} /> Members
+            <span className="text-xs text-gray-400 font-normal">({members.length})</span>
+          </button>
+          <button
+            onClick={() => setTab('hierarchy')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+              ${tab === 'hierarchy' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <GitBranch size={14} /> Hierarchy
+          </button>
+        </div>
         <button
           onClick={() => setCreate(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
@@ -317,60 +489,71 @@ export default function Team() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {!loading && members.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm">
-            No team members yet. Click "Add member" to invite someone.
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member, i) => {
-                const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || '—';
-                const isInactive = member.active === false;
-                return (
-                  <tr
-                    key={member.id}
-                    className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isInactive ? 'opacity-60' : ''}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-800">{name}</td>
-                    <td className="px-4 py-3 text-gray-500">{member.email}</td>
-                    <td className="px-4 py-3"><RoleBadge role={member.role} /></td>
-                    <td className="px-4 py-3">
-                      {isInactive
-                        ? <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} /> Inactive</span>
-                        : <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} /> Active</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setEditing(member)}
-                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                        title="Edit member"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {loading ? (
+        <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
+      ) : tab === 'hierarchy' ? (
+        <HierarchyView members={members} />
+      ) : (
+        /* Members table */
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {members.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 text-sm">
+              No team members yet. Click "Add member" to get started.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Reports to</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m, i) => {
+                  const manager = members.find(x => x.id === m.managerId);
+                  return (
+                    <tr
+                      key={m.id}
+                      className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${m.active === false ? 'opacity-60' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-800">{memberName(m)}</td>
+                      <td className="px-4 py-3 text-gray-500">{m.email}</td>
+                      <td className="px-4 py-3"><RoleBadge role={m.role} /></td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {manager ? memberName(manager) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.active === false
+                          ? <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} /> Inactive</span>
+                          : <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} /> Active</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setEditing(m)}
+                          className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                          title="Edit member"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {showCreate && (
-        <Modal title="Add team member" onClose={() => setCreate(false)}>
+        <Modal title="Add team member" onClose={() => setCreate(false)} wide>
           <CreateMemberForm
             clientId={effectiveClientId}
+            members={members}
             onCreated={() => setCreate(false)}
             onCancel={() => setCreate(false)}
           />
@@ -379,15 +562,17 @@ export default function Team() {
 
       {editing && (
         <Modal
-          title={`Edit — ${[editing.firstName, editing.lastName].filter(Boolean).join(' ') || editing.email}`}
-          onClose={closeEdit}
+          title={`Edit — ${memberName(editing)}`}
+          onClose={() => setEditing(null)}
+          wide
         >
           <EditMemberForm
             user={editing}
+            members={members}
             canDelete={isAdmin}
-            onSaved={closeEdit}
-            onDeleted={closeEdit}
-            onCancel={closeEdit}
+            onSaved={() => setEditing(null)}
+            onDeleted={() => setEditing(null)}
+            onCancel={() => setEditing(null)}
           />
         </Modal>
       )}

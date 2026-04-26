@@ -3,9 +3,10 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
 } from 'lucide-react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SECTOR_TYPES = {
   flight:        { label: 'Flight',        Icon: Plane },
@@ -365,15 +366,19 @@ function SectorCard({ sector, index, onChange, onRemove }) {
 // ── Main TripForm ─────────────────────────────────────────────────────────────
 
 const EMPTY = {
-  clientId: '', title: '', travellerName: '', tripType: '', costCentre: '',
+  clientId: '', title: '', travellerName: '', travellerId: '', tripType: '', costCentre: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
 };
 
-export default function TripForm({ trip, clientId: clientIdProp, onSave, onCancel }) {
-  const { clientConfig, isSTX } = useTenant();
-  const [clients, setClients] = useState([]);
+const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
 
-  // Load client list for STX users so they can assign a trip to a client
+export default function TripForm({ trip, clientId: clientIdProp, onSave, onCancel }) {
+  const { userProfile } = useAuth();
+  const { clientConfig, isSTX } = useTenant();
+  const [clients, setClients]         = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  // Load client list for STX users
   useEffect(() => {
     if (!isSTX) return;
     const unsub = onSnapshot(collection(db, 'clients'), snap => {
@@ -383,11 +388,19 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   }, [isSTX]);
 
   const [form, setForm] = useState(() => {
-    if (!trip) return { ...EMPTY, clientId: clientIdProp || '' };
+    // Auto-fill travellerName + travellerId for non-manager users creating their own trip
+    let autoName = '';
+    let autoId   = '';
+    if (!trip && userProfile && !MANAGER_ROLES.includes(userProfile.role)) {
+      autoName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ');
+      autoId   = userProfile.uid || '';
+    }
+    if (!trip) return { ...EMPTY, clientId: clientIdProp || '', travellerName: autoName, travellerId: autoId };
     return {
       clientId:      trip.clientId      || clientIdProp || '',
       title:         trip.title         || '',
       travellerName: trip.travellerName || '',
+      travellerId:   trip.travellerId   || '',
       tripType:      trip.tripType      || '',
       costCentre:    trip.costCentre    || '',
       purpose:       trip.purpose       || '',
@@ -397,6 +410,17 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       sectors: (trip.sectors || []).map(s => ({ ...s, _key: Math.random().toString(36).slice(2) })),
     };
   });
+
+  // Load team members for traveller autocomplete + travellerId linking
+  useEffect(() => {
+    const cid = form.clientId || clientIdProp;
+    if (!cid) return;
+    const q = query(collection(db, 'users'), where('clientId', '==', cid));
+    const unsub = onSnapshot(q, snap => {
+      setTeamMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.active !== false));
+    });
+    return unsub;
+  }, [form.clientId, clientIdProp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -484,13 +508,24 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           <input
             className={inp}
             value={form.travellerName}
-            onChange={e => set('travellerName', e.target.value)}
-            placeholder="Type name or select from profiles"
+            onChange={e => {
+              const name = e.target.value;
+              set('travellerName', name);
+              // Auto-link travellerId when name matches a known team member
+              const match = teamMembers.find(m =>
+                [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === name.toLowerCase()
+              );
+              set('travellerId', match ? match.id : '');
+            }}
+            placeholder="Type name or select from team"
             list="trip-form-passengers"
             autoComplete="off"
           />
-          {/* datalist will be populated from passenger profiles in Phase 5 */}
-          <datalist id="trip-form-passengers" />
+          <datalist id="trip-form-passengers">
+            {teamMembers.map(m => (
+              <option key={m.id} value={[m.firstName, m.lastName].filter(Boolean).join(' ')} />
+            ))}
+          </datalist>
         </div>
 
         <div>

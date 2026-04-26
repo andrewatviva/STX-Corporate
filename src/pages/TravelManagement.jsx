@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { arrayUnion, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSearchParams } from 'react-router-dom';
@@ -9,6 +9,7 @@ import TripList from '../components/trips/TripList';
 import TripForm from '../components/trips/TripForm';
 import TripDetail from '../components/trips/TripDetail';
 import Modal from '../components/shared/Modal';
+import { useTeamScope, filterTripsByScope } from '../hooks/useTeamScope';
 
 // ── trip diff helpers (module level — no closure dependencies) ───────────────
 const SECTOR_LABELS = {
@@ -72,7 +73,11 @@ export default function TravelManagement() {
   const { userProfile } = useAuth();
   const { clientId, isSTX, clientConfig, activeClientId, activeClientConfig } = useTenant();
 
-  const { trips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX, activeClientId);
+  const { trips: allTrips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX, activeClientId);
+
+  const effectiveClientId = activeClientId || clientId;
+  const scope = useTeamScope(userProfile, effectiveClientId);
+  const trips = useMemo(() => filterTripsByScope(allTrips, scope, userProfile), [allTrips, scope, userProfile]);
 
   const [searchParams] = useSearchParams();
   const [view, setView]             = useState('list');   // 'list' | 'detail'
