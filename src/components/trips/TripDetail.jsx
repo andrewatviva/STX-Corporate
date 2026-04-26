@@ -149,18 +149,30 @@ function SectorCard({ sector, index }) {
   );
 }
 
-export default function TripDetail({ trip, clientId, onBack, onEdit, onStatusChange, onUpdate }) {
+export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, onStatusChange, onUpdate }) {
   const { userProfile } = useAuth();
   const { isSTX, clientConfig } = useTenant();
   const [acting, setActing] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [showDeclineInput, setShowDeclineInput] = useState(false);
+  const [showAmendPrompt, setShowAmendPrompt] = useState(false);
 
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
   // client_ops and client_approver can book self-managed trips on behalf of travellers
   const canBook = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver', 'client_traveller'].includes(role);
+
+  // Amendment fee applicability
+  const isDraftOrDeclined = ['draft', 'declined'].includes(trip.status);
+  const feeConfig = clientConfig?.fees;
+  const amendFeeAmount  = feeConfig?.amendmentFeeAmount || 0;
+  const amendFeeGST     = parseFloat((amendFeeAmount * (1 + (feeConfig?.gstRate ?? 0.1))).toFixed(2));
+  const amendFeeAppliesTo = feeConfig?.amendmentFeeAppliesTo || [];
+  const amendmentFeeApplies = !isDraftOrDeclined
+    && feeConfig?.amendmentFeeEnabled
+    && amendFeeAmount > 0
+    && (amendFeeAppliesTo.length === 0 || amendFeeAppliesTo.includes(trip.tripType));
 
   const act = async (newStatus, extra = {}) => {
     setActing(true);
@@ -193,13 +205,21 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onStatusCha
           <ArrowLeft size={15} /> Back to trips
         </button>
         <div className="ml-auto flex items-center gap-2">
-          {/* Edit — only on draft or declined */}
-          {canEdit && trip.status !== 'cancelled' && (
+          {/* Draft/Declined → plain Edit; submitted/approved/booked → Amend (with fee prompt) */}
+          {canEdit && trip.status !== 'cancelled' && isDraftOrDeclined && (
             <button
               onClick={() => onEdit(trip)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
             >
               <Edit2 size={13} /> Edit
+            </button>
+          )}
+          {canEdit && trip.status !== 'cancelled' && !isDraftOrDeclined && (
+            <button
+              onClick={() => setShowAmendPrompt(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
+            >
+              <Edit2 size={13} /> Amend
             </button>
           )}
 
@@ -261,6 +281,54 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onStatusCha
           )}
         </div>
       </div>
+
+      {/* Amend prompt — fee decision before opening form */}
+      {showAmendPrompt && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm font-medium text-amber-800 mb-2">Amend trip</p>
+          {amendmentFeeApplies ? (
+            <p className="text-sm text-amber-700 mb-3">
+              An amendment fee of <strong>A${amendFeeAmount.toFixed(2)} ex-GST</strong> (A${amendFeeGST.toFixed(2)} inc. GST)
+              applies to <strong>{trip.tripType}</strong> trips. Would you like to include it?
+            </p>
+          ) : (
+            <p className="text-sm text-amber-700 mb-3">
+              This will open the trip for editing. The change will be recorded in the trip history.
+            </p>
+          )}
+          <div className="flex gap-2 flex-wrap">
+            {amendmentFeeApplies ? (
+              <>
+                <button
+                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: true, amount: amendFeeAmount }); }}
+                  className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
+                >
+                  Include fee (A${amendFeeAmount.toFixed(2)})
+                </button>
+                <button
+                  onClick={() => { setShowAmendPrompt(false); onAmend(trip, { apply: false, amount: amendFeeAmount }); }}
+                  className="px-3 py-1.5 border border-amber-400 text-amber-800 text-sm rounded-lg hover:bg-amber-100"
+                >
+                  Waive fee
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setShowAmendPrompt(false); onAmend(trip, null); }}
+                className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
+              >
+                Continue
+              </button>
+            )}
+            <button
+              onClick={() => setShowAmendPrompt(false)}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Decline reason input */}
       {showDeclineInput && (
