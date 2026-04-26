@@ -4,13 +4,15 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebase';
 import {
   Plus, Edit2, UserCheck, UserX, Mail, Trash2,
-  Users, GitBranch, ChevronRight,
+  Users, GitBranch, ChevronRight, User,
 } from 'lucide-react';
 import Modal from '../components/shared/Modal';
 import Toggle from '../components/shared/Toggle';
+import PassengerForm from '../components/passengers/PassengerForm';
 import { ROLE_LABELS, CLIENT_ROLES } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
+import { usePassengers } from '../hooks/usePassengers';
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 
@@ -418,11 +420,14 @@ export default function Team() {
   const effectiveClientId = isSTX ? activeClientId : clientId;
   const activeClientName  = clientsList?.find(c => c.id === activeClientId)?.name;
 
-  const [members, setMembers]   = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [tab, setTab]           = useState('members'); // 'members' | 'hierarchy'
-  const [showCreate, setCreate] = useState(false);
-  const [editing, setEditing]   = useState(null);
+  const { passengers, addPassenger, updatePassenger } = usePassengers(effectiveClientId);
+
+  const [members, setMembers]       = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [tab, setTab]               = useState('members'); // 'members' | 'hierarchy'
+  const [showCreate, setCreate]     = useState(false);
+  const [editing, setEditing]       = useState(null);
+  const [passengerFor, setPassengerFor] = useState(null); // member whose passenger profile is open
 
   useEffect(() => {
     if (!effectiveClientId) { setMembers([]); setLoading(false); return; }
@@ -509,12 +514,14 @@ export default function Team() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Reports to</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Profile</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {members.map((m, i) => {
-                  const manager = members.find(x => x.id === m.managerId);
+                  const manager    = members.find(x => x.id === m.managerId);
+                  const hasProfile = passengers.some(p => p.userId === m.id);
                   return (
                     <tr
                       key={m.id}
@@ -530,6 +537,20 @@ export default function Team() {
                         {m.active === false
                           ? <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} /> Inactive</span>
                           : <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} /> Active</span>}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <button
+                          onClick={() => setPassengerFor(m)}
+                          className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border ${
+                            hasProfile
+                              ? 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                              : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                          }`}
+                          title={hasProfile ? 'Edit passenger profile' : 'Create passenger profile'}
+                        >
+                          <User size={12} />
+                          {hasProfile ? 'View / edit' : 'Add profile'}
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -576,6 +597,40 @@ export default function Team() {
           />
         </Modal>
       )}
+
+      {passengerFor && (() => {
+        const existingProfile = passengers.find(p => p.userId === passengerFor.id);
+        const prefilled = existingProfile || {
+          firstName: passengerFor.firstName || '',
+          lastName:  passengerFor.lastName  || '',
+          email:     passengerFor.email     || '',
+          userId:    passengerFor.id,
+        };
+        const handlePassengerSave = async (data) => {
+          if (existingProfile) {
+            await updatePassenger(existingProfile.id, { ...data, updatedBy: userProfile.uid });
+          } else {
+            await addPassenger({ ...data, createdBy: userProfile.uid });
+          }
+          setPassengerFor(null);
+        };
+        return (
+          <Modal
+            title={existingProfile
+              ? `Passenger profile — ${memberName(passengerFor)}`
+              : `New passenger profile — ${memberName(passengerFor)}`}
+            onClose={() => setPassengerFor(null)}
+            wide
+          >
+            <PassengerForm
+              passenger={prefilled}
+              teamMembers={members}
+              onSave={handlePassengerSave}
+              onCancel={() => setPassengerFor(null)}
+            />
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

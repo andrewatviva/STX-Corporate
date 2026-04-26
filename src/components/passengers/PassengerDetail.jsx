@@ -173,19 +173,29 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
       )}
 
       {/* Travel preferences */}
-      {(p.seatPreference || p.mealPreference || p.frequentFlyer?.length > 0 || p.travelNotes) && (
+      {(p.seatPreference || p.mealPreference || p.loyaltyPrograms?.length > 0 || p.frequentFlyer?.length > 0 || p.travelNotes) && (
         <Section title="Travel preferences">
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {p.seatPreference && <Field label="Seat preference" value={p.seatPreference} />}
               {p.mealPreference && <Field label="Meal preference" value={p.mealPreference} />}
             </div>
-            {p.frequentFlyer?.length > 0 && (
+            {(p.loyaltyPrograms?.length > 0 || p.frequentFlyer?.length > 0) && (
               <div>
-                <p className={lbl}>Frequent flyer numbers</p>
+                <p className={lbl}>Loyalty programs</p>
                 <div className="space-y-1 mt-1">
-                  {p.frequentFlyer.map((ff, i) => (
-                    <p key={i} className={val}>{ff.airline} — {ff.number}</p>
+                  {(p.loyaltyPrograms || []).map((lp, i) => (
+                    <p key={i} className={val}>
+                      <span className="text-xs text-gray-400 mr-2">{lp.type}</span>
+                      {lp.program} — {lp.number}
+                    </p>
+                  ))}
+                  {/* backward compat for old frequentFlyer field */}
+                  {!p.loyaltyPrograms && (p.frequentFlyer || []).map((ff, i) => (
+                    <p key={i} className={val}>
+                      <span className="text-xs text-gray-400 mr-2">Airline</span>
+                      {ff.airline} — {ff.number}
+                    </p>
                   ))}
                 </div>
               </div>

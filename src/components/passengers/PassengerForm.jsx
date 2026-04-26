@@ -63,6 +63,8 @@ function CheckGroup({ options, value = [], onChange }) {
   );
 }
 
+const LOYALTY_TYPES = ['Airline', 'Hotel / Accommodation', 'Car Rental', 'Rail', 'Other'];
+
 const WHEELCHAIR_AIDS = ['Manual Wheelchair', 'Power Wheelchair'];
 
 const WHEELCHAIR_TRANSFERS = [
@@ -81,7 +83,7 @@ const EMPTY = {
   wheelchairTransfer: '', wheelchairModel: '', wheelchairDimensions: '',
   wheelchairWeight: '', wheelchairBatteryModel: '',
   dietaryRequirements: [], allergyNotes: '', medicalNotes: '', supportNotes: '',
-  seatPreference: '', mealPreference: '', frequentFlyer: [], travelNotes: '',
+  seatPreference: '', mealPreference: '', loyaltyPrograms: [], travelNotes: '',
   userId: '',
 };
 
@@ -119,7 +121,8 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
       supportNotes:         passenger.supportNotes         || '',
       seatPreference:       passenger.seatPreference       || '',
       mealPreference:       passenger.mealPreference       || '',
-      frequentFlyer:        passenger.frequentFlyer        || [],
+      loyaltyPrograms:      passenger.loyaltyPrograms      ||
+        (passenger.frequentFlyer?.map(ff => ({ type: 'Airline', program: ff.airline || '', number: ff.number || '' })) ?? []),
       travelNotes:          passenger.travelNotes          || '',
       userId:               passenger.userId               || '',
     };
@@ -135,10 +138,10 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
   const updateDoc = (i, k, v) => set('identityDocuments', form.identityDocuments.map((d, j) => j === i ? { ...d, [k]: v } : d));
   const removeDoc = (i) => set('identityDocuments', form.identityDocuments.filter((_, j) => j !== i));
 
-  // Frequent flyer
-  const addFF = () => set('frequentFlyer', [...form.frequentFlyer, { airline: '', number: '' }]);
-  const updateFF = (i, k, v) => set('frequentFlyer', form.frequentFlyer.map((f, j) => j === i ? { ...f, [k]: v } : f));
-  const removeFF = (i) => set('frequentFlyer', form.frequentFlyer.filter((_, j) => j !== i));
+  // Loyalty programs
+  const addLP    = () => set('loyaltyPrograms', [...form.loyaltyPrograms, { type: LOYALTY_TYPES[0], program: '', number: '' }]);
+  const updateLP = (i, k, v) => set('loyaltyPrograms', form.loyaltyPrograms.map((lp, j) => j === i ? { ...lp, [k]: v } : lp));
+  const removeLP = (i) => set('loyaltyPrograms', form.loyaltyPrograms.filter((_, j) => j !== i));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -348,18 +351,25 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
         </div>
 
         <div className="space-y-2">
-          <label className={lbl}>Frequent flyer numbers</label>
-          {form.frequentFlyer.map((ff, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <input className={inp} value={ff.airline} onChange={e => updateFF(i, 'airline', e.target.value)} placeholder="Airline" />
-              <input className={inp} value={ff.number} onChange={e => updateFF(i, 'number', e.target.value)} placeholder="Member number" />
-              <button type="button" onClick={() => removeFF(i)} className="p-1 text-gray-400 hover:text-red-500 shrink-0">
+          <label className={lbl}>Loyalty programs</label>
+          {form.loyaltyPrograms.map((lp, i) => (
+            <div key={i} className="grid grid-cols-[140px_1fr_1fr_auto] gap-2 items-center">
+              <select
+                className={inp}
+                value={lp.type}
+                onChange={e => updateLP(i, 'type', e.target.value)}
+              >
+                {LOYALTY_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+              <input className={inp} value={lp.program} onChange={e => updateLP(i, 'program', e.target.value)} placeholder="Program name" />
+              <input className={inp} value={lp.number} onChange={e => updateLP(i, 'number', e.target.value)} placeholder="Member number" />
+              <button type="button" onClick={() => removeLP(i)} className="p-1 text-gray-400 hover:text-red-500 shrink-0">
                 <Trash2 size={14} />
               </button>
             </div>
           ))}
-          <button type="button" onClick={addFF} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800">
-            <Plus size={14} /> Add frequent flyer
+          <button type="button" onClick={addLP} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800">
+            <Plus size={14} /> Add loyalty program
           </button>
         </div>
 
