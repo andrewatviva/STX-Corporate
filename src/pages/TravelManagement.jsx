@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { arrayUnion } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
@@ -21,14 +22,29 @@ export default function TravelManagement() {
   const role = userProfile?.role;
   const canCreate = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
 
-  // Resolve the clientId to write to (STX creates trips under the correct tenant)
+  // Keep selectedTrip in sync with live Firestore data
+  useEffect(() => {
+    if (!selectedTrip) return;
+    const live = trips.find(t => t.id === selectedTrip.id);
+    if (live) setSelected(live);
+  }, [trips]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const resolveClientId = (trip) => trip?.clientId || clientId || '';
+
+  const makeAmendment = (type, extra = {}) => ({
+    at: new Date().toISOString(),
+    by: userProfile?.uid || '',
+    byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+    type,
+    ...extra,
+  });
 
   const handleSave = async (data) => {
     const cid = data.clientId || resolveClientId(formTrip);
     if (!cid) throw new Error('No client ID — cannot save trip.');
     if (formTrip?.id) {
-      await updateTrip(cid, formTrip.id, data);
+      const amendment = makeAmendment('edit', { note: 'Trip details updated' });
+      await updateTrip(cid, formTrip.id, { ...data, amendments: arrayUnion(amendment) });
     } else {
       await addTrip(cid, { ...data, createdBy: userProfile?.uid || '' });
     }
@@ -37,9 +53,18 @@ export default function TravelManagement() {
 
   const handleStatusChange = async (trip, newStatus, extra = {}) => {
     const cid = resolveClientId(trip);
-    await updateTrip(cid, trip.id, { status: newStatus, ...extra });
-    // Refresh the selected trip in the detail view
-    setSelected(prev => prev?.id === trip.id ? { ...prev, status: newStatus, ...extra } : prev);
+    const amendment = makeAmendment('status_change', {
+      from: trip.status,
+      to: newStatus,
+      ...(extra.declineReason ? { note: extra.declineReason } : {}),
+    });
+    await updateTrip(cid, trip.id, { status: newStatus, ...extra, amendments: arrayUnion(amendment) });
+  };
+
+  const handleUpdate = async (data) => {
+    if (!selectedTrip) return;
+    const cid = resolveClientId(selectedTrip);
+    await updateTrip(cid, selectedTrip.id, data);
   };
 
   const handleDelete = async (trip) => {
@@ -85,9 +110,11 @@ export default function TravelManagement() {
       {view === 'detail' && selectedTrip && (
         <TripDetail
           trip={selectedTrip}
+          clientId={resolveClientId(selectedTrip)}
           onBack={() => { setView('list'); setSelected(null); }}
           onEdit={openEdit}
           onStatusChange={handleStatusChange}
+          onUpdate={handleUpdate}
         />
       )}
 

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock,
+  Lock, Clock,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { StatusBadge, getDisplayStatus } from './TripList';
+import Attachments from './Attachments';
 
 const SECTOR_ICONS = {
   flight:        Plane,
@@ -30,6 +31,10 @@ const SECTOR_LABELS = {
 
 function fmt(val) {
   return val || '—';
+}
+
+function fmtStatus(s) {
+  return (s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function Row({ label, value }) {
@@ -144,7 +149,7 @@ function SectorCard({ sector, index }) {
   );
 }
 
-export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
+export default function TripDetail({ trip, clientId, onBack, onEdit, onStatusChange, onUpdate }) {
   const { userProfile } = useAuth();
   const { isSTX, clientConfig } = useTenant();
   const [acting, setActing] = useState(false);
@@ -356,6 +361,43 @@ export default function TripDetail({ trip, onBack, onEdit, onStatusChange }) {
           <div className="space-y-3">
             {trip.sectors.map((s, i) => (
               <SectorCard key={i} sector={s} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Attachments */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+        <Attachments
+          trip={trip}
+          clientId={clientId}
+          onUpdate={onUpdate}
+          canEdit={canEdit && trip.status !== 'cancelled'}
+        />
+      </div>
+
+      {/* Amendment history */}
+      {(trip.amendments || []).length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
+            <Clock size={13} className="text-gray-400" />
+            History
+          </h3>
+          <div className="space-y-2.5">
+            {[...(trip.amendments || [])].reverse().map((a, i) => (
+              <div key={i} className="flex gap-3 text-xs">
+                <span className="text-gray-400 shrink-0 w-20 pt-0.5">
+                  {a.at ? new Date(a.at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
+                </span>
+                <span className="text-gray-600 leading-relaxed">
+                  {a.type === 'status_change' ? (
+                    <>Status changed to <strong>{fmtStatus(a.to)}</strong>{a.note ? ` — ${a.note}` : ''}</>
+                  ) : (
+                    a.note || 'Updated'
+                  )}
+                  {a.byName && <span className="text-gray-400"> · {a.byName}</span>}
+                </span>
+              </div>
             ))}
           </div>
         </div>
