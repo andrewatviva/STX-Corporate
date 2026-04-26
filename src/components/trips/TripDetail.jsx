@@ -77,6 +77,7 @@ function SectorCard({ sector, index }) {
       nights != null && <Row key="nights" label="Nights" value={String(nights)} />,
       <Row key="room" label="Room type" value={sector.roomType} />,
       <Row key="ref" label="Booking ref" value={sector.bookingRef} />,
+      sector.reportingCity && <Row key="rcity" label="Reporting city" value={`${sector.reportingCity} (override)`} />,
     );
   } else if (sector.type === 'car-hire') {
     rows.push(

@@ -83,10 +83,11 @@ function FlightFields({ s, upd }) {
   );
 }
 
-function AccommodationFields({ s, upd }) {
+function AccommodationFields({ s, upd, tripDestinationCity }) {
   const nights = s.checkIn && s.checkOut
     ? Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000))
     : null;
+  const hasOverride = !!s.reportingCity;
   return (
     <div className="grid grid-cols-2 gap-3">
       <F label="Property name" span2>
@@ -113,6 +114,46 @@ function AccommodationFields({ s, upd }) {
       <F label="Notes / special requirements" span2>
         <textarea className={inp} rows={2} value={s.notes || ''} onChange={e => upd('notes', e.target.value)} placeholder="e.g. roll-in shower, ground floor, carer room required" />
       </F>
+
+      {/* Reporting city — defaults to trip destination, override per-sector for multi-city trips */}
+      <div className="col-span-2">
+        <div className="flex items-center justify-between mb-1">
+          <label className={lbl}>Reporting city (hotel spend)</label>
+          {hasOverride ? (
+            <button
+              type="button"
+              onClick={() => upd('reportingCity', '')}
+              className="text-xs text-gray-400 hover:text-gray-700"
+            >
+              Use trip destination
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => upd('reportingCity', tripDestinationCity || '')}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              Override
+            </button>
+          )}
+        </div>
+        {hasOverride ? (
+          <input
+            className={inp}
+            list="trip-form-cities"
+            value={s.reportingCity}
+            onChange={e => upd('reportingCity', e.target.value)}
+            placeholder="e.g. Canberra"
+            autoComplete="off"
+          />
+        ) : (
+          <p className="text-xs text-gray-500 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+            {tripDestinationCity
+              ? <>Using trip destination: <strong>{tripDestinationCity}</strong></>
+              : <span className="text-gray-400">No trip destination set — add one above or override here.</span>}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -277,7 +318,7 @@ function sectorSummary(s) {
 
 // ── Sector card ───────────────────────────────────────────────────────────────
 
-function SectorCard({ sector, index, onChange, onRemove }) {
+function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity }) {
   const [expanded, setExpanded] = useState(!sector.type);
   const cfg = SECTOR_TYPES[sector.type];
   const Icon = cfg?.Icon;
@@ -286,7 +327,7 @@ function SectorCard({ sector, index, onChange, onRemove }) {
 
   const fields = {
     flight:        <FlightFields s={sector} upd={upd} />,
-    accommodation: <AccommodationFields s={sector} upd={upd} />,
+    accommodation: <AccommodationFields s={sector} upd={upd} tripDestinationCity={tripDestinationCity} />,
     'car-hire':    <CarHireFields s={sector} upd={upd} />,
     parking:       <ParkingFields s={sector} upd={upd} />,
     transfers:     <TransfersFields s={sector} upd={upd} />,
@@ -684,6 +725,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               index={i}
               onChange={updated => updateSector(i, updated)}
               onRemove={() => removeSector(i)}
+              tripDestinationCity={form.destinationCity}
             />
           ))}
         </div>
