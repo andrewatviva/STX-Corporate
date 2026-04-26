@@ -36,6 +36,67 @@ export default function TravelManagement() {
 
   const resolveClientId = (trip) => trip?.clientId || clientId || '';
 
+  // ── trip diff helpers ──────────────────────────────────────────────────────
+  const SECTOR_LABELS = {
+    flight: 'Flight', accommodation: 'Accommodation', 'car-hire': 'Car hire',
+    parking: 'Parking', transfers: 'Transfers', meals: 'Meals', other: 'Other',
+  };
+
+  function calcSectorCost(sectors) {
+    return (sectors || []).reduce((sum, s) => {
+      const c = parseFloat(s.cost) || 0;
+      if (s.type === 'accommodation' && s.checkIn && s.checkOut) {
+        const nights = Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000));
+        return sum + c * nights;
+      }
+      return sum + c;
+    }, 0);
+  }
+
+  function diffTrip(oldTrip, newData) {
+    const changes = [];
+
+    // Simple field comparisons
+    const fields = [
+      ['title', 'Title'], ['tripType', 'Trip type'], ['travellerName', 'Traveller'],
+      ['startDate', 'Start date'], ['endDate', 'End date'], ['costCentre', 'Cost centre'],
+    ];
+    for (const [field, label] of fields) {
+      const o = (oldTrip[field] || '').toString().trim();
+      const n = (newData[field] || '').toString().trim();
+      if (o !== n) {
+        if (!o)      changes.push(`${label} set to "${n}"`);
+        else if (!n) changes.push(`${label} cleared`);
+        else         changes.push(`${label}: "${o}" → "${n}"`);
+      }
+    }
+
+    if ((oldTrip.purpose || '') !== (newData.purpose || '')) changes.push('Purpose / notes updated');
+    if ((oldTrip.internalNotes || '') !== (newData.internalNotes || '')) changes.push('Internal notes updated');
+
+    // Sector type diffs
+    const countBy = arr => (arr || []).reduce((m, s) => {
+      const t = SECTOR_LABELS[s.type] || s.type;
+      m[t] = (m[t] || 0) + 1; return m;
+    }, {});
+    const oldCounts = countBy(oldTrip.sectors);
+    const newCounts = countBy(newData.sectors);
+    for (const t of new Set([...Object.keys(oldCounts), ...Object.keys(newCounts)])) {
+      const diff = (newCounts[t] || 0) - (oldCounts[t] || 0);
+      if (diff > 0) changes.push(`${t} sector added${diff > 1 ? ` (×${diff})` : ''}`);
+      if (diff < 0) changes.push(`${t} sector removed${Math.abs(diff) > 1 ? ` (×${Math.abs(diff)})` : ''}`);
+    }
+
+    // Total cost change
+    const oldCost = calcSectorCost(oldTrip.sectors);
+    const newCost = calcSectorCost(newData.sectors);
+    if (Math.abs(oldCost - newCost) > 0.005) {
+      changes.push(`Est. cost: A$${oldCost.toFixed(2)} → A$${newCost.toFixed(2)}`);
+    }
+
+    return changes;
+  }
+
   // Load the fee config for a given client (handles STX users who have no own tenant)
   const getClientFeeConfig = async (cid) => {
     if (!isSTX) return clientConfig?.fees || {};
@@ -61,9 +122,10 @@ export default function TravelManagement() {
 
     if (formTrip?.id) {
       // Editing or amending an existing trip
+      const changes = diffTrip(formTrip, data);
       const amendExtra = isAmending
-        ? { note: 'Trip amended', ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
-        : { note: 'Trip details updated' };
+        ? { note: 'Trip amended', changes, ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
+        : { note: 'Trip details updated', changes };
       const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
       const updateData = { ...data, amendments: arrayUnion(amendment) };
 

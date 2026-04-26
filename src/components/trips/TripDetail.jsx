@@ -4,7 +4,7 @@ import {
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
   Lock, Clock, Trash2, Receipt,
 } from 'lucide-react';
-import { doc, getDoc, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -209,7 +209,18 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   }, 0);
 
   const handleDeleteFee = async (fee) => {
-    await onUpdate({ fees: arrayRemove(fee) });
+    const feeLabel = fee.label || (fee.type === 'amendment' ? 'Amendment fee' : 'Management fee');
+    await onUpdate({
+      fees: arrayRemove(fee),
+      amendments: arrayUnion({
+        at: new Date().toISOString(),
+        by: userProfile?.uid || '',
+        byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+        type: 'fee_removed',
+        note: 'Fee removed',
+        changes: [`${feeLabel} removed (A$${(fee.amount || 0).toFixed(2)} ex-GST)`],
+      }),
+    });
   };
 
   return (
@@ -508,20 +519,32 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             <Clock size={13} className="text-gray-400" />
             History
           </h3>
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {[...(trip.amendments || [])].reverse().map((a, i) => (
               <div key={i} className="flex gap-3 text-xs">
                 <span className="text-gray-400 shrink-0 w-20 pt-0.5">
                   {a.at ? new Date(a.at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                 </span>
-                <span className="text-gray-600 leading-relaxed">
-                  {a.type === 'status_change' ? (
-                    <>Status changed to <strong>{fmtStatus(a.to)}</strong>{a.note ? ` — ${a.note}` : ''}</>
-                  ) : (
-                    a.note || 'Updated'
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-600 leading-relaxed">
+                    {a.type === 'status_change' ? (
+                      <>Status changed to <strong>{fmtStatus(a.to)}</strong>{a.note ? ` — ${a.note}` : ''}</>
+                    ) : (
+                      a.note || 'Updated'
+                    )}
+                    {a.byName && <span className="text-gray-400"> · {a.byName}</span>}
+                  </p>
+                  {(a.changes || []).length > 0 && (
+                    <ul className="mt-1.5 space-y-1 text-gray-500">
+                      {a.changes.map((c, j) => (
+                        <li key={j} className="flex gap-1.5">
+                          <span className="text-gray-300 shrink-0 select-none">·</span>
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  {a.byName && <span className="text-gray-400"> · {a.byName}</span>}
-                </span>
+                </div>
               </div>
             ))}
           </div>
