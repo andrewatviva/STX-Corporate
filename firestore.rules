@@ -48,6 +48,11 @@ service cloud.firestore {
       allow delete: if isSTXAdmin();
     }
 
+    // collectionGroup('trips') used by STX staff to query across all tenants
+    match /{path=**}/trips/{tripId} {
+      allow read: if isSTX();
+    }
+
     // Passengers
     match /clients/{clientId}/passengers/{passengerId} {
       allow read:  if isSTX() || isClientMember(clientId);
