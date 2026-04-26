@@ -64,11 +64,24 @@ export function filterTripsByScope(trips, scope, userProfile) {
   const myName = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ').toLowerCase();
 
   return trips.filter(t => {
-    // Primary: travellerId field (set on new trips)
     if (t.travellerId) return scope.uids.has(t.travellerId);
-    // Secondary: travellerName match or createdBy
     if (scope.uids.has(t.createdBy)) return true;
     if (myName && t.travellerName?.toLowerCase() === myName) return true;
+    return false;
+  });
+}
+
+/**
+ * Filter a passengers array to only those within the given scope.
+ * Uses the passenger's userId (portal account link) for matching.
+ */
+export function filterPassengersByScope(passengers, scope, userProfile) {
+  if (!scope || scope.type === 'all') return passengers;
+
+  return passengers.filter(p => {
+    if (p.userId) return scope.uids.has(p.userId);
+    // Unlinked passenger: visible to whoever created it if they're in scope
+    if (p.createdBy && scope.uids.has(p.createdBy)) return true;
     return false;
   });
 }

@@ -3,7 +3,7 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
 } from 'lucide-react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -377,6 +377,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   const { clientConfig, isSTX } = useTenant();
   const [clients, setClients]         = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [passengers, setPassengers]   = useState([]);
 
   // Load client list for STX users
   useEffect(() => {
@@ -411,15 +412,19 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     };
   });
 
-  // Load team members for traveller autocomplete + travellerId linking
+  // Load team members and passenger profiles for traveller autocomplete
   useEffect(() => {
     const cid = form.clientId || clientIdProp;
     if (!cid) return;
-    const q = query(collection(db, 'users'), where('clientId', '==', cid));
-    const unsub = onSnapshot(q, snap => {
-      setTeamMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.active !== false));
-    });
-    return unsub;
+    const qUsers = query(collection(db, 'users'), where('clientId', '==', cid));
+    const qPax   = query(collection(db, 'clients', cid, 'passengers'), orderBy('lastName'));
+    const u1 = onSnapshot(qUsers, snap =>
+      setTeamMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.active !== false))
+    );
+    const u2 = onSnapshot(qPax, snap =>
+      setPassengers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return () => { u1(); u2(); };
   }, [form.clientId, clientIdProp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [saving, setSaving] = useState(false);
@@ -511,20 +516,37 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
             onChange={e => {
               const name = e.target.value;
               set('travellerName', name);
-              // Auto-link travellerId when name matches a known team member
-              const match = teamMembers.find(m =>
-                [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === name.toLowerCase()
+              const lower = name.toLowerCase();
+              // Match against passenger profiles first (preferred), then team members
+              const paxMatch = passengers.find(p =>
+                [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower ||
+                [p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower
               );
-              set('travellerId', match ? match.id : '');
+              if (paxMatch) {
+                set('travellerId', paxMatch.userId || '');
+              } else {
+                const memberMatch = teamMembers.find(m =>
+                  [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === lower
+                );
+                set('travellerId', memberMatch ? memberMatch.id : '');
+              }
             }}
-            placeholder="Type name or select from team"
-            list="trip-form-passengers"
+            placeholder="Type name or select from passenger profiles"
+            list="trip-form-travellers"
             autoComplete="off"
           />
-          <datalist id="trip-form-passengers">
-            {teamMembers.map(m => (
-              <option key={m.id} value={[m.firstName, m.lastName].filter(Boolean).join(' ')} />
+          <datalist id="trip-form-travellers">
+            {passengers.map(p => (
+              <option
+                key={`pax-${p.id}`}
+                value={[p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ')}
+              />
             ))}
+            {teamMembers
+              .filter(m => !passengers.some(p => p.userId === m.id))
+              .map(m => (
+                <option key={`mem-${m.id}`} value={[m.firstName, m.lastName].filter(Boolean).join(' ')} />
+              ))}
           </datalist>
         </div>
 

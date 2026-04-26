@@ -135,5 +135,5 @@ Note: `travelling` and `completed` are **derived** from `status === 'booked'` + 
 - `useTeamScope(userProfile, clientId)` returns `{ type: 'all' | 'team' | 'self', uids: Set<string> }` — apply with `filterTripsByScope()`
 
 ### Current status
-**Phases 0–4 complete. Phase 5 (Passenger Profiles) next.**
+**Phases 0–5 complete. Phase 6 (Hotel Booking) next.**
 See `PROGRESS.md` for full phase breakdown.

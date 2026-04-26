@@ -15,7 +15,7 @@
 | 2 | Security rules + custom claims | ✅ Complete |
 | 3 | Tenant config + Admin Panel + Team Management | ✅ Complete |
 | 4 | Trip management + Dashboard + STX client context | ✅ Complete |
-| 5 | Passenger profiles | 🔜 Next |
+| 5 | Passenger profiles | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏳ Pending |
 | 7 | Invoice generation | ⏳ Pending |
 | 8 | Reports | ⏳ Pending |
@@ -152,26 +152,23 @@
 
 ## Coming Up
 
-### Phase 5 — Passenger Profiles 🔜
-**Goal:** Accessibility-aware passenger profiles, tenant-scoped, linked to traveller user accounts.
+### Phase 5 — Passenger Profiles ✅
 
-**What gets built:**
-- `usePassengers` hook — real-time Firestore listener at `/clients/{clientId}/passengers/`
-- **PassengerList** — searchable table; scoped by team hierarchy (consistent with trips)
-- **PassengerForm** — full profile form with sections:
-  - Personal details (name, DOB, preferred name, gender)
-  - Contact details (phone, emergency contact name/phone/relationship)
-  - Identity documents (ID type, number, expiry, issuing country) — multiple IDs supported
-  - Accessibility needs (disability type, mobility aids, dietary requirements, medical notes, care requirements)
-  - Travel preferences (seat preference, meal type, frequent flyer numbers)
-  - Portal user link (`userId` field — links profile to a `/users/{uid}`)
-- **PassengerDetail** — read-only view of full profile with edit button
-- TripForm integration — traveller name lookup searches passenger profiles (replaces/extends team member datalist)
-- Profile completeness indicator (% of key fields filled)
-- STX staff see passengers for active client; client users see own client's passengers
-- Team scope applied — managers see their team's profiles; individuals see only their own
+**Files built:**
+- `src/hooks/usePassengers.js` — real-time Firestore listener at `/clients/{clientId}/passengers/`
+- `src/components/passengers/PassengerForm.jsx` — full profile form (personal, emergency, identity docs, accessibility, travel prefs, portal account link)
+- `src/components/passengers/PassengerDetail.jsx` — read-only profile view with completeness bar and edit button
+- `src/pages/Profiles.jsx` — searchable list with team scope, create/edit modal, detail view, delete confirm
 
-**Firestore path:** `/clients/{clientId}/passengers/{passengerId}`
+**Key features:**
+- Profile completeness indicator (% of 10 key fields filled; green/amber/red badge)
+- Accessibility tags in list view (disability needs, mobility aids, carer, dietary)
+- Team scope: `filterPassengersByScope()` applied — managers see team, individuals see own only
+- STX staff see passengers for active client; "select a client" prompt when none selected
+- Identity documents: configurable types from `clientConfig.dropdowns.idTypes`; multiple docs supported
+- Frequent flyer numbers: dynamic add/remove list
+- TripForm traveller autocomplete now searches passenger profiles first, then team members; deduplicates entries
+- `travellerId` set from passenger's linked `userId` when matched by name
 
 ---
 
@@ -244,4 +241,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 26 April 2026 — Phases 0–4 complete, Phase 5 (Passenger Profiles) next*
+*Last updated: 26 April 2026 — Phases 0–5 complete, Phase 6 (Hotel Booking) next*
