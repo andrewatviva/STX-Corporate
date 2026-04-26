@@ -87,16 +87,17 @@ const STAT_ORDER = ['draft','pending_approval','approved','booked','travelling',
 
 export default function Dashboard() {
   const { userProfile } = useAuth();
-  const { clientConfig, isSTX, clientId } = useTenant();
+  const { clientConfig, isSTX, clientId, activeClientId, clientsList } = useTenant();
   const navigate = useNavigate();
 
-  const { trips, loading } = useTrips(clientId, isSTX);
+  const { trips, loading } = useTrips(clientId, isSTX, activeClientId);
 
   const role = userProfile?.role;
   const isApprover = ['stx_admin', 'stx_ops', 'client_approver'].includes(role);
 
+  const activeClient = clientsList?.find(c => c.id === activeClientId);
   const title = isSTX
-    ? 'STX Global Dashboard'
+    ? (activeClient ? `${activeClient.name} — Dashboard` : 'STX Global Dashboard')
     : clientConfig?.branding?.portalTitle ?? 'Dashboard';
 
   // ── status counts ────────────────────────────────────────────────────────────

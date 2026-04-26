@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { STX_ROLES } from '../utils/permissions';
@@ -66,12 +66,18 @@ function mergeWithDefaults(config) {
 
 export function TenantProvider({ children }) {
   const { userProfile } = useAuth();
-  const [clientConfig, setClientConfig]     = useState(null);
-  const [clientId, setClientId]             = useState(null);
-  const [tenantLoading, setTenantLoading]   = useState(true);
+  const [clientConfig, setClientConfig]   = useState(null);
+  const [clientId, setClientId]           = useState(null);
+  const [tenantLoading, setTenantLoading] = useState(true);
+
+  // STX working-client context
+  const [clientsList, setClientsList]           = useState([]);
+  const [activeClientId, setActiveClientId]     = useState(null);
+  const [activeClientConfig, setActiveClientConfig] = useState(null);
 
   const isSTX = userProfile && STX_ROLES.includes(userProfile.role);
 
+  // ── own tenant config (non-STX users) ────────────────────────────────────
   useEffect(() => {
     if (!userProfile) {
       setClientConfig(null);
@@ -80,7 +86,6 @@ export function TenantProvider({ children }) {
       return;
     }
 
-    // STX staff have no tenant — they operate globally
     if (isSTX) {
       setClientConfig(null);
       setClientId(null);
@@ -105,8 +110,45 @@ export function TenantProvider({ children }) {
     return unsub;
   }, [userProfile, isSTX]);
 
+  // ── clients list (STX only) ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isSTX) return;
+    const unsub = onSnapshot(collection(db, 'clients'), snap => {
+      setClientsList(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(c => c.active !== false)
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      );
+    });
+    return unsub;
+  }, [isSTX]);
+
+  // ── active client config (STX working-client) ─────────────────────────────
+  useEffect(() => {
+    if (!isSTX || !activeClientId) {
+      setActiveClientConfig(null);
+      return;
+    }
+    const unsub = onSnapshot(
+      doc(db, 'clients', activeClientId, 'config', 'settings'),
+      snap => setActiveClientConfig(mergeWithDefaults(snap.exists() ? snap.data() : null))
+    );
+    return unsub;
+  }, [isSTX, activeClientId]);
+
   return (
-    <TenantContext.Provider value={{ clientId, clientConfig, tenantLoading, isSTX }}>
+    <TenantContext.Provider value={{
+      clientId,
+      clientConfig,
+      tenantLoading,
+      isSTX,
+      // STX working-client
+      clientsList,
+      activeClientId,
+      setActiveClientId,
+      activeClientConfig,
+    }}>
       {children}
     </TenantContext.Provider>
   );

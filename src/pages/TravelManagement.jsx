@@ -70,9 +70,9 @@ function diffTrip(oldTrip, newData) {
 
 export default function TravelManagement() {
   const { userProfile } = useAuth();
-  const { clientId, isSTX, clientConfig } = useTenant();
+  const { clientId, isSTX, clientConfig, activeClientId, activeClientConfig } = useTenant();
 
-  const { trips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX);
+  const { trips, loading, addTrip, updateTrip, deleteTrip } = useTrips(clientId, isSTX, activeClientId);
 
   const [searchParams] = useSearchParams();
   const [view, setView]             = useState('list');   // 'list' | 'detail'
@@ -92,11 +92,14 @@ export default function TravelManagement() {
     if (live) setSelected(live);
   }, [trips]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const resolveClientId = (trip) => trip?.clientId || clientId || '';
+  // For STX users with an active client selected, prefer activeClientId for new trips
+  const resolveClientId = (trip) => trip?.clientId || activeClientId || clientId || '';
 
-  // Load the fee config for a given client (handles STX users who have no own tenant)
+  // Load the fee config for a given client
   const getClientFeeConfig = async (cid) => {
     if (!isSTX) return clientConfig?.fees || {};
+    // Use already-loaded active client config if available
+    if (activeClientConfig) return activeClientConfig.fees || {};
     try {
       const snap = await getDoc(doc(db, 'clients', cid, 'config', 'settings'));
       return snap.exists() ? (snap.data()?.fees || {}) : {};
