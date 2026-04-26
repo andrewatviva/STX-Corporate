@@ -230,7 +230,7 @@ export default function UserManager() {
 
   useEffect(() => {
     const unsubUsers = onSnapshot(
-      query(collection(db, 'users'), orderBy('lastName')),
+      query(collection(db, 'users'), orderBy('email')),
       snap => { setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); }
     );
     const unsubClients = onSnapshot(collection(db, 'clients'), snap => {

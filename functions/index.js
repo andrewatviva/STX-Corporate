@@ -60,7 +60,18 @@ exports.createClientUser = onCall({ enforceAppCheck: false }, async (request) =>
 
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || email;
 
-  const authUser = await getAuth().createUser({ email, password, displayName });
+  let authUser;
+  try {
+    authUser = await getAuth().createUser({ email, password, displayName });
+  } catch (err) {
+    if (err.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'A user with that email address already exists.');
+    }
+    if (err.code === 'auth/invalid-password') {
+      throw new HttpsError('invalid-argument', 'Password must be at least 6 characters.');
+    }
+    throw new HttpsError('internal', err.message);
+  }
 
   await db.collection('users').doc(authUser.uid).set({
     uid: authUser.uid,
