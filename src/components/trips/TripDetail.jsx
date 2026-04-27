@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock, Clock, Trash2, Receipt,
+  Lock, Clock, Trash2, Receipt, Star,
 } from 'lucide-react';
-import { doc, getDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, arrayRemove, arrayUnion, collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { StatusBadge, getDisplayStatus } from './TripList';
 import Attachments from './Attachments';
+import TripRatingModal from './TripRatingModal';
 
 const SECTOR_ICONS = {
   flight:        Plane,
@@ -203,6 +204,20 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     }
   };
 
+  // Provider rating state
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [existingRating, setExistingRating]   = useState(null);
+  const [ratingLoaded, setRatingLoaded]       = useState(false);
+
+  useEffect(() => {
+    if (!userProfile?.uid || !trip?.id) return;
+    const docId = `${trip.id}_${userProfile.uid}`;
+    getDoc(doc(db, 'tripFeedback', docId))
+      .then(snap => setExistingRating(snap.exists() ? snap.data() : null))
+      .catch(() => {})
+      .finally(() => setRatingLoaded(true));
+  }, [trip?.id, userProfile?.uid]);
+
   const role = userProfile?.role;
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
   const canEditCostCentre = ['stx_admin', 'stx_ops', 'client_ops'].includes(role);
@@ -236,6 +251,31 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     setActing(true);
     try {
       await onStatusChange(trip, newStatus, extra);
+
+      // Queue rating request emails 2 days after trip end date
+      if (newStatus === 'booked' && trip.endDate) {
+        const scheduledFor = new Date(trip.endDate);
+        scheduledFor.setDate(scheduledFor.getDate() + 2);
+
+        const travellers = [
+          { name: trip.travellerName, uid: trip.travellerId },
+          ...(trip.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
+        ].filter(t => t.uid);
+
+        await Promise.all(travellers.map(t =>
+          addDoc(collection(db, 'emailQueue'), {
+            type: 'trip_rating_request',
+            tripId: trip.id,
+            tripTitle: trip.title || '',
+            travellerId: t.uid,
+            travellerName: t.name,
+            clientId: clientId || '',
+            scheduledFor: scheduledFor.toISOString(),
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+          })
+        ));
+      }
     } finally {
       setActing(false);
       setShowDeclineInput(false);
@@ -280,6 +320,21 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           <ArrowLeft size={15} /> Back to trips
         </button>
         <div className="ml-auto flex items-center gap-2">
+          {/* Rate providers — booked trips, any traveller */}
+          {trip.status === 'booked' && ratingLoaded && (
+            <button
+              onClick={() => setShowRatingModal(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                existingRating
+                  ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                  : 'border-teal-300 text-teal-700 bg-teal-50 hover:bg-teal-100'
+              }`}
+            >
+              <Star size={13} fill={existingRating ? 'currentColor' : 'none'} />
+              {existingRating ? 'Update rating' : 'Rate providers'}
+            </button>
+          )}
+
           {/* Draft/Declined → plain Edit; submitted/approved/booked → Amend (with fee prompt) */}
           {canEdit && trip.status !== 'cancelled' && isDraftOrDeclined && (
             <button
@@ -742,6 +797,23 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
         )}
         {isSTX && trip.clientId && <p>Client: {trip.clientId}</p>}
       </div>
+
+      {showRatingModal && (
+        <TripRatingModal
+          trip={trip}
+          onClose={submitted => {
+            setShowRatingModal(false);
+            if (submitted) {
+              // Reload the existing rating
+              const docId = `${trip.id}_${userProfile.uid}`;
+              getDoc(doc(db, 'tripFeedback', docId))
+                .then(snap => setExistingRating(snap.exists() ? snap.data() : null))
+                .catch(() => {});
+            }
+          }}
+          existingRating={existingRating}
+        />
+      )}
     </div>
   );
 }
