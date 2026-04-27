@@ -38,9 +38,9 @@ jobs:
           projectId: stx-corporate-dev
           channelId: live
 
-      - name: Deploy Firestore and Storage rules (Dev)
+      - name: Deploy Firestore rules (Dev)
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only firestore:rules,storage --project stx-corporate-dev
+          args: deploy --only firestore:rules --project stx-corporate-dev
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEV }}
