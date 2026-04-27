@@ -21,6 +21,7 @@ const DIETARY_OPTIONS = [
   'Nut Allergy', 'Dairy Free', 'Egg Free', 'Low FODMAP', 'Diabetic', 'Other',
 ];
 
+const TITLES = ['Mr', 'Mrs', 'Ms', 'Miss', 'Mx', 'Dr', 'Prof'];
 const GENDERS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 const SEAT_PREFS = ['Window', 'Aisle', 'No preference'];
 
@@ -75,7 +76,7 @@ const WHEELCHAIR_TRANSFERS = [
 ];
 
 const EMPTY = {
-  firstName: '', lastName: '', preferredName: '', dateOfBirth: '', gender: '',
+  title: '', firstName: '', lastName: '', preferredName: '', dateOfBirth: '', gender: '',
   email: '', phone: '',
   emergencyName: '', emergencyPhone: '', emergencyRelationship: '', emergencyEmail: '',
   identityDocuments: [],
@@ -94,6 +95,7 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
   const [form, setForm] = useState(() => {
     if (!passenger) return { ...EMPTY };
     return {
+      title:                passenger.title                || '',
       firstName:            passenger.firstName            || '',
       lastName:             passenger.lastName             || '',
       preferredName:        passenger.preferredName        || '',
@@ -164,6 +166,12 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
       {/* ── Personal details ──────────────────────────────────────────── */}
       <Section title="Personal details">
         <div className="grid grid-cols-2 gap-4">
+          <F label="Title">
+            <select className={inp} value={form.title} onChange={e => set('title', e.target.value)}>
+              <option value="">Not specified</option>
+              {TITLES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </F>
           <F label="First name *">
             <input className={inp} value={form.firstName} onChange={e => set('firstName', e.target.value)} placeholder="Jane" />
           </F>

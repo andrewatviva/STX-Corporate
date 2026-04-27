@@ -243,7 +243,7 @@ export default function Profiles() {
             <tbody className="divide-y divide-gray-100">
               {filtered.map(p => {
                 const completeness = calcCompleteness(p);
-                const displayName = [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
+                const displayName = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
                 return (
                   <tr
                     key={p.id}

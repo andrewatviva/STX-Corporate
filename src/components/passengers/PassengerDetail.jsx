@@ -52,8 +52,8 @@ const WHEELCHAIR_AIDS = ['Manual Wheelchair', 'Power Wheelchair'];
 
 export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName }) {
   const p = passenger;
-  const fullName = [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
-  const legalName = p.preferredName ? `${p.firstName} ${p.lastName}` : null;
+  const fullName  = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
+  const legalName = p.preferredName ? [p.title, p.firstName, p.lastName].filter(Boolean).join(' ') : null;
 
   return (
     <div className="space-y-4">

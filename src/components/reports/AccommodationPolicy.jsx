@@ -12,12 +12,15 @@ function findPolicyRate(destination, rates) {
   if (rates[destination] !== undefined) return rates[destination];
   const lower = destination.toLowerCase();
   for (const [city, rate] of Object.entries(rates)) {
+    if (city === 'All Cities') continue;
     if (city.toLowerCase() === lower) return rate;
   }
   for (const [city, rate] of Object.entries(rates)) {
+    if (city === 'All Cities') continue;
     if (lower.includes(city.toLowerCase()) || city.toLowerCase().includes(lower)) return rate;
   }
-  return null;
+  // Fall back to blanket 'All Cities' rate
+  return rates['All Cities'] !== undefined ? rates['All Cities'] : null;
 }
 
 export default function AccommodationPolicy({ trips, clientId, isSTX }) {
@@ -188,7 +191,8 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
   const filteredEditCities = useMemo(() => {
     const q = cityFilter.toLowerCase();
-    return Object.keys(editRates).filter(c => c.toLowerCase().includes(q)).sort();
+    const others = Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
+    return 'All Cities' in editRates ? ['All Cities', ...others] : others;
   }, [editRates, cityFilter]);
 
   const sa = (f) => sortField === f ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
@@ -211,7 +215,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:10 }}>
             <div>
               <div style={{ fontSize:15, fontWeight:700, color:'#0f172a' }}>Policy Rate Editor</div>
-              <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Max allowable nightly accommodation spend per city (incl. GST), from TD 2025/4.</div>
+              <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Max allowable nightly accommodation spend per city (incl. GST). Add <strong>All Cities</strong> to set a blanket rate that applies to any destination without a specific entry.</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               {saveMsg && <span style={{ fontSize:12, color: saveMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontWeight:600 }}>{saveMsg}</span>}
@@ -234,8 +238,10 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
               <span />
             </div>
             {filteredEditCities.map((city, idx) => (
-              <div key={city} style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'6px 14px', alignItems:'center', background: idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom:'1px solid #f1f5f9' }}>
-                <span style={{ fontSize:13, color:'#1e293b' }}>{city}</span>
+              <div key={city} style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'6px 14px', alignItems:'center', background: city === 'All Cities' ? '#f0fdfa' : idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom:'1px solid #f1f5f9' }}>
+                <span style={{ fontSize:13, color: city === 'All Cities' ? '#0d9488' : '#1e293b', fontWeight: city === 'All Cities' ? 700 : 400 }}>
+                  {city}{city === 'All Cities' && <span style={{ fontSize:11, fontWeight:400, color:'#64748b', marginLeft:6 }}>(blanket rate)</span>}
+                </span>
                 <div style={{ textAlign:'right' }}>
                   <input type="number" min="0" step="1" value={editRates[city] ?? ''} onChange={e => handleRateChange(city, e.target.value)}
                     style={{ ...inp, width:80, textAlign:'right', padding:'4px 8px', fontSize:13 }} />

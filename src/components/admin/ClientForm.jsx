@@ -105,7 +105,8 @@ function PolicyRatesEditor({ clientId }) {
 
   const filteredCities = useMemo(() => {
     const q = cityFilter.toLowerCase();
-    return Object.keys(editRates).filter(c => c.toLowerCase().includes(q)).sort();
+    const others = Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
+    return 'All Cities' in editRates ? ['All Cities', ...others] : others;
   }, [editRates, cityFilter]);
 
   const handleRateChange = (city, val) =>
@@ -140,8 +141,8 @@ function PolicyRatesEditor({ clientId }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-400">
-        Max allowable nightly accommodation spend per city (incl. GST), sourced from TD 2025/4.
-        Used in the Accommodation Policy compliance report.
+        Max allowable nightly accommodation spend per city (incl. GST). Used in the Accommodation Policy compliance report.
+        Add <strong className="text-gray-500">All Cities</strong> to set a blanket rate for any destination without a specific entry.
       </p>
       <div className="flex items-center gap-3 flex-wrap">
         <input
@@ -166,8 +167,10 @@ function PolicyRatesEditor({ clientId }) {
           <span />
         </div>
         {filteredCities.map((city, idx) => (
-          <div key={city} className={`grid grid-cols-[1fr_120px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-            <span className="text-sm text-gray-700">{city}</span>
+          <div key={city} className={`grid grid-cols-[1fr_120px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${city === 'All Cities' ? 'bg-teal-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+            <span className={`text-sm ${city === 'All Cities' ? 'text-teal-700 font-semibold' : 'text-gray-700'}`}>
+              {city}{city === 'All Cities' && <span className="ml-2 text-xs font-normal text-gray-400">(blanket rate)</span>}
+            </span>
             <div className="flex justify-end">
               <input
                 type="number" min="0" step="1" value={editRates[city] ?? ''}
