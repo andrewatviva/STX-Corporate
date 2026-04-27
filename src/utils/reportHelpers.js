@@ -76,3 +76,41 @@ export function nightsBetween(checkIn, checkOut) {
   if (!checkIn || !checkOut) return 0;
   return Math.max(0, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000));
 }
+
+export function tripDateForMode(trip, mode) {
+  if (mode === 'travel') return trip.startDate || '';
+  const d = toDate(trip.createdAt);
+  return d ? toISO(d) : '';
+}
+
+export const DEFAULT_ACCOMMODATION_RATES = {
+  'Adelaide':158,'Brisbane':181,'Canberra':178,'Darwin':220,'Hobart':176,
+  'Melbourne':173,'Perth':180,'Sydney':223,'Other country centres':141,
+  'Albany':193,'Albury':207,'Alice Springs':206,'Ararat':159,'Armidale':166,
+  'Ayr':207,'Bairnsdale':176,'Ballarat':187,'Bathurst':207,'Bega':207,
+  'Benalla':168,'Bendigo':170,'Bordertown':164,'Bourke':184,'Bright':180,
+  'Broken Hill':162,'Broome':255,'Bunbury':178,'Bundaberg':184,'Burnie':178,
+  'Cairns':175,'Carnarvon':174,'Castlemaine':162,'Ceduna':156,
+  'Charters Towers':168,'Chinchilla':207,'Christmas Island':218,'Cobar':207,
+  'Cocos (Keeling) Islands':331,'Coffs Harbour':207,'Colac':207,'Cooma':207,
+  'Cowra':207,'Dalby':201,'Dampier':199,'Derby':192,'Devonport':162,
+  'Dubbo':170,'Echuca':207,'Emerald':179,'Esperance':180,'Exmouth':235,
+  'Geelong':175,'Geraldton':190,'Gladstone':171,'Gold Coast':225,
+  'Goulburn':165,'Gosford':161,'Grafton':172,'Griffith':160,'Gunnedah':180,
+  'Halls Creek':204,'Hamilton':170,'Hervey Bay':175,'Horn Island':345,
+  'Horsham':166,'Innisfail':207,'Inverell':207,'Jabiru':216,'Kadina':207,
+  'Kalgoorlie':193,'Karratha':288,'Katherine':228,'Kingaroy':180,
+  'Kununurra':222,'Launceston':174,'Lismore':183,'Mackay':166,'Maitland':187,
+  'Maryborough':207,'Mildura':170,'Mount Gambier':164,'Mount Isa':185,
+  'Mudgee':206,'Muswellbrook':160,'Nambour':163,'Naracoorte':207,
+  'Narrabri':207,'Newcastle':195,'Newman':271,'Nhulunbuy':264,
+  'Norfolk Island':256,'Northam':220,'Nowra':168,'Orange':215,
+  'Port Augusta':207,'Port Hedland':266,'Port Lincoln':170,'Port Macquarie':190,
+  'Port Pirie':207,'Portland':163,'Queanbeyan':207,'Queenstown':207,
+  'Renmark':207,'Rockhampton':174,'Roma':182,'Sale':207,'Seymour':164,
+  'Shepparton':167,'Swan Hill':181,'Tamworth':207,'Taree':207,
+  'Tennant Creek':207,'Thursday Island':323,'Toowoomba':161,'Townsville':174,
+  'Tumut':207,'Wagga Wagga':177,'Wangaratta':186,'Warrnambool':175,
+  'Weipa':238,'Whyalla':167,'Wilpena-Pound':272,'Wodonga':207,
+  'Wollongong':182,'Wonthaggi':188,'Yulara':570,
+};

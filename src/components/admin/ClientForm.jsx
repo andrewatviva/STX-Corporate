@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { doc, setDoc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import Toggle from '../shared/Toggle';
 import TagInput from '../shared/TagInput';
+import { DEFAULT_ACCOMMODATION_RATES } from '../../utils/reportHelpers';
 
 const DEFAULT_CONFIG = {
   branding: { logo: '', primaryColor: '#1e40af', secondaryColor: '#93c5fd', portalTitle: '' },
@@ -80,6 +81,125 @@ function FeeAppliesTo({ value, onChange, tripTypes }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PolicyRatesEditor({ clientId }) {
+  const [editRates,  setEditRates]  = useState({});
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [saveMsg,    setSaveMsg]    = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [newCity,    setNewCity]    = useState('');
+  const [newRate,    setNewRate]    = useState('');
+
+  useEffect(() => {
+    if (!clientId) { setLoading(false); return; }
+    getDoc(doc(db, 'clients', clientId, 'config', 'travelPolicy')).then(snap => {
+      setEditRates(snap.exists() ? (snap.data().rates || DEFAULT_ACCOMMODATION_RATES) : { ...DEFAULT_ACCOMMODATION_RATES });
+    }).catch(() => {
+      setEditRates({ ...DEFAULT_ACCOMMODATION_RATES });
+    }).finally(() => setLoading(false));
+  }, [clientId]);
+
+  const filteredCities = useMemo(() => {
+    const q = cityFilter.toLowerCase();
+    return Object.keys(editRates).filter(c => c.toLowerCase().includes(q)).sort();
+  }, [editRates, cityFilter]);
+
+  const handleRateChange = (city, val) =>
+    setEditRates(prev => ({ ...prev, [city]: val === '' ? '' : parseFloat(val) || '' }));
+  const handleDeleteCity = (city) =>
+    setEditRates(prev => { const n = { ...prev }; delete n[city]; return n; });
+  const handleAddCity = () => {
+    const trimmed = newCity.trim(); const parsed = parseFloat(newRate);
+    if (!trimmed || isNaN(parsed) || parsed <= 0) return;
+    setEditRates(prev => ({ ...prev, [trimmed]: parsed }));
+    setNewCity(''); setNewRate('');
+  };
+  const handleSave = async () => {
+    const cleaned = {};
+    for (const [city, val] of Object.entries(editRates)) {
+      const n = parseFloat(val);
+      if (city.trim() && !isNaN(n) && n > 0) cleaned[city.trim()] = n;
+    }
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'clients', clientId, 'config', 'travelPolicy'), { rates: cleaned });
+      setSaveMsg('Saved.');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (e) {
+      setSaveMsg('Error saving.');
+    }
+    setSaving(false);
+  };
+
+  if (loading) return <p className="text-sm text-gray-400">Loading policy rates…</p>;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-400">
+        Max allowable nightly accommodation spend per city (incl. GST), sourced from TD 2025/4.
+        Used in the Accommodation Policy compliance report.
+      </p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="text" placeholder="Search city…" value={cityFilter}
+          onChange={e => setCityFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+        />
+        <span className="text-xs text-gray-400">{filteredCities.length} cities</span>
+        <div className="ml-auto flex items-center gap-2">
+          {saveMsg && <span className={`text-xs font-semibold ${saveMsg.startsWith('Error') ? 'text-red-500' : 'text-green-600'}`}>{saveMsg}</span>}
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save rates'}
+          </button>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+        <div className="grid grid-cols-[1fr_120px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200 sticky top-0">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">City</span>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide text-right">Max/Night ($)</span>
+          <span />
+        </div>
+        {filteredCities.map((city, idx) => (
+          <div key={city} className={`grid grid-cols-[1fr_120px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+            <span className="text-sm text-gray-700">{city}</span>
+            <div className="flex justify-end">
+              <input
+                type="number" min="0" step="1" value={editRates[city] ?? ''}
+                onChange={e => handleRateChange(city, e.target.value)}
+                className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button type="button" onClick={() => handleDeleteCity(city)} className="text-gray-300 hover:text-red-400 text-base leading-none px-1">×</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2 items-end flex-wrap">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Add city</label>
+          <input type="text" placeholder="City name" value={newCity} onChange={e => setNewCity(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-44" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Max/night ($)</label>
+          <input type="number" min="0" step="1" placeholder="e.g. 195" value={newRate}
+            onChange={e => setNewRate(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddCity()}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28" />
+        </div>
+        <button type="button" onClick={handleAddCity} disabled={!newCity.trim() || !newRate}
+          className="px-3 py-1.5 bg-gray-800 text-white text-sm rounded-lg disabled:opacity-40">
+          + Add
+        </button>
+      </div>
     </div>
   );
 }
@@ -246,6 +366,12 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           Shown on the Contact page for client users. Leave blank to use the default STX enquiries address.
         </p>
       </Section>
+
+      {isEdit && (
+        <Section title="Accommodation Policy Rates">
+          <PolicyRatesEditor clientId={clientId} />
+        </Section>
+      )}
 
       <Section title="Hotel Booking">
         <Field label="Nuitee feed">

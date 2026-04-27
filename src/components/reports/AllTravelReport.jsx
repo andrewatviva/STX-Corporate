@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
-  getDisplayStatus, tripInclGST, tripExGST, toDate, exportCSV,
+  getDisplayStatus, tripInclGST, tripExGST, toDate, exportCSV, tripDateForMode,
 } from '../../utils/reportHelpers';
 
 const TRIP_TYPES = ['Self-Managed', 'STX-Managed', 'Group Event'];
@@ -51,6 +51,7 @@ export default function AllTravelReport({ trips }) {
   const [search,         setSearch]         = useState('');
   const [sortField,      setSortField]      = useState('startDate');
   const [sortDir,        setSortDir]        = useState('desc');
+  const [dateMode,       setDateMode]       = useState('booking');
 
   const applyPreset = (key) => {
     setPeriodKey(key);
@@ -71,8 +72,9 @@ export default function AllTravelReport({ trips }) {
       if (!statusFilter.includes(ds)) return false;
       if (typeFilter.length && !typeFilter.includes(t.tripType)) return false;
       if (costCentreFilter && t.costCentre !== costCentreFilter) return false;
-      if (from && (t.startDate || '') < from) return false;
-      if (to   && (t.startDate || '') > to)   return false;
+      const tDate = tripDateForMode(t, dateMode);
+      if (from && tDate < from) return false;
+      if (to   && tDate > to)   return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         if (
@@ -83,7 +85,7 @@ export default function AllTravelReport({ trips }) {
       }
       return true;
     });
-  }, [trips, statusFilter, typeFilter, costCentreFilter, from, to, search]);
+  }, [trips, statusFilter, typeFilter, costCentreFilter, from, to, search, dateMode]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -157,6 +159,15 @@ export default function AllTravelReport({ trips }) {
 
       {/* Filters */}
       <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+          <span style={{ ...lbl, marginBottom:0 }}>Date basis</span>
+          {[['booking','Booking Date'],['travel','Travel Date']].map(([val,label]) => (
+            <button key={val} onClick={() => setDateMode(val)}
+              style={{ ...pill, background: dateMode === val ? '#0d9488' : '#f1f5f9', color: dateMode === val ? '#fff' : '#475569', borderColor: dateMode === val ? '#0d9488' : '#e2e8f0', fontWeight: dateMode === val ? 700 : 500 }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:14 }}>
           <div>
             <label style={lbl}>Period</label>

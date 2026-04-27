@@ -3,41 +3,9 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
   QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
-  getDisplayStatus, accomCity, nightsBetween,
+  getDisplayStatus, accomCity, nightsBetween, tripDateForMode,
+  DEFAULT_ACCOMMODATION_RATES,
 } from '../../utils/reportHelpers';
-
-// Seeded from TD 2025/4 via DANA Travel Procedure March 2026
-const DEFAULT_RATES = {
-  'Adelaide':158,'Brisbane':181,'Canberra':178,'Darwin':220,'Hobart':176,
-  'Melbourne':173,'Perth':180,'Sydney':223,'Other country centres':141,
-  'Albany':193,'Albury':207,'Alice Springs':206,'Ararat':159,'Armidale':166,
-  'Ayr':207,'Bairnsdale':176,'Ballarat':187,'Bathurst':207,'Bega':207,
-  'Benalla':168,'Bendigo':170,'Bordertown':164,'Bourke':184,'Bright':180,
-  'Broken Hill':162,'Broome':255,'Bunbury':178,'Bundaberg':184,'Burnie':178,
-  'Cairns':175,'Carnarvon':174,'Castlemaine':162,'Ceduna':156,
-  'Charters Towers':168,'Chinchilla':207,'Christmas Island':218,'Cobar':207,
-  'Cocos (Keeling) Islands':331,'Coffs Harbour':207,'Colac':207,'Cooma':207,
-  'Cowra':207,'Dalby':201,'Dampier':199,'Derby':192,'Devonport':162,
-  'Dubbo':170,'Echuca':207,'Emerald':179,'Esperance':180,'Exmouth':235,
-  'Geelong':175,'Geraldton':190,'Gladstone':171,'Gold Coast':225,
-  'Goulburn':165,'Gosford':161,'Grafton':172,'Griffith':160,'Gunnedah':180,
-  'Halls Creek':204,'Hamilton':170,'Hervey Bay':175,'Horn Island':345,
-  'Horsham':166,'Innisfail':207,'Inverell':207,'Jabiru':216,'Kadina':207,
-  'Kalgoorlie':193,'Karratha':288,'Katherine':228,'Kingaroy':180,
-  'Kununurra':222,'Launceston':174,'Lismore':183,'Mackay':166,'Maitland':187,
-  'Maryborough':207,'Mildura':170,'Mount Gambier':164,'Mount Isa':185,
-  'Mudgee':206,'Muswellbrook':160,'Nambour':163,'Naracoorte':207,
-  'Narrabri':207,'Newcastle':195,'Newman':271,'Nhulunbuy':264,
-  'Norfolk Island':256,'Northam':220,'Nowra':168,'Orange':215,
-  'Port Augusta':207,'Port Hedland':266,'Port Lincoln':170,'Port Macquarie':190,
-  'Port Pirie':207,'Portland':163,'Queanbeyan':207,'Queenstown':207,
-  'Renmark':207,'Rockhampton':174,'Roma':182,'Sale':207,'Seymour':164,
-  'Shepparton':167,'Swan Hill':181,'Tamworth':207,'Taree':207,
-  'Tennant Creek':207,'Thursday Island':323,'Toowoomba':161,'Townsville':174,
-  'Tumut':207,'Wagga Wagga':177,'Wangaratta':186,'Warrnambool':175,
-  'Weipa':238,'Whyalla':167,'Wilpena-Pound':272,'Wodonga':207,
-  'Wollongong':182,'Wonthaggi':188,'Yulara':570,
-};
 
 function findPolicyRate(destination, rates) {
   if (!rates) return null;
@@ -58,6 +26,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
   const [periodKey,     setPeriodKey]     = useState('thisFY');
   const [from,          setFrom]          = useState(`${fy}-07-01`);
   const [to,            setTo]            = useState(`${fy + 1}-06-30`);
+  const [dateMode,      setDateMode]      = useState('booking');
   const [hasGenerated,  setHasGenerated]  = useState(false);
   const [reportData,    setReportData]    = useState([]);
   const [rates,         setRates]         = useState(null);
@@ -81,14 +50,14 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
         const ref  = doc(db, 'clients', clientId, 'config', 'travelPolicy');
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setRates(snap.data().rates || DEFAULT_RATES);
+          setRates(snap.data().rates || DEFAULT_ACCOMMODATION_RATES);
         } else {
-          await setDoc(ref, { rates: DEFAULT_RATES });
-          setRates(DEFAULT_RATES);
+          await setDoc(ref, { rates: DEFAULT_ACCOMMODATION_RATES });
+          setRates(DEFAULT_ACCOMMODATION_RATES);
         }
       } catch (e) {
         console.error('Error loading policy rates', e);
-        setRates(DEFAULT_RATES);
+        setRates(DEFAULT_ACCOMMODATION_RATES);
       }
       setRatesLoading(false);
     };
@@ -104,10 +73,11 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
   const handleGenerate = () => {
     const filtered = trips.filter(t => {
-      const ds = getDisplayStatus(t);
+      const ds    = getDisplayStatus(t);
       if (!BILLABLE_STATUSES.has(ds)) return false;
-      if (from && (t.startDate || '') < from) return false;
-      if (to   && (t.startDate || '') > to)   return false;
+      const tDate = tripDateForMode(t, dateMode);
+      if (from && tDate < from) return false;
+      if (to   && tDate > to)   return false;
       return true;
     });
 
@@ -124,7 +94,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
         const cost   = parseFloat(sector.cost) || 0;
         const costEx = sector.international ? cost : cost / 1.1;
 
-        const roomsByNight   = sector.roomsByNight;
+        const roomsByNight        = sector.roomsByNight;
         const roomNightsForSector = roomsByNight?.length === nights
           ? roomsByNight.reduce((s, r) => s + (r || 1), 0)
           : nights;
@@ -175,7 +145,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
   const summaryStats = useMemo(() => {
     if (!reportData.length) return null;
-    const withRate = reportData.filter(r => r.policyRate !== null);
+    const withRate    = reportData.filter(r => r.policyRate !== null);
     const hasAnyGroup = reportData.some(r => r.hasGroupBooking);
     return {
       destinations: reportData.length,
@@ -189,16 +159,15 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
   // Policy editor
   const openEditor = () => { setEditRates({ ...rates }); setNewCity(''); setNewRate(''); setSaveMsg(''); setShowEditor(true); };
-  const handleRateChange = (city, val) => setEditRates(prev => ({ ...prev, [city]: val === '' ? '' : parseFloat(val) || '' }));
-  const handleAddCity = () => {
-    const trimmed = newCity.trim();
-    const parsed  = parseFloat(newRate);
+  const handleRateChange  = (city, val) => setEditRates(prev => ({ ...prev, [city]: val === '' ? '' : parseFloat(val) || '' }));
+  const handleAddCity     = () => {
+    const trimmed = newCity.trim(); const parsed = parseFloat(newRate);
     if (!trimmed || isNaN(parsed) || parsed <= 0) return;
     setEditRates(prev => ({ ...prev, [trimmed]: parsed }));
     setNewCity(''); setNewRate('');
   };
-  const handleDeleteCity = (city) => setEditRates(prev => { const n = { ...prev }; delete n[city]; return n; });
-  const handleSavePolicy = async () => {
+  const handleDeleteCity  = (city) => setEditRates(prev => { const n = { ...prev }; delete n[city]; return n; });
+  const handleSavePolicy  = async () => {
     const cleaned = {};
     for (const [city, val] of Object.entries(editRates)) {
       const n = parseFloat(val);
@@ -299,6 +268,15 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
       {/* Filters */}
       <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+          <span style={{ ...lbl, marginBottom:0 }}>Date basis</span>
+          {[['booking','Booking Date'],['travel','Travel Date']].map(([val,label]) => (
+            <button key={val} onClick={() => setDateMode(val)}
+              style={{ ...pill, background: dateMode === val ? '#0d9488' : '#f1f5f9', color: dateMode === val ? '#fff' : '#475569', borderColor: dateMode === val ? '#0d9488' : '#e2e8f0', fontWeight: dateMode === val ? 700 : 500 }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div style={{ marginBottom:14 }}>
           <label style={lbl}>Period</label>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
@@ -331,8 +309,8 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
               {[
                 { label:'Destinations',  value: summaryStats.destinations },
                 { label: summaryStats.hasAnyGroup ? 'Room-Nights' : 'Total Nights', value: summaryStats.totalNights },
-                { label:'Over Policy',   value: summaryStats.overCount,  color:'#dc2626' },
-                { label:'Under Policy',  value: summaryStats.underCount, color:'#16a34a' },
+                { label:'Over Policy',   value: summaryStats.overCount,   color:'#dc2626' },
+                { label:'Under Policy',  value: summaryStats.underCount,  color:'#16a34a' },
                 { label:'No Rate Set',   value: summaryStats.noRateCount, color:'#94a3b8' },
               ].map(c => (
                 <div key={c.label} style={{ background:'#fff', borderRadius:10, border:'1px solid #e2e8f0', padding:'14px 18px', textAlign:'center', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -379,10 +357,10 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
                 const isOver  = row.variance !== null && row.variance > 0;
                 const isUnder = row.variance !== null && row.variance <= 0;
                 const hasRate = row.policyRate !== null;
-                const rowBg   = isOver  ? (idx%2===0 ? '#fff5f5':'#fff0f0') : isUnder ? (idx%2===0 ? '#f0fdf4':'#ebfdf0') : (idx%2===0 ? '#fff':'#fafafa');
-                const badge   = isOver  ? { text:'OVER',     bg:'#fef2f2', color:'#dc2626', border:'#fecaca' }
-                              : isUnder ? { text:'UNDER',    bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' }
-                              :           { text:'NO RATE',  bg:'#f8fafc', color:'#94a3b8', border:'#e2e8f0' };
+                const rowBg   = isOver  ? (idx%2===0?'#fff5f5':'#fff0f0') : isUnder ? (idx%2===0?'#f0fdf4':'#ebfdf0') : (idx%2===0?'#fff':'#fafafa');
+                const badge   = isOver  ? { text:'OVER',    bg:'#fef2f2', color:'#dc2626', border:'#fecaca' }
+                              : isUnder ? { text:'UNDER',   bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' }
+                              :           { text:'NO RATE', bg:'#f8fafc', color:'#94a3b8', border:'#e2e8f0' };
                 return (
                   <div key={row.destination}
                     style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 110px 110px 100px 90px 90px', padding:'12px 18px', alignItems:'center', background:rowBg, borderBottom: idx < sortedData.length-1 ? '1px solid #f1f5f9' : 'none' }}>

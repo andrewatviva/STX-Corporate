@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
-  getDisplayStatus, accomCity, nightsBetween, exportCSV,
+  getDisplayStatus, accomCity, nightsBetween, exportCSV, tripDateForMode,
 } from '../../utils/reportHelpers';
 
 export default function HotelPopularity({ trips }) {
@@ -13,6 +13,7 @@ export default function HotelPopularity({ trips }) {
   const [sortBy,    setSortBy]    = useState('bookings');
   const [search,    setSearch]    = useState('');
   const [expanded,  setExpanded]  = useState(new Set());
+  const [dateMode,  setDateMode]  = useState('booking');
 
   const applyPreset = (key) => {
     setPeriodKey(key);
@@ -25,8 +26,9 @@ export default function HotelPopularity({ trips }) {
     const filtered = trips.filter(t => {
       const ds = getDisplayStatus(t);
       if (!BILLABLE_STATUSES.has(ds)) return false;
-      if (from && (t.startDate || '') < from) return false;
-      if (to   && (t.startDate || '') > to)   return false;
+      const tDate = tripDateForMode(t, dateMode);
+      if (from && tDate < from) return false;
+      if (to   && tDate > to)   return false;
       return true;
     });
 
@@ -74,7 +76,7 @@ export default function HotelPopularity({ trips }) {
     if (sortBy === 'destination') rows.sort((a, b) => a.destination.localeCompare(b.destination));
 
     return rows;
-  }, [trips, from, to, sortBy, search]);
+  }, [trips, from, to, sortBy, search, dateMode]);
 
   const totalHotelBookings = reportData.reduce((s, r) => s + r.totalBookings, 0);
   const totalDestinations  = reportData.length;
@@ -110,6 +112,15 @@ export default function HotelPopularity({ trips }) {
 
       {/* Filters */}
       <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+          <span style={{ ...lbl, marginBottom:0 }}>Date basis</span>
+          {[['booking','Booking Date'],['travel','Travel Date']].map(([val,label]) => (
+            <button key={val} onClick={() => setDateMode(val)}
+              style={{ ...pill, background: dateMode === val ? '#0d9488' : '#f1f5f9', color: dateMode === val ? '#fff' : '#475569', borderColor: dateMode === val ? '#0d9488' : '#e2e8f0', fontWeight: dateMode === val ? 700 : 500 }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-end' }}>
           <div>
             <label style={lbl}>Period</label>

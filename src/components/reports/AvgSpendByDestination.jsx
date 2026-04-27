@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
-  getDisplayStatus, sectorExGST, exportCSV,
+  getDisplayStatus, sectorExGST, exportCSV, tripDateForMode,
 } from '../../utils/reportHelpers';
 
 const TRIP_TYPES    = ['Self-Managed', 'STX-Managed', 'Group Event'];
@@ -23,6 +23,7 @@ export default function AvgSpendByDestination({ trips }) {
   const [expandedDests,  setExpandedDests]  = useState(new Set());
   const [sortField,      setSortField]      = useState('tripCount');
   const [sortDir,        setSortDir]        = useState('desc');
+  const [dateMode,       setDateMode]       = useState('booking');
 
   const applyPreset = (key) => {
     setPeriodKey(key);
@@ -39,8 +40,9 @@ export default function AvgSpendByDestination({ trips }) {
       const ds = getDisplayStatus(t);
       if (!BILLABLE_STATUSES.has(ds)) return false;
       if (!selectedTypes.includes(t.tripType)) return false;
-      if (from && (t.startDate || '') < from) return false;
-      if (to   && (t.startDate || '') > to)   return false;
+      const tDate = tripDateForMode(t, dateMode);
+      if (from && tDate < from) return false;
+      if (to   && tDate > to)   return false;
       return true;
     });
 
@@ -149,6 +151,15 @@ export default function AvgSpendByDestination({ trips }) {
 
       {/* Filters */}
       <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:14 }}>
+          <span style={{ ...lbl, marginBottom:0 }}>Date basis</span>
+          {[['booking','Booking Date'],['travel','Travel Date']].map(([val,label]) => (
+            <button key={val} onClick={() => setDateMode(val)}
+              style={{ ...pill, background: dateMode === val ? '#0d9488' : '#f1f5f9', color: dateMode === val ? '#fff' : '#475569', borderColor: dateMode === val ? '#0d9488' : '#e2e8f0', fontWeight: dateMode === val ? 700 : 500 }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div style={{ marginBottom:14 }}>
           <label style={lbl}>Period</label>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
