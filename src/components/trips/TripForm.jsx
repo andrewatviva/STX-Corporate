@@ -411,7 +411,7 @@ const EMPTY = {
   clientId: '', title: '', travellerName: '', travellerId: '', tripType: '', costCentre: '',
   originCity: '', destinationCity: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
-  costCentreChangeReason: '',
+  costCentreChangeReason: '', vtoTripId: '', digitalItineraryLink: '',
 };
 
 const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
@@ -456,7 +456,9 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       purpose:         trip.purpose         || '',
       startDate:       trip.startDate       || '',
       endDate:         trip.endDate         || '',
-      internalNotes:   trip.internalNotes   || '',
+      internalNotes:         trip.internalNotes         || '',
+      vtoTripId:             trip.vtoTripId             || '',
+      digitalItineraryLink:  trip.digitalItineraryLink  || '',
       sectors: (trip.sectors || []).map(s => ({ ...s, _key: Math.random().toString(36).slice(2) })),
     };
   });
@@ -725,6 +727,31 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               rows={2}
               value={form.internalNotes}
               onChange={e => set('internalNotes', e.target.value)}
+            />
+          </div>
+        )}
+
+        {isSTX && (
+          <div>
+            <label className={lbl}>VTO Trip ID (STX internal — not visible to client)</label>
+            <input
+              className={inp}
+              value={form.vtoTripId}
+              onChange={e => set('vtoTripId', e.target.value)}
+              placeholder="e.g. VTO-12345"
+            />
+          </div>
+        )}
+
+        {isSTX && form.tripType && form.tripType !== 'Self-Managed' && (
+          <div>
+            <label className={lbl}>Digital Itinerary link</label>
+            <input
+              type="url"
+              className={inp}
+              value={form.digitalItineraryLink}
+              onChange={e => set('digitalItineraryLink', e.target.value)}
+              placeholder="https://…"
             />
           </div>
         )}

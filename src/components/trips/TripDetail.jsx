@@ -561,6 +561,29 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             <p className="text-sm text-gray-700 whitespace-pre-line">{trip.internalNotes}</p>
           </div>
         )}
+
+        {isSTX && trip.vtoTripId && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+              <Lock size={11} /> VTO Trip ID
+            </p>
+            <p className="text-sm text-gray-700 font-mono">{trip.vtoTripId}</p>
+          </div>
+        )}
+
+        {trip.tripType !== 'Self-Managed' && trip.digitalItineraryLink && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-400 mb-1">Digital Itinerary</p>
+            <a
+              href={trip.digitalItineraryLink}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
+            >
+              {trip.digitalItineraryLink}
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Sectors */}
