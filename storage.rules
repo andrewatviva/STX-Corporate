@@ -24,5 +24,13 @@ service firebase.storage {
                     && request.resource.size < 10 * 1024 * 1024;
       allow delete: if isSTX() || isClientMember(clientId);
     }
+
+    // Passenger document vault — tenant-isolated, max 20 MB per file
+    match /clients/{clientId}/passengers/{passengerId}/documents/{filename} {
+      allow read:   if isSTX() || isClientMember(clientId);
+      allow create: if (isSTX() || isClientMember(clientId))
+                    && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if isSTX() || isClientMember(clientId);
+    }
   }
 }

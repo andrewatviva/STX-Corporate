@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Edit2, User, Printer, AlertTriangle, X } from 'lucide-react';
+import DocumentVault from './DocumentVault';
 
 const lbl = 'text-xs font-medium text-gray-500';
 const val = 'text-sm text-gray-800 mt-0.5';
@@ -218,7 +219,7 @@ function EmergencyCard({ passenger: p, onClose }) {
 
 // ── Main detail view ──────────────────────────────────────────────────────────
 
-export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName }) {
+export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName, clientId, onUpdate, canEdit }) {
   const [showEmergency, setShowEmergency] = useState(false);
   const p = passenger;
   const fullName  = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
@@ -387,6 +388,17 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
           </div>
         </Section>
       )}
+
+      {/* Document Vault */}
+      <Section title="Document Vault">
+        <DocumentVault
+          passengerId={passenger.id}
+          clientId={clientId}
+          documents={p.documents || []}
+          onUpdate={onUpdate}
+          canEdit={canEdit}
+        />
+      </Section>
 
       {/* Travel preferences */}
       {(p.seatPreference || p.mealPreference || p.loyaltyPrograms?.length > 0 || p.frequentFlyer?.length > 0 || p.travelNotes) && (

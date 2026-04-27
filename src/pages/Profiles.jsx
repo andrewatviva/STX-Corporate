@@ -167,6 +167,9 @@ export default function Profiles() {
             managerName={managerName}
             onEdit={() => handleEdit(selected)}
             onBack={() => setSelected(null)}
+            clientId={effectiveClientId}
+            canEdit={canEdit}
+            onUpdate={(data) => updatePassenger(selected.id, data)}
           />
           {canEdit && (
             <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
