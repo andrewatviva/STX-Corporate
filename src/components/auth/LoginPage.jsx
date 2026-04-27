@@ -15,7 +15,7 @@ const VALUE_PROPS = [
   {
     icon: '♿',
     title: 'Built for disability support',
-    desc: 'Accessibility-aware traveller profiles, NDIS-aligned cost centres, and support for unique participant needs.',
+    desc: 'Accessibility-aware traveller profiles, configurable cost centres, and support for unique participant needs.',
   },
   {
     icon: '📊',
@@ -120,7 +120,7 @@ export default function LoginPage() {
             rel="noreferrer"
             className="text-slate-500 hover:text-slate-300 transition-colors"
           >
-            Supported Travel X
+            Supported Travel eXperiences
           </a>
         </p>
       </div>

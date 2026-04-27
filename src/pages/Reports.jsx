@@ -24,7 +24,7 @@ const BLURBS = {
   avg_dest:   'Shows the average and total cost of trips broken down by destination city, with an optional per-sector breakdown. Useful for benchmarking spend and identifying high-cost destinations.',
   departure:  'Groups total and average spend by the city each trip departs from. Helps you understand where most travel originates and compare costs across locations.',
   hotel:      'Ranks hotels by booking frequency within each destination, with average nightly rates. Use this to identify preferred suppliers, track usage patterns, and support rate negotiation.',
-  policy:     'Compares actual accommodation spend against government-recommended nightly rate limits (TD 2025/4) for each city. Flags bookings that exceed policy thresholds to support compliance reporting.',
+  policy:     'Compares actual accommodation spend against your organisation\'s configured nightly rate limits for each city. Flags bookings that exceed policy thresholds so you can track and report on compliance.',
 };
 
 export default function Reports() {

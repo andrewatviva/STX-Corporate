@@ -343,8 +343,8 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       </Section>
 
       <Section title="Approval Workflow">
-        <p className="text-xs text-gray-500 -mt-2">Set whether each trip type requires approval before a booking can proceed. STX-Managed and Group Events are recommended to always require approval.</p>
-        {['Self-Managed', 'STX-Managed', 'Group Event'].map(type => (
+        <p className="text-xs text-gray-500 -mt-2">Set whether each trip type requires approval before a booking can proceed.</p>
+        {(cfg.dropdowns.tripTypes?.length ? cfg.dropdowns.tripTypes : DEFAULT_CONFIG.dropdowns.tripTypes).map(type => (
           <Toggle
             key={type}
             checked={cfg.workflow.approvalByTripType?.[type] ?? cfg.workflow.requiresApproval}
