@@ -38,9 +38,3 @@ jobs:
           projectId: stx-corporate
           channelId: live
 
-      - name: Deploy Firestore rules (Prod)
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only firestore:rules --project stx-corporate
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROD }}
