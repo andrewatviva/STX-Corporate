@@ -177,12 +177,16 @@ function EmergencyCard({ passenger: p, onClose }) {
               {p.mobilityAids?.length > 0 && (
                 <ESection title="Mobility Aids" color="blue">
                   <p className="text-sm text-gray-900 mb-2">{p.mobilityAids.join(', ')}</p>
-                  {p.mobilityAids.some(a => WHEELCHAIR_AIDS.includes(a)) && (
+                  {p.mobilityAids.some(a => WHEELCHAIR_AIDS.includes(a) || a === 'Mobility Scooter') && (
                     <div className="space-y-1 text-xs text-gray-600">
-                      {p.wheelchairModel      && <p>Model: {p.wheelchairModel}</p>}
-                      {p.wheelchairWeight     && <p>Weight: {p.wheelchairWeight} kg</p>}
-                      {p.wheelchairDimensions && <p>Dimensions: {p.wheelchairDimensions} cm</p>}
-                      {p.wheelchairTransfer   && <p>Transfer: {p.wheelchairTransfer}</p>}
+                      {p.wheelchairModel && <p>Model: {p.wheelchairModel}</p>}
+                      {p.wheelchairWeight && <p>Weight: {p.wheelchairWeight} kg</p>}
+                      {(p.wheelchairLengthCm || p.wheelchairWidthCm || p.wheelchairHeightCm)
+                        ? <p>Dimensions: {[p.wheelchairLengthCm, p.wheelchairWidthCm, p.wheelchairHeightCm].map(v => v || '?').join(' × ')} cm (L × W × H)</p>
+                        : p.wheelchairDimensions && <p>Dimensions: {p.wheelchairDimensions} cm</p>}
+                      {p.wheelchairBatteryType && <p>Battery: {p.wheelchairBatteryType}{p.wheelchairBatteryWh ? ` · ${p.wheelchairBatteryWh} Wh` : ''}</p>}
+                      {p.wheelchairTransfer && <p>Transfer: {p.wheelchairTransfer}</p>}
+                      {p.wheelchairAssemblyNotes && <p>Assembly: {p.wheelchairAssemblyNotes}</p>}
                     </div>
                   )}
                   {p.carerRequired && (
@@ -327,21 +331,54 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
               </div>
             )}
 
-            {/* Wheelchair details */}
-            {p.mobilityAids?.some(a => WHEELCHAIR_AIDS.includes(a)) && (
-              p.wheelchairTransfer || p.wheelchairModel || p.wheelchairDimensions || p.wheelchairWeight
-            ) && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Wheelchair details</p>
-                {p.wheelchairTransfer && <Field label="Transfer method" value={p.wheelchairTransfer} />}
-                <div className="grid grid-cols-2 gap-3">
-                  {p.wheelchairModel && <Field label="Model" value={p.wheelchairModel} />}
-                  {p.wheelchairWeight && <Field label="Weight" value={`${p.wheelchairWeight} kg`} />}
-                  {p.wheelchairDimensions && <Field label="Dimensions (L × W × H)" value={`${p.wheelchairDimensions} cm`} />}
-                  {p.wheelchairBatteryModel && <Field label="Battery model" value={p.wheelchairBatteryModel} />}
+            {/* Wheelchair / scooter details */}
+            {p.mobilityAids?.some(a => WHEELCHAIR_AIDS.includes(a) || a === 'Mobility Scooter') && (
+              p.wheelchairTransfer || p.wheelchairModel || p.wheelchairDimensions ||
+              p.wheelchairLengthCm || p.wheelchairWeight || p.wheelchairBatteryType ||
+              p.wheelchairBatteryWh || p.wheelchairAssemblyNotes
+            ) && (() => {
+              // Build display dimensions — prefer separate fields, fallback to legacy string
+              const dims = (p.wheelchairLengthCm || p.wheelchairWidthCm || p.wheelchairHeightCm)
+                ? [p.wheelchairLengthCm, p.wheelchairWidthCm, p.wheelchairHeightCm]
+                    .map(v => v || '?').join(' × ') + ' cm (L × W × H)'
+                : p.wheelchairDimensions ? `${p.wheelchairDimensions} cm` : null;
+
+              // Battery air travel flag
+              const wh = parseFloat(p.wheelchairBatteryWh) || 0;
+              const isWet = p.wheelchairBatteryType === 'Wet Cell (flooded)';
+              const isLithium = ['Lithium-ion', 'Lithium Polymer'].includes(p.wheelchairBatteryType);
+              const batteryFlag = isWet ? 'not-permitted'
+                : isLithium && wh > 300 ? 'not-permitted'
+                : isLithium && wh > 160 ? 'approval-required'
+                : isLithium && wh > 0 ? 'ok'
+                : null;
+
+              return (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Wheelchair / mobility device details</p>
+                  {p.wheelchairTransfer && <Field label="Transfer method" value={p.wheelchairTransfer} />}
+                  <div className="grid grid-cols-2 gap-3">
+                    {p.wheelchairModel  && <Field label="Model" value={p.wheelchairModel} />}
+                    {p.wheelchairWeight && <Field label="Weight" value={`${p.wheelchairWeight} kg`} />}
+                    {dims && <Field label="Dimensions (L × W × H)" value={dims} />}
+                    {p.wheelchairBatteryType && <Field label="Battery type" value={p.wheelchairBatteryType} />}
+                    {p.wheelchairBatteryWh && <Field label="Battery capacity" value={`${p.wheelchairBatteryWh} Wh`} />}
+                  </div>
+                  {batteryFlag && (
+                    <div className={`px-3 py-2 rounded-lg text-xs font-medium ${
+                      batteryFlag === 'not-permitted' ? 'bg-red-100 text-red-700' :
+                      batteryFlag === 'approval-required' ? 'bg-amber-100 text-amber-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      {batteryFlag === 'not-permitted' && 'Air travel: battery not permitted on aircraft'}
+                      {batteryFlag === 'approval-required' && 'Air travel: advance airline approval required (>160 Wh)'}
+                      {batteryFlag === 'ok' && 'Air travel: within standard airline limits (<160 Wh)'}
+                    </div>
+                  )}
+                  {p.wheelchairAssemblyNotes && <Field label="Assembly / disassembly" value={p.wheelchairAssemblyNotes} />}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {p.dietaryRequirements?.length > 0 && <Tags label="Dietary requirements" values={p.dietaryRequirements} />}
             {p.allergyNotes && <Field label="Allergy / dietary notes" value={p.allergyNotes} />}

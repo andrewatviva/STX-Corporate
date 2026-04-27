@@ -75,14 +75,27 @@ const WHEELCHAIR_TRANSFERS = [
   'Assistance Required — I need a hoist to transfer in and out of my wheelchair',
 ];
 
+const BATTERY_TYPES = [
+  'Sealed Lead Acid (non-spillable)',
+  'Gel Cell (non-spillable)',
+  'Dry Cell',
+  'Lithium-ion',
+  'Lithium Polymer',
+  'Wet Cell (flooded)',
+  'Other',
+];
+
 const EMPTY = {
   title: '', firstName: '', lastName: '', preferredName: '', dateOfBirth: '', gender: '',
   email: '', phone: '',
   emergencyName: '', emergencyPhone: '', emergencyRelationship: '', emergencyEmail: '',
   identityDocuments: [],
   disabilityType: [], mobilityAids: [], carerRequired: false, carerName: '',
-  wheelchairTransfer: '', wheelchairModel: '', wheelchairDimensions: '',
-  wheelchairWeight: '', wheelchairBatteryModel: '',
+  wheelchairTransfer: '', wheelchairModel: '',
+  wheelchairLengthCm: '', wheelchairWidthCm: '', wheelchairHeightCm: '',
+  wheelchairWeight: '',
+  wheelchairBatteryType: '', wheelchairBatteryWh: '',
+  wheelchairAssemblyNotes: '',
   dietaryRequirements: [], allergyNotes: '', medicalNotes: '', supportNotes: '',
   seatPreference: '', mealPreference: '', loyaltyPrograms: [], travelNotes: '',
   userId: '',
@@ -112,11 +125,15 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
       mobilityAids:         passenger.mobilityAids         || [],
       carerRequired:        passenger.carerRequired        || false,
       carerName:            passenger.carerName            || '',
-      wheelchairTransfer:   passenger.wheelchairTransfer   || '',
-      wheelchairModel:      passenger.wheelchairModel      || '',
-      wheelchairDimensions: passenger.wheelchairDimensions || '',
-      wheelchairWeight:     passenger.wheelchairWeight     || '',
-      wheelchairBatteryModel: passenger.wheelchairBatteryModel || '',
+      wheelchairTransfer:    passenger.wheelchairTransfer    || '',
+      wheelchairModel:       passenger.wheelchairModel       || '',
+      wheelchairLengthCm:    passenger.wheelchairLengthCm    || '',
+      wheelchairWidthCm:     passenger.wheelchairWidthCm     || '',
+      wheelchairHeightCm:    passenger.wheelchairHeightCm    || '',
+      wheelchairWeight:      passenger.wheelchairWeight      || '',
+      wheelchairBatteryType: passenger.wheelchairBatteryType || '',
+      wheelchairBatteryWh:   passenger.wheelchairBatteryWh   || '',
+      wheelchairAssemblyNotes: passenger.wheelchairAssemblyNotes || '',
       dietaryRequirements:  passenger.dietaryRequirements  || [],
       allergyNotes:         passenger.allergyNotes         || '',
       medicalNotes:         passenger.medicalNotes         || '',
@@ -313,14 +330,71 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
                 <F label="Weight (kg)">
                   <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairWeight} onChange={e => set('wheelchairWeight', e.target.value)} placeholder="e.g. 23.5" />
                 </F>
-                <F label="Dimensions — L × W × H (cm)" span2>
-                  <input className={inp} value={form.wheelchairDimensions} onChange={e => set('wheelchairDimensions', e.target.value)} placeholder="e.g. 110 × 65 × 92" />
-                </F>
-                {form.mobilityAids.includes('Power Wheelchair') && (
-                  <F label="Battery model" span2>
-                    <input className={inp} value={form.wheelchairBatteryModel} onChange={e => set('wheelchairBatteryModel', e.target.value)} placeholder="e.g. Lithium-ion 80Ah — non-spillable" />
-                  </F>
+
+                {/* Separate dimension fields */}
+                <div className="col-span-2">
+                  <label className={lbl}>Dimensions (cm)</label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    <div>
+                      <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairLengthCm} onChange={e => set('wheelchairLengthCm', e.target.value)} placeholder="Length" />
+                      <p className="text-xs text-gray-400 mt-0.5 text-center">Length</p>
+                    </div>
+                    <div>
+                      <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairWidthCm} onChange={e => set('wheelchairWidthCm', e.target.value)} placeholder="Width" />
+                      <p className="text-xs text-gray-400 mt-0.5 text-center">Width</p>
+                    </div>
+                    <div>
+                      <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairHeightCm} onChange={e => set('wheelchairHeightCm', e.target.value)} placeholder="Height" />
+                      <p className="text-xs text-gray-400 mt-0.5 text-center">Height</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Battery — shown for both power and mobility scooter */}
+                {(form.mobilityAids.includes('Power Wheelchair') || form.mobilityAids.includes('Mobility Scooter')) && (
+                  <>
+                    <F label="Battery type">
+                      <select className={inp} value={form.wheelchairBatteryType} onChange={e => set('wheelchairBatteryType', e.target.value)}>
+                        <option value="">Not specified</option>
+                        {BATTERY_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </F>
+                    <F label="Battery capacity (Wh)">
+                      <input type="number" min="0" step="1" className={inp} value={form.wheelchairBatteryWh} onChange={e => set('wheelchairBatteryWh', e.target.value)} placeholder="e.g. 160" />
+                    </F>
+
+                    {/* Air travel battery warning */}
+                    {form.wheelchairBatteryType === 'Wet Cell (flooded)' && (
+                      <div className="col-span-2 p-3 bg-red-50 border border-red-300 rounded-lg text-xs text-red-700">
+                        <strong>Not permitted on aircraft.</strong> Wet cell (flooded) batteries cannot be transported by air. Airline arrangements must account for this.
+                      </div>
+                    )}
+                    {['Lithium-ion', 'Lithium Polymer'].includes(form.wheelchairBatteryType) && form.wheelchairBatteryWh && (
+                      (() => {
+                        const wh = parseFloat(form.wheelchairBatteryWh);
+                        if (wh > 300) return (
+                          <div className="col-span-2 p-3 bg-red-50 border border-red-300 rounded-lg text-xs text-red-700">
+                            <strong>Not permitted on aircraft.</strong> Lithium batteries above 300 Wh are not allowed on commercial flights.
+                          </div>
+                        );
+                        if (wh > 160) return (
+                          <div className="col-span-2 p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-700">
+                            <strong>Airline approval required.</strong> Lithium batteries between 160–300 Wh require advance airline approval before travel.
+                          </div>
+                        );
+                        return (
+                          <div className="col-span-2 p-3 bg-green-50 border border-green-300 rounded-lg text-xs text-green-700">
+                            Battery capacity is within standard airline limits (under 160 Wh). Standard MEDIF/FREMEC process applies.
+                          </div>
+                        );
+                      })()
+                    )}
+                  </>
                 )}
+
+                <F label="Assembly / disassembly notes" span2>
+                  <textarea className={inp} rows={2} value={form.wheelchairAssemblyNotes} onChange={e => set('wheelchairAssemblyNotes', e.target.value)} placeholder="e.g. removes footrests and headrest; joystick folds in; seat cushion stored separately" />
+                </F>
               </div>
             </div>
           )}
