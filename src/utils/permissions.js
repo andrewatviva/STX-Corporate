@@ -43,7 +43,6 @@ export const ROLE_PERMISSIONS = {
   client_approver: [
     'trip:view', 'trip:approve',
     'passenger:view',
-    'invoice:view',
     'report:view',
   ],
 
