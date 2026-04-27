@@ -130,7 +130,7 @@ export default function InvoiceDetail({
   function printPDF() {
     const resolvedClientName = clientName || clientConfig?.name || '';
     const statusLabel = STATUS_CFG[invoice.status]?.label || invoice.status;
-    const stxLogoUrl  = `${window.location.origin}/logo192.png`;
+    const stxLogoUrl  = 'https://www.supportedtravelx.com.au/wp-content/uploads/STX-Logo-Transparent-min-1024x434-1.png';
     const clientLogoUrl = clientConfig?.branding?.logo || '';
 
     const lineRows = (invoice.lineItems || []).map(item => `
