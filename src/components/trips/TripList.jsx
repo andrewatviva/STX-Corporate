@@ -48,6 +48,58 @@ export function StatusBadge({ status }) {
   );
 }
 
+// ── Passengers cell ───────────────────────────────────────────────────────────
+
+function PassengersCell({ trip }) {
+  const [open, setOpen] = useState(false);
+  const extra = trip.additionalPassengers?.length || 0;
+
+  return (
+    <div className="relative">
+      <span className="text-gray-600">{trip.travellerName || '—'}</span>
+      {extra > 0 && (
+        <>
+          {' '}
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+          >
+            +{extra} more
+          </button>
+          {open && (
+            <div
+              className="absolute z-20 left-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg p-3 space-y-1"
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">All passengers</p>
+              <div className="flex items-center gap-2 text-sm text-gray-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                {trip.travellerName}
+                <span className="text-xs text-gray-400 ml-auto">Primary</span>
+              </div>
+              {trip.additionalPassengers.map((p, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
+                  {p.name}
+                  {p.costCentre && <span className="text-xs text-gray-400 ml-auto truncate">{p.costCentre}</span>}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-2 w-full text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1"
+              >
+                <X size={11} /> Close
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Date range helpers ────────────────────────────────────────────────────────
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -136,7 +188,8 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
     return trips.filter(t => {
       const q = search.toLowerCase();
       if (q && !t.title?.toLowerCase().includes(q) && !t.travellerName?.toLowerCase().includes(q) &&
-          !t.destinationCity?.toLowerCase().includes(q) && !t.originCity?.toLowerCase().includes(q)) return false;
+          !t.destinationCity?.toLowerCase().includes(q) && !t.originCity?.toLowerCase().includes(q) &&
+          !(t.additionalPassengers || []).some(p => p.name?.toLowerCase().includes(q))) return false;
       if (statusFilter    && getDisplayStatus(t) !== statusFilter)  return false;
       if (tripTypeFilter  && t.tripType   !== tripTypeFilter)        return false;
       if (costCentreFilter&& t.costCentre !== costCentreFilter)      return false;
@@ -294,7 +347,9 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{trip.travellerName || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <PassengersCell trip={trip} />
+                  </td>
                   {isSTX && <td className="px-4 py-3 text-gray-500 text-xs">{trip.clientId || '—'}</td>}
                   <td className="px-4 py-3 text-gray-500">{trip.tripType || '—'}</td>
                   <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
