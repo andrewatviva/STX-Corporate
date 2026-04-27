@@ -132,14 +132,19 @@ function CreateUserForm({ clients, onCreated, onCancel }) {
 }
 
 // ── Edit user form ────────────────────────────────────────────────────────────
+const OPS_ROLES = ['stx_admin', 'stx_ops', 'client_ops'];
+
 function EditUserForm({ user, clients, onSaved, onCancel }) {
   const [form, setForm] = useState({
-    firstName:  user.firstName  || '',
-    lastName:   user.lastName   || '',
-    role:       user.role       || 'client_ops',
-    clientId:   user.clientId   || '',
-    active:     user.active !== false,
-    costCentre: user.costCentre || '',
+    firstName:     user.firstName  || '',
+    lastName:      user.lastName   || '',
+    role:          user.role       || 'client_ops',
+    clientId:      user.clientId   || '',
+    active:        user.active !== false,
+    costCentre:    user.costCentre || '',
+    invoiceAccess: user.invoiceAccess !== undefined
+      ? user.invoiceAccess
+      : OPS_ROLES.includes(user.role || 'client_ops'),
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -168,8 +173,11 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
           active:    form.active,
         },
       });
-      // Store cost centre directly (not in CF allowlist)
-      await updateDoc(doc(db, 'users', user.id), { costCentre: form.costCentre || null });
+      // Store cost centre and access flags directly (not in CF allowlist)
+      await updateDoc(doc(db, 'users', user.id), {
+        costCentre:    form.costCentre || null,
+        invoiceAccess: form.invoiceAccess,
+      });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -207,7 +215,10 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Role">
-          <select className={inp} value={form.role} onChange={e => set('role', e.target.value)}>
+          <select className={inp} value={form.role} onChange={e => {
+            const newRole = e.target.value;
+            setForm(p => ({ ...p, role: newRole, invoiceAccess: OPS_ROLES.includes(newRole) }));
+          }}>
             {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
         </Field>
@@ -226,6 +237,12 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         </Field>
       )}
       <Toggle checked={form.active} onChange={v => set('active', v)} label="Active account" description="Inactive users cannot log in" />
+      <Toggle
+        checked={form.invoiceAccess}
+        onChange={v => set('invoiceAccess', v)}
+        label="Invoice access"
+        description="Can view and generate invoices. On by default for operations roles."
+      />
 
       {/* Password reset section */}
       <div className="border border-gray-200 rounded-lg p-4">

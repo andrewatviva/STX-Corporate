@@ -205,20 +205,14 @@ function CreateMemberForm({ clientId, members, costCentres = [], onCreated, onCa
 // ── Edit member form ──────────────────────────────────────────────────────────
 
 function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, onDeleted, onCancel }) {
-  const OPS_ROLES = ['stx_admin', 'stx_ops', 'client_ops'];
-  const defaultInvoiceAccess = (r) => OPS_ROLES.includes(r);
-
   const [form, setForm] = useState({
-    firstName:     user.firstName  || '',
-    lastName:      user.lastName   || '',
-    role:          user.role       || 'client_traveller',
-    active:        user.active !== false,
-    managerId:     user.managerId  || '',
-    approveFor:    user.approveFor || [],
-    costCentre:    user.costCentre || '',
-    invoiceAccess: user.invoiceAccess !== undefined
-      ? user.invoiceAccess
-      : defaultInvoiceAccess(user.role || 'client_traveller'),
+    firstName:  user.firstName  || '',
+    lastName:   user.lastName   || '',
+    role:       user.role       || 'client_traveller',
+    active:     user.active !== false,
+    managerId:  user.managerId  || '',
+    approveFor: user.approveFor || [],
+    costCentre: user.costCentre || '',
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -252,12 +246,11 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
           active:    form.active,
         },
       });
-      // Direct Firestore update for hierarchy metadata, cost centre, and access flags
+      // Direct Firestore update for hierarchy metadata and cost centre
       await updateDoc(doc(db, 'users', user.id), {
-        managerId:     form.managerId || null,
-        approveFor:    form.role === 'client_approver' ? (form.approveFor || []) : [],
-        costCentre:    form.costCentre || null,
-        invoiceAccess: form.invoiceAccess,
+        managerId:  form.managerId || null,
+        approveFor: form.role === 'client_approver' ? (form.approveFor || []) : [],
+        costCentre: form.costCentre || null,
       });
       onSaved();
     } catch (err) {
@@ -326,14 +319,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
 
       {/* Role */}
       <Field label="Role">
-        <select className={inp} value={form.role} onChange={e => {
-          const newRole = e.target.value;
-          setForm(p => ({
-            ...p,
-            role: newRole,
-            invoiceAccess: OPS_ROLES.includes(newRole),
-          }));
-        }}>
+        <select className={inp} value={form.role} onChange={e => set('role', e.target.value)}>
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
@@ -403,14 +389,6 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
 
       {/* Active toggle */}
       <Toggle checked={form.active} onChange={v => set('active', v)} label="Active account" description="Inactive users cannot log in" />
-
-      {/* Invoice access */}
-      <Toggle
-        checked={form.invoiceAccess}
-        onChange={v => set('invoiceAccess', v)}
-        label="Invoice access"
-        description="Can view and generate invoices. On by default for operations staff."
-      />
 
       {/* Password reset */}
       <div className="border border-gray-200 rounded-lg p-4">
