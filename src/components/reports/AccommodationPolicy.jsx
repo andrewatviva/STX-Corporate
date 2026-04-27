@@ -191,8 +191,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
   const filteredEditCities = useMemo(() => {
     const q = cityFilter.toLowerCase();
-    const others = Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
-    return 'All Cities' in editRates ? ['All Cities', ...others] : others;
+    return Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
   }, [editRates, cityFilter]);
 
   const sa = (f) => sortField === f ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
@@ -226,6 +225,32 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
             </div>
           </div>
 
+          {/* All Cities blanket rate checkbox */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#f0fdfa', border:'1px solid #99f6e4', borderRadius:8, marginBottom:10, flexWrap:'wrap' }}>
+            <input
+              type="checkbox" id="all-cities-chk"
+              checked={'All Cities' in editRates}
+              onChange={e => {
+                if (e.target.checked) setEditRates(prev => ({ ...prev, 'All Cities': prev['All Cities'] || '' }));
+                else handleDeleteCity('All Cities');
+              }}
+              style={{ width:15, height:15, cursor:'pointer', accentColor:'#0d9488' }}
+            />
+            <label htmlFor="all-cities-chk" style={{ fontSize:13, fontWeight:600, color:'#0d9488', cursor:'pointer', whiteSpace:'nowrap' }}>
+              Blanket rate for all cities
+            </label>
+            {'All Cities' in editRates && (
+              <>
+                <input type="number" min="0" step="1" placeholder="e.g. 200"
+                  value={editRates['All Cities'] ?? ''}
+                  onChange={e => handleRateChange('All Cities', e.target.value)}
+                  style={{ ...inp, width:90, padding:'4px 8px', fontSize:13 }}
+                />
+                <span style={{ fontSize:12, color:'#64748b' }}>/night (incl. GST) — applies to destinations not listed below</span>
+              </>
+            )}
+          </div>
+
           <div style={{ marginBottom:10 }}>
             <input type="text" placeholder="Search city…" value={cityFilter} onChange={e => setCityFilter(e.target.value)} style={{ ...inp, width:220 }} />
             <span style={{ marginLeft:10, fontSize:12, color:'#94a3b8' }}>{filteredEditCities.length} cities</span>
@@ -238,10 +263,8 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
               <span />
             </div>
             {filteredEditCities.map((city, idx) => (
-              <div key={city} style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'6px 14px', alignItems:'center', background: city === 'All Cities' ? '#f0fdfa' : idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom:'1px solid #f1f5f9' }}>
-                <span style={{ fontSize:13, color: city === 'All Cities' ? '#0d9488' : '#1e293b', fontWeight: city === 'All Cities' ? 700 : 400 }}>
-                  {city}{city === 'All Cities' && <span style={{ fontSize:11, fontWeight:400, color:'#64748b', marginLeft:6 }}>(blanket rate)</span>}
-                </span>
+              <div key={city} style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'6px 14px', alignItems:'center', background: idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom:'1px solid #f1f5f9' }}>
+                <span style={{ fontSize:13, color:'#1e293b' }}>{city}</span>
                 <div style={{ textAlign:'right' }}>
                   <input type="number" min="0" step="1" value={editRates[city] ?? ''} onChange={e => handleRateChange(city, e.target.value)}
                     style={{ ...inp, width:80, textAlign:'right', padding:'4px 8px', fontSize:13 }} />

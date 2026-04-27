@@ -105,8 +105,7 @@ function PolicyRatesEditor({ clientId }) {
 
   const filteredCities = useMemo(() => {
     const q = cityFilter.toLowerCase();
-    const others = Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
-    return 'All Cities' in editRates ? ['All Cities', ...others] : others;
+    return Object.keys(editRates).filter(c => c !== 'All Cities' && c.toLowerCase().includes(q)).sort();
   }, [editRates, cityFilter]);
 
   const handleRateChange = (city, val) =>
@@ -142,8 +141,35 @@ function PolicyRatesEditor({ clientId }) {
     <div className="space-y-3">
       <p className="text-xs text-gray-400">
         Max allowable nightly accommodation spend per city (incl. GST). Used in the Accommodation Policy compliance report.
-        Add <strong className="text-gray-500">All Cities</strong> to set a blanket rate for any destination without a specific entry.
       </p>
+
+      {/* All Cities blanket rate */}
+      <div className="flex items-center gap-3 flex-wrap px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg">
+        <input
+          type="checkbox" id="cf-all-cities-chk"
+          checked={'All Cities' in editRates}
+          onChange={e => {
+            if (e.target.checked) setEditRates(prev => ({ ...prev, 'All Cities': prev['All Cities'] || '' }));
+            else handleDeleteCity('All Cities');
+          }}
+          className="w-4 h-4 cursor-pointer accent-teal-600"
+        />
+        <label htmlFor="cf-all-cities-chk" className="text-sm font-semibold text-teal-700 cursor-pointer whitespace-nowrap">
+          Blanket rate for all cities
+        </label>
+        {'All Cities' in editRates && (
+          <>
+            <input
+              type="number" min="0" step="1" placeholder="e.g. 200"
+              value={editRates['All Cities'] ?? ''}
+              onChange={e => handleRateChange('All Cities', e.target.value)}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-sm w-24 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+            <span className="text-xs text-gray-500">/night incl. GST — applies to destinations not listed below</span>
+          </>
+        )}
+      </div>
+
       <div className="flex items-center gap-3 flex-wrap">
         <input
           type="text" placeholder="Search city…" value={cityFilter}
@@ -167,10 +193,8 @@ function PolicyRatesEditor({ clientId }) {
           <span />
         </div>
         {filteredCities.map((city, idx) => (
-          <div key={city} className={`grid grid-cols-[1fr_120px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${city === 'All Cities' ? 'bg-teal-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-            <span className={`text-sm ${city === 'All Cities' ? 'text-teal-700 font-semibold' : 'text-gray-700'}`}>
-              {city}{city === 'All Cities' && <span className="ml-2 text-xs font-normal text-gray-400">(blanket rate)</span>}
-            </span>
+          <div key={city} className={`grid grid-cols-[1fr_120px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+            <span className="text-sm text-gray-700">{city}</span>
             <div className="flex justify-end">
               <input
                 type="number" min="0" step="1" value={editRates[city] ?? ''}
