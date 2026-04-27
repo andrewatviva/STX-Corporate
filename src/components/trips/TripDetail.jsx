@@ -546,40 +546,49 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           )}
         </div>
 
-        {trip.additionalPassengers?.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100 col-span-3">
-            <p className="text-xs text-gray-400 mb-2">All passengers</p>
-            <div className="space-y-2">
-              {/* Primary traveller row */}
-              <div className="flex items-start gap-3 text-sm p-2 bg-blue-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{trip.travellerName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Primary traveller{trip.costCentre ? ` · ${trip.costCentre}` : ''}</p>
-                </div>
-              </div>
-              {/* Additional passengers */}
-              {trip.additionalPassengers.map((p, i) => {
-                const sectorLabels = (p.sectorIndices || [])
-                  .map(idx => { const s = trip.sectors?.[idx]; return s ? (SECTOR_LABELS[s.type] || s.type) : null; })
-                  .filter(Boolean);
-                return (
-                  <div key={i} className="flex items-start gap-3 text-sm p-2 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{p.name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {p.costCentre && <span>{p.costCentre} · </span>}
-                        {sectorLabels.length > 0 ? sectorLabels.join(', ') : 'All sectors'}
-                      </p>
-                    </div>
-                    {p.allocatedCost > 0 && (
-                      <span className="text-xs font-medium text-gray-700 shrink-0">A${p.allocatedCost.toFixed(2)}</span>
-                    )}
+        {trip.additionalPassengers?.length > 0 && (() => {
+          const numPax = 1 + trip.additionalPassengers.length;
+          const primaryCost = trip.primaryAllocatedCost != null
+            ? trip.primaryAllocatedCost
+            : (totalCost / numPax);
+          return (
+            <div className="mt-4 pt-4 border-t border-gray-100 col-span-3">
+              <p className="text-xs text-gray-400 mb-2">All passengers</p>
+              <div className="space-y-2">
+                {/* Primary traveller */}
+                <div className="flex items-center gap-3 text-sm p-2 bg-blue-50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{trip.travellerName}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Primary traveller{trip.costCentre ? ` · ${trip.costCentre}` : ''}
+                    </p>
                   </div>
-                );
-              })}
+                  <span className="text-xs font-medium text-gray-700 shrink-0">A${primaryCost.toFixed(2)}</span>
+                </div>
+                {/* Additional passengers */}
+                {trip.additionalPassengers.map((p, i) => {
+                  const sectorLabels = (p.sectorIndices || [])
+                    .map(idx => { const s = trip.sectors?.[idx]; return s ? (SECTOR_LABELS[s.type] || s.type) : null; })
+                    .filter(Boolean);
+                  return (
+                    <div key={i} className="flex items-center gap-3 text-sm p-2 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{p.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {p.costCentre && <span>{p.costCentre} · </span>}
+                          {sectorLabels.length > 0 ? sectorLabels.join(', ') : 'All sectors'}
+                        </p>
+                      </div>
+                      <span className="text-xs font-medium text-gray-700 shrink-0">
+                        A${(p.allocatedCost ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {trip.purpose && (
           <div className="mt-4 pt-4 border-t border-gray-100">

@@ -539,6 +539,7 @@ const EMPTY = {
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
   costCentreChangeReason: '', vtoTripId: '', digitalItineraryLink: '',
   additionalPassengers: [],
+  primaryAllocatedCost: '', primaryAllocatedCostOverride: false,
 };
 
 const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
@@ -593,6 +594,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         _key: Math.random().toString(36).slice(2),
         sectorKeys: (p.sectorIndices || []).map(i => sectorList[i]?._key).filter(Boolean),
       })),
+      primaryAllocatedCost:         trip.primaryAllocatedCost != null ? String(trip.primaryAllocatedCost) : '',
+      primaryAllocatedCostOverride: trip.primaryAllocatedCost != null,
     };
   });
 
@@ -652,18 +655,24 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
   const totalCost = form.sectors.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
 
-  // Per-passenger auto-allocation from sector cost shares
-  const addPaxTotals = useMemo(() => {
-    const addPax = form.additionalPassengers || [];
-    return addPax.map(p =>
-      form.sectors.reduce((sum, s) => {
-        if (!(p.sectorKeys || []).includes(s._key)) return sum;
-        const cost = parseFloat(s.cost) || 0;
-        const count = 1 + addPax.filter(q => (q.sectorKeys || []).includes(s._key)).length;
-        return sum + cost / count;
-      }, 0)
+  // Equal-split allocation across all passengers
+  const allocation = useMemo(() => {
+    const numPax = 1 + (form.additionalPassengers || []).length;
+    const autoPerPax = numPax > 1 ? totalCost / numPax : totalCost;
+
+    const primaryDisplayed = form.primaryAllocatedCostOverride
+      ? (parseFloat(form.primaryAllocatedCost) || 0)
+      : autoPerPax;
+
+    const addPaxDisplayed = (form.additionalPassengers || []).map(p =>
+      p.allocatedCostOverride ? (parseFloat(p.allocatedCost) || 0) : autoPerPax
     );
-  }, [form.sectors, form.additionalPassengers]);
+
+    const allocatedTotal = primaryDisplayed + addPaxDisplayed.reduce((s, v) => s + v, 0);
+    const isBalanced = numPax <= 1 || Math.abs(allocatedTotal - totalCost) < 0.005;
+
+    return { autoPerPax, primaryDisplayed, addPaxDisplayed, allocatedTotal, isBalanced };
+  }, [totalCost, form.primaryAllocatedCost, form.primaryAllocatedCostOverride, form.additionalPassengers]);
 
   const addAdditionalPassenger = () =>
     setForm(p => ({
@@ -693,6 +702,14 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       return setError('Please provide a reason for changing the cost centre.');
     }
 
+    const namedAddPax = form.additionalPassengers.filter(p => p.name?.trim());
+    if (namedAddPax.length > 0 && !allocation.isBalanced) {
+      return setError(
+        `Passenger cost allocations (A$${allocation.allocatedTotal.toFixed(2)}) must equal the trip total ` +
+        `(A$${totalCost.toFixed(2)}). Adjust the amounts or click "Reset to auto" to re-split evenly.`
+      );
+    }
+
     setSaving(true);
     try {
       const typedSectors = form.sectors.filter(s => s.type);
@@ -705,11 +722,13 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         .map(({ _key, sectorKeys, allocatedCostOverride, ...rest }, origIdx) => ({
           ...rest,
           sectorIndices: (sectorKeys || []).map(k => keyToIdx[k]).filter(i => i !== undefined),
-          allocatedCost: allocatedCostOverride
-            ? parseFloat(rest.allocatedCost) || 0
-            : Math.round((addPaxTotals[origIdx] || 0) * 100) / 100,
+          allocatedCost: Math.round((allocation.addPaxDisplayed[origIdx] ?? 0) * 100) / 100,
         }))
         .filter(p => p.name?.trim());
+
+      const primaryAllocatedCost = namedAddPax.length > 0
+        ? Math.round(allocation.primaryDisplayed * 100) / 100
+        : null;
 
       let status = trip?.status || 'draft';
       if (submitForApproval) {
@@ -722,7 +741,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         status = 'draft';
       }
 
-      await onSave({ ...form, sectors, additionalPassengers, status, totalCost });
+      await onSave({ ...form, sectors, additionalPassengers, primaryAllocatedCost, status, totalCost });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -996,6 +1015,44 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
         {form.additionalPassengers.length > 0 && (
           <div className="space-y-3">
+            {/* Primary traveller cost row */}
+            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Passenger 1 — Primary</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-gray-800 flex-1">{form.travellerName || '—'}</span>
+                {form.costCentre && <span className="text-xs text-gray-400">{form.costCentre}</span>}
+              </div>
+              <div>
+                <label className={lbl}>Allocated cost incl. GST (A$)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min="0" step="0.01"
+                    className={`${inp} w-36`}
+                    value={form.primaryAllocatedCostOverride
+                      ? (form.primaryAllocatedCost ?? '')
+                      : allocation.autoPerPax.toFixed(2)}
+                    onChange={e => setForm(p => ({ ...p, primaryAllocatedCost: e.target.value, primaryAllocatedCostOverride: true }))}
+                  />
+                  {form.primaryAllocatedCostOverride ? (
+                    <button
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, primaryAllocatedCostOverride: false, primaryAllocatedCost: '' }))}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Reset to auto
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">
+                      Auto-split ({1 + form.additionalPassengers.length} passengers)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Additional passenger cards */}
             {form.additionalPassengers.map((pax, i) => (
               <AdditionalPassengerCard
                 key={pax._key}
@@ -1005,11 +1062,30 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
                 passengers={passengers}
                 teamMembers={teamMembers}
                 costCentres={costCentres}
-                autoAllocated={addPaxTotals[i] || 0}
+                autoAllocated={allocation.autoPerPax}
                 onChange={updated => updateAdditionalPassenger(i, updated)}
                 onRemove={() => removeAdditionalPassenger(i)}
               />
             ))}
+
+            {/* Balance indicator */}
+            <div className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm border ${
+              allocation.isBalanced
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <span className={`font-medium ${allocation.isBalanced ? 'text-green-700' : 'text-red-700'}`}>
+                {allocation.isBalanced ? '✓ Allocations balanced' : '⚠ Allocations unbalanced — cannot save'}
+              </span>
+              <span className={`text-xs tabular-nums ${allocation.isBalanced ? 'text-green-600' : 'text-red-600'}`}>
+                A${allocation.allocatedTotal.toFixed(2)} allocated / A${totalCost.toFixed(2)} total
+                {!allocation.isBalanced && (
+                  <span className="ml-1 font-semibold">
+                    ({allocation.allocatedTotal > totalCost ? '+' : ''}{(allocation.allocatedTotal - totalCost).toFixed(2)})
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
         )}
       </div>
