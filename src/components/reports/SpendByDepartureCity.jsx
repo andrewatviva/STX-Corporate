@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
-  getDisplayStatus, sectorExGST, exportCSV, tripDateForMode,
+  getDisplayStatus, tripInclGST, tripExGST, exportCSV, tripDateForMode,
 } from '../../utils/reportHelpers';
 
 const TRIP_TYPES = ['Self-Managed', 'STX-Managed', 'Group Event'];
@@ -51,8 +51,8 @@ export default function SpendByDepartureCity({ trips }) {
 
     const data = Object.entries(groups).map(([city, cityTrips]) => {
       const tripCount = cityTrips.length;
-      const totalInc  = cityTrips.reduce((s, t) => s + (t.sectors||[]).reduce((ss,sec) => ss + (parseFloat(sec.cost)||0), 0), 0);
-      const totalEx   = cityTrips.reduce((s, t) => s + (t.sectors||[]).reduce((ss,sec) => ss + sectorExGST(sec), 0), 0);
+      const totalInc  = cityTrips.reduce((s, t) => s + tripInclGST(t), 0);
+      const totalEx   = cityTrips.reduce((s, t) => s + tripExGST(t), 0);
       return { city, tripCount, totalInc, totalEx,
                avgTotalInc: tripCount ? totalInc / tripCount : 0,
                avgTotalEx:  tripCount ? totalEx  / tripCount : 0 };
