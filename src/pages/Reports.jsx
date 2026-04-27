@@ -19,6 +19,14 @@ const TABS = [
   { key: 'policy',     label: 'Accommodation Policy' },
 ];
 
+const BLURBS = {
+  all_travel: 'A complete list of all trips across your organisation. Filter by date basis, status, trip type, and cost centre to drill into any segment. Use the booking window column to spot late-notice travel.',
+  avg_dest:   'Shows the average and total cost of trips broken down by destination city, with an optional per-sector breakdown. Useful for benchmarking spend and identifying high-cost destinations.',
+  departure:  'Groups total and average spend by the city each trip departs from. Helps you understand where most travel originates and compare costs across locations.',
+  hotel:      'Ranks hotels by booking frequency within each destination, with average nightly rates. Use this to identify preferred suppliers, track usage patterns, and support rate negotiation.',
+  policy:     'Compares actual accommodation spend against government-recommended nightly rate limits (TD 2025/4) for each city. Flags bookings that exceed policy thresholds to support compliance reporting.',
+};
+
 export default function Reports() {
   const { userProfile } = useAuth();
   const { clientId: tenantClientId, activeClientId, isSTX } = useTenant();
@@ -64,6 +72,10 @@ export default function Reports() {
             </button>
           ))}
         </div>
+
+        {BLURBS[activeTab] && (
+          <p className="text-sm text-gray-500 mb-5 max-w-3xl leading-relaxed">{BLURBS[activeTab]}</p>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading trips…</div>

@@ -34,6 +34,7 @@ const CONFIG_DEFAULTS = {
     requiresApproval: true,
     approvalLevels: 1,
     emailNotifications: false,
+    approvalByTripType: null,
   },
   features: {
     hotelBooking: true,

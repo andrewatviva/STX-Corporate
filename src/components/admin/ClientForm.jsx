@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     idTypes: ['Passport', 'Drivers Licence', 'Proof of Age Card', 'Other'],
   },
   fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
-  workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false },
+  workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true },
   hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false },
   contact: { email: '' },
@@ -228,6 +228,15 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
   const set = (section, key, value) =>
     setCfg(prev => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
 
+  const setApprovalByType = (tripType, value) =>
+    setCfg(prev => ({
+      ...prev,
+      workflow: {
+        ...prev.workflow,
+        approvalByTripType: { ...(prev.workflow.approvalByTripType || {}), [tripType]: value },
+      },
+    }));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -334,7 +343,15 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       </Section>
 
       <Section title="Approval Workflow">
-        <Toggle checked={cfg.workflow.requiresApproval} onChange={v => set('workflow','requiresApproval',v)} label="Trips require approval before booking" />
+        <p className="text-xs text-gray-500 -mt-2">Set whether each trip type requires approval before a booking can proceed. STX-Managed and Group Events are recommended to always require approval.</p>
+        {['Self-Managed', 'STX-Managed', 'Group Event'].map(type => (
+          <Toggle
+            key={type}
+            checked={cfg.workflow.approvalByTripType?.[type] ?? cfg.workflow.requiresApproval}
+            onChange={v => setApprovalByType(type, v)}
+            label={`${type} — requires approval before booking`}
+          />
+        ))}
         <Toggle checked={cfg.workflow.emailNotifications} onChange={v => set('workflow','emailNotifications',v)} label="Email notifications" description="Notify approvers and travellers by email (requires email provider setup)" />
       </Section>
 

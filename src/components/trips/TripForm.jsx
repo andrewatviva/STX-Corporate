@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp,
+  Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -481,6 +481,17 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  const matchedPassenger = useMemo(() => {
+    if (!passengers.length) return null;
+    if (form.travellerId) return passengers.find(p => p.userId === form.travellerId) || null;
+    if (!form.travellerName) return null;
+    const lower = form.travellerName.toLowerCase();
+    return passengers.find(p =>
+      [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower ||
+      [p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower
+    ) || null;
+  }, [passengers, form.travellerId, form.travellerName]);
+
   const tripTypes   = clientConfig?.dropdowns?.tripTypes?.length
     ? clientConfig.dropdowns.tripTypes
     : DEFAULT_TRIP_TYPES;
@@ -514,9 +525,11 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
       let status = trip?.status || 'draft';
       if (submitForApproval) {
-        status = clientConfig?.workflow?.requiresApproval !== false
-          ? 'pending_approval'
-          : 'approved';
+        const byType = clientConfig?.workflow?.approvalByTripType;
+        const needsApproval = (byType && form.tripType in byType)
+          ? byType[form.tripType]
+          : clientConfig?.workflow?.requiresApproval !== false;
+        status = needsApproval ? 'pending_approval' : 'approved';
       } else if (status === 'declined') {
         status = 'draft';
       }
@@ -610,6 +623,17 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
                 <option key={`mem-${m.id}`} value={[m.firstName, m.lastName].filter(Boolean).join(' ')} />
               ))}
           </datalist>
+          {matchedPassenger?.preferredName && matchedPassenger.preferredName !== matchedPassenger.firstName && (
+            <div className="mt-1.5 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertTriangle size={13} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-800">
+                <span className="font-semibold">Name mismatch:</span> Known as{' '}
+                <span className="font-semibold">{matchedPassenger.preferredName}</span> but legal name is{' '}
+                <span className="font-semibold">{matchedPassenger.firstName} {matchedPassenger.lastName}</span>.
+                {' '}Ensure flight tickets are booked using the legal name.
+              </p>
+            </div>
+          )}
         </div>
 
         <div>

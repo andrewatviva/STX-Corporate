@@ -302,9 +302,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           {/* Submit — draft only, by creator/ops */}
           {canEdit && trip.status === 'draft' && (
             <button
-              onClick={() => act(
-                clientConfig?.workflow?.requiresApproval !== false ? 'pending_approval' : 'approved'
-              )}
+              onClick={() => {
+                const byType = clientConfig?.workflow?.approvalByTripType;
+                const needsApproval = (byType && trip.tripType in byType)
+                  ? byType[trip.tripType]
+                  : clientConfig?.workflow?.requiresApproval !== false;
+                act(needsApproval ? 'pending_approval' : 'approved');
+              }}
               disabled={acting}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
