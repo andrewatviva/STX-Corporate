@@ -405,6 +405,132 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity }) 
   );
 }
 
+// ── Additional passenger card ─────────────────────────────────────────────────
+
+function AdditionalPassengerCard({ pax, index, sectors, passengers, teamMembers, costCentres, autoAllocated, onChange, onRemove }) {
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Passenger {index + 2}</span>
+        <button type="button" onClick={onRemove} className="p-1 text-gray-400 hover:text-red-500 rounded">
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={lbl}>Name *</label>
+          <input
+            className={inp}
+            value={pax.name}
+            onChange={e => {
+              const name  = e.target.value;
+              const lower = name.toLowerCase();
+              const paxMatch = passengers.find(p =>
+                [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower ||
+                [p.firstName, p.lastName].filter(Boolean).join(' ').toLowerCase() === lower
+              );
+              if (paxMatch) {
+                const linkedUser = paxMatch.userId ? teamMembers.find(m => m.id === paxMatch.userId) : null;
+                onChange({ ...pax, name, passengerId: paxMatch.id, costCentre: linkedUser?.costCentre || pax.costCentre });
+              } else {
+                const memMatch = teamMembers.find(m =>
+                  [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === lower
+                );
+                onChange({ ...pax, name, passengerId: memMatch ? memMatch.id : '' });
+              }
+            }}
+            placeholder="Type name…"
+            list={`travellers-add-${pax._key}`}
+            autoComplete="off"
+          />
+          <datalist id={`travellers-add-${pax._key}`}>
+            {passengers.map(p => (
+              <option key={p.id} value={[p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ')} />
+            ))}
+            {teamMembers.filter(m => !passengers.some(p => p.userId === m.id)).map(m => (
+              <option key={m.id} value={[m.firstName, m.lastName].filter(Boolean).join(' ')} />
+            ))}
+          </datalist>
+        </div>
+
+        {costCentres.length > 0 ? (
+          <div>
+            <label className={lbl}>Cost centre</label>
+            <select className={inp} value={pax.costCentre || ''} onChange={e => onChange({ ...pax, costCentre: e.target.value })}>
+              <option value="">Select…</option>
+              {costCentres.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className={lbl}>Cost centre</label>
+            <input className={inp} value={pax.costCentre || ''} onChange={e => onChange({ ...pax, costCentre: e.target.value })} placeholder="Optional" />
+          </div>
+        )}
+      </div>
+
+      {sectors.some(s => s.type) && (
+        <div>
+          <label className={lbl}>Sectors this passenger is on</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {sectors.map(s => {
+              if (!s.type) return null;
+              const sLabel = SECTOR_TYPES[s.type]?.label || s.type;
+              const cost   = parseFloat(s.cost) || 0;
+              const checked = (pax.sectorKeys || []).includes(s._key);
+              return (
+                <label
+                  key={s._key}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
+                    checked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={e => {
+                      const newKeys = e.target.checked
+                        ? [...(pax.sectorKeys || []), s._key]
+                        : (pax.sectorKeys || []).filter(k => k !== s._key);
+                      onChange({ ...pax, sectorKeys: newKeys, allocatedCostOverride: false });
+                    }}
+                    className="w-3 h-3 accent-blue-600"
+                  />
+                  {sLabel}{cost > 0 ? ` ($${cost.toFixed(0)})` : ''}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label className={lbl}>Allocated cost incl. GST (A$)</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number" min="0" step="0.01"
+            className={`${inp} w-36`}
+            value={pax.allocatedCostOverride ? (pax.allocatedCost ?? '') : autoAllocated.toFixed(2)}
+            onChange={e => onChange({ ...pax, allocatedCost: e.target.value, allocatedCostOverride: true })}
+          />
+          {pax.allocatedCostOverride ? (
+            <button
+              type="button"
+              onClick={() => onChange({ ...pax, allocatedCostOverride: false, allocatedCost: '' })}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              Reset to auto
+            </button>
+          ) : (
+            <span className="text-xs text-gray-400">Auto from sector shares</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main TripForm ─────────────────────────────────────────────────────────────
 
 const EMPTY = {
@@ -412,6 +538,7 @@ const EMPTY = {
   originCity: '', destinationCity: '',
   purpose: '', startDate: '', endDate: '', internalNotes: '', sectors: [],
   costCentreChangeReason: '', vtoTripId: '', digitalItineraryLink: '',
+  additionalPassengers: [],
 };
 
 const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
@@ -444,6 +571,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       autoCostCentre = userProfile.costCentre || '';
     }
     if (!trip) return { ...EMPTY, clientId: clientIdProp || '', travellerName: autoName, travellerId: autoId, costCentre: autoCostCentre };
+    const sectorList = (trip.sectors || []).map(s => ({ ...s, _key: Math.random().toString(36).slice(2) }));
     return {
       clientId:        trip.clientId        || clientIdProp || '',
       title:           trip.title           || '',
@@ -459,7 +587,12 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       internalNotes:         trip.internalNotes         || '',
       vtoTripId:             trip.vtoTripId             || '',
       digitalItineraryLink:  trip.digitalItineraryLink  || '',
-      sectors: (trip.sectors || []).map(s => ({ ...s, _key: Math.random().toString(36).slice(2) })),
+      sectors: sectorList,
+      additionalPassengers: (trip.additionalPassengers || []).map(p => ({
+        ...p,
+        _key: Math.random().toString(36).slice(2),
+        sectorKeys: (p.sectorIndices || []).map(i => sectorList[i]?._key).filter(Boolean),
+      })),
     };
   });
 
@@ -502,13 +635,54 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   const updateSector = (i, updated) =>
     setForm(p => { const s = [...p.sectors]; s[i] = updated; return { ...p, sectors: s }; });
 
-  const removeSector = (i) =>
-    setForm(p => ({ ...p, sectors: p.sectors.filter((_, j) => j !== i) }));
+  const removeSector = (i) => {
+    const removedKey = form.sectors[i]?._key;
+    setForm(p => ({
+      ...p,
+      sectors: p.sectors.filter((_, j) => j !== i),
+      additionalPassengers: p.additionalPassengers.map(pax => ({
+        ...pax,
+        sectorKeys: (pax.sectorKeys || []).filter(k => k !== removedKey),
+      })),
+    }));
+  };
 
   const addSector = () =>
     setForm(p => ({ ...p, sectors: [...p.sectors, { _key: Math.random().toString(36).slice(2), type: '' }] }));
 
   const totalCost = form.sectors.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
+
+  // Per-passenger auto-allocation from sector cost shares
+  const addPaxTotals = useMemo(() => {
+    const addPax = form.additionalPassengers || [];
+    return addPax.map(p =>
+      form.sectors.reduce((sum, s) => {
+        if (!(p.sectorKeys || []).includes(s._key)) return sum;
+        const cost = parseFloat(s.cost) || 0;
+        const count = 1 + addPax.filter(q => (q.sectorKeys || []).includes(s._key)).length;
+        return sum + cost / count;
+      }, 0)
+    );
+  }, [form.sectors, form.additionalPassengers]);
+
+  const addAdditionalPassenger = () =>
+    setForm(p => ({
+      ...p,
+      additionalPassengers: [
+        ...p.additionalPassengers,
+        { _key: Math.random().toString(36).slice(2), name: '', passengerId: '', costCentre: '', sectorKeys: [], allocatedCost: '', allocatedCostOverride: false },
+      ],
+    }));
+
+  const updateAdditionalPassenger = (i, updated) =>
+    setForm(p => {
+      const list = [...p.additionalPassengers];
+      list[i] = updated;
+      return { ...p, additionalPassengers: list };
+    });
+
+  const removeAdditionalPassenger = (i) =>
+    setForm(p => ({ ...p, additionalPassengers: p.additionalPassengers.filter((_, j) => j !== i) }));
 
   const handleSave = async (submitForApproval = false) => {
     setError('');
@@ -521,9 +695,21 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
     setSaving(true);
     try {
-      const sectors = form.sectors
-        .filter(s => s.type)
-        .map(({ _key, ...rest }) => rest);
+      const typedSectors = form.sectors.filter(s => s.type);
+      const keyToIdx = {};
+      typedSectors.forEach((s, i) => { keyToIdx[s._key] = i; });
+
+      const sectors = typedSectors.map(({ _key, ...rest }) => rest);
+
+      const additionalPassengers = form.additionalPassengers
+        .map(({ _key, sectorKeys, allocatedCostOverride, ...rest }, origIdx) => ({
+          ...rest,
+          sectorIndices: (sectorKeys || []).map(k => keyToIdx[k]).filter(i => i !== undefined),
+          allocatedCost: allocatedCostOverride
+            ? parseFloat(rest.allocatedCost) || 0
+            : Math.round((addPaxTotals[origIdx] || 0) * 100) / 100,
+        }))
+        .filter(p => p.name?.trim());
 
       let status = trip?.status || 'draft';
       if (submitForApproval) {
@@ -536,7 +722,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         status = 'draft';
       }
 
-      await onSave({ ...form, sectors, status, totalCost });
+      await onSave({ ...form, sectors, additionalPassengers, status, totalCost });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -788,6 +974,44 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         >
           <Plus size={14} /> Add sector
         </button>
+      </div>
+
+      {/* Additional Passengers */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Additional Passengers</h3>
+            {form.additionalPassengers.length === 0 && (
+              <p className="text-xs text-gray-400 mt-0.5">Add passengers travelling on this trip (each can be assigned to specific sectors and cost centres)</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={addAdditionalPassenger}
+            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
+          >
+            <Plus size={14} /> Add passenger
+          </button>
+        </div>
+
+        {form.additionalPassengers.length > 0 && (
+          <div className="space-y-3">
+            {form.additionalPassengers.map((pax, i) => (
+              <AdditionalPassengerCard
+                key={pax._key}
+                pax={pax}
+                index={i}
+                sectors={form.sectors}
+                passengers={passengers}
+                teamMembers={teamMembers}
+                costCentres={costCentres}
+                autoAllocated={addPaxTotals[i] || 0}
+                onChange={updated => updateAdditionalPassenger(i, updated)}
+                onRemove={() => removeAdditionalPassenger(i)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
