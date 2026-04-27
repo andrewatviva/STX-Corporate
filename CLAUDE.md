@@ -34,7 +34,7 @@ React + Firebase. All client-specific configuration is stored in Firestore, not 
 | `src/App.js` | Router + context provider tree |
 | `src/firebase.js` | Firebase initialisation (reads from env vars) |
 | `src/contexts/AuthContext.jsx` | Firebase auth state + user profile from Firestore (`getDoc` on login) |
-| `src/contexts/TenantContext.jsx` | Loads client config; STX working-client selector state |
+| `src/contexts/TenantContext.jsx` | Loads client config; STX working-client selector state; exposes `clientName` + `activeClientName` |
 | `src/contexts/PermissionsContext.jsx` | Derives permission set from user role |
 | `src/utils/permissions.js` | PERMISSIONS constants + ROLE_PERMISSIONS map |
 | `src/utils/formatters.js` | Date/currency formatting helpers |
@@ -51,13 +51,12 @@ src/
 │   ├── layout/       AppShell, Sidebar, TopBar (client selector for STX)
 │   ├── trips/        TripList, TripForm, TripDetail, Attachments
 │   ├── passengers/   PassengerList, PassengerForm, PassengerDetail    ← Phase 5
-│   ├── hotels/       HotelSearch, HotelCard, RoomSelector             ← Phase 6
-│   ├── invoices/     InvoiceGenerator                                 ← Phase 7
-│   ├── reports/      Four report components                           ← Phase 8
+│   ├── invoices/     InvoiceBuilder, InvoiceDetail                   ← Phase 7 ✅
+│   ├── reports/      (stub — Phase 8)
 │   ├── admin/        ClientManager, ClientForm, UserManager
 │   └── shared/       Modal, Toggle, TagInput, PermissionGate
 ├── contexts/         AuthContext, TenantContext, PermissionsContext
-├── hooks/            useTrips, useTeamScope, usePassengers (Ph5), useNuitee (Ph6)
+├── hooks/            useTrips, useTeamScope, usePassengers (Ph5), useInvoices (Ph7)
 ├── pages/            One file per route
 └── utils/            permissions.js, formatters.js
 ```
@@ -91,7 +90,7 @@ src/
 - `/clients/{clientId}/config/settings` — full tenant config
 - `/clients/{clientId}/trips/{tripId}` — trips (includes `travellerId`, `createdBy`, `amendments[]`, `fees[]`, `attachments[]`)
 - `/clients/{clientId}/passengers/{passengerId}` — passenger profiles ← Phase 5
-- `/clients/{clientId}/invoices/{invoiceId}` — invoices ← Phase 7
+- `/clients/{clientId}/invoices/{invoiceId}` — invoices ← Phase 7 ✅
 - `/users/{userId}` — user profiles with role, clientId, managerId, approveFor
 
 ### Trip data model (key fields)
@@ -112,7 +111,7 @@ trip {
 sector {
   type: 'accommodation',
   reportingCity: '',   // blank = use trip.destinationCity; set only when hotel is in a different city
-  cost: 0,            // nightly rate (incl. GST); total = cost × nights
+  cost: 0,            // TOTAL stay cost (incl. GST) — NOT nightly rate; do NOT multiply by nights
   ...
 }
 ```
@@ -140,10 +139,11 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 ### Important implementation notes
 - `getDisplayStatus(trip)` — derives `travelling`/`completed` from `booked` + dates; use this for all status display
 - **Cost calculations (all three must be consistent):**
-  - `calcTripCost(trip)` in `Dashboard.jsx` — sectors (incl. GST as entered) + fees at `amount × (1 + gstRate)` → "Incl. GST" total
+  - `calcTripCost(trip)` in `Dashboard.jsx` — sectors (raw `cost`, incl. GST as entered) + fees at `amount × (1 + gstRate)` → "Incl. GST" total
   - `calcTripExGST(trip)` in `TripList.jsx` — domestic sectors ÷ 1.1, international at face value, fees at `amount` (ex-GST) → "Ex-GST" total
-  - `sectorGross(s)` / `calcSectorCost()` in `TravelManagement.jsx` — accommodation: `cost × nights`; all others: raw `cost`
-  - **Accommodation cost stored as nightly rate** — always multiply by nights for display and totals
+  - `sectorGross(s)` in `TravelManagement.jsx` — raw `cost` for all sector types
+  - **⚠️ Accommodation `sector.cost` is the TOTAL stay cost (incl. GST) — never multiply by nights.** The nights field is for display only. Multiplying by nights was a historical bug that has been fixed across all files.
+- **Invoice billing must match dashboard SPEND_STATUSES** — `BILLABLE_STATUSES` in `InvoiceBuilder` and `SPEND_STATUSES` in Dashboard both exclude `pending_approval` so totals stay consistent
 - `diffTrip()` in `TravelManagement.jsx` tracks: top-level field changes (incl. `originCity`, `destinationCity`), sector count add/remove, **and field-level changes within existing sectors** (index-matched): flight route/date/airline/number/class, accommodation property/dates/reportingCity, car hire route/vehicle, parking facility, transfer type, per-sector cost changes
 - `amendments[].changes[]` entries must always be **strings** — never objects. Rendering code in TripDetail has a legacy guard but new entries must be strings.
 - Amendment fee prompt lives in `TripDetail` (sets `pendingAmendFee`); amendment save logic lives in `TravelManagement.handleSave`
@@ -153,6 +153,42 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 - **Cost centre auto-default** — when selecting a traveller in TripForm, `costCentre` is auto-set from the matched passenger's linked user profile (`costCentre` field on `/users/{uid}`)
 - User `costCentre` field is **not** in the `updateClientUser` CF allowlist — must be saved via direct `updateDoc` after CF call (applies in Team.jsx and UserManager.jsx)
 
+### Invoice data model (`/clients/{clientId}/invoices/{invoiceId}`)
+```
+invoice {
+  invoiceNumber,    // auto-incremented, e.g. "INV-DISA-004" (from Firestore counter in client doc)
+  name,             // human label, e.g. "April 2026"
+  status,           // draft | finalised | paid
+  periodFrom,       // ISO date string "YYYY-MM-DD"
+  periodTo,         // ISO date string "YYYY-MM-DD"
+  subtotalExGST, totalGST, totalInclGST,
+  lineItems[],      // see below
+  notes,
+  createdBy, createdAt, updatedAt
+}
+
+lineItem {
+  dedupKey,         // "${tripId}_sectors" for trip items; "${tripId}_${feeType}_${appliedAt}" for fees; null for adjustments
+  extraDedupKeys[], // fee dedup keys bundled into a trip line item — future scans check these too
+  tripId, tripRef, travellerName, costCentre,
+  description,
+  amount,           // ex-GST
+  inclGST,          // gross (incl. GST)
+  gstRate,          // null for mixed-GST trip/adjustment items; 0.1 or 0 for fees
+  sectorAmount,     // sector-only ex-GST (stored on 'trip' items for future delta calculations)
+  sectorInclGST,    // sector-only gross (stored on 'trip' items for future delta calculations)
+  lineType,         // 'trip' | 'fee' | 'adjustment' | undefined (manual)
+  isManual,         // true for manually added items
+}
+```
+
+**Invoice scan logic** (`InvoiceBuilder.scanForUnbilledItems`):
+- Builds `invoiced` Set from all finalised/paid invoice dedup keys (incl. `extraDedupKeys`)
+- Builds `billedSectorTotals` Map (tripId → `{ exGST, inclGST }`) using `sectorAmount`/`sectorInclGST` on new-format items, or reconstructing from `extraDedupKeys` fee subtraction on old-format items
+- New trip (created in period, not yet billed): one combined line item = sectors + in-period fees; fee dedup keys stored in `extraDedupKeys`
+- Already-billed trip: new in-period fees as standalone items + cost delta item if `currentGross > billedSectorTotals`
+- Date arithmetic uses local calendar (`getFullYear/getMonth/getDate`) — not `toISOString()` which shifts to UTC
+
 ### Current status
-**Phases 0–5 complete plus post-phase enhancements. Phase 6 (Hotel Booking) next.**
+**Phases 0–5 + 7 complete. Phase 6 (Hotel Booking) deferred. Phase 8 (Reports) next.**
 See `PROGRESS.md` for full phase breakdown.

@@ -17,9 +17,9 @@
 | 4 | Trip management + Dashboard + STX client context | ✅ Complete |
 | 5 | Passenger profiles | ✅ Complete |
 | — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
-| 6 | Hotel booking (Nuitee) | ⏳ Next |
-| 7 | Invoice generation | ⏳ Pending |
-| 8 | Reports | ⏳ Pending |
+| 6 | Hotel booking (Nuitee) | ⏸ Deferred |
+| 7 | Invoice generation | ✅ Complete |
+| 8 | Reports | ⏳ Next |
 | 9 | QA, security testing + production deploy | ⏳ Pending |
 
 ---
@@ -226,20 +226,56 @@ These improvements were built across multiple sessions after Phases 0–5 were c
 
 ---
 
-### Phase 6 — Hotel Booking
+### Phase 6 — Hotel Booking ⏸ Deferred
 Nuitee API integration (`api.liteapi.travel/v3.0`) for hotel search, availability, and booking.
-Per-tenant Nuitee feed configuration (already stored in client config `hotelBooking.nuiteeFeed`).
+Per-tenant Nuitee feed configuration already stored in client config (`hotelBooking.nuiteeFeed`).
+Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
-### Phase 7 — Invoice Generation
-PDF invoice generation with tenant branding, logos, and fee structures.
-Invoices stored at `/clients/{clientId}/invoices/{invoiceId}`.
+### Phase 7 — Invoice Generation ✅
+
+**Files built:**
+- `src/hooks/useInvoices.js` — real-time Firestore listener at `/clients/{clientId}/invoices/`; `createInvoice` (with atomic Firestore counter for invoice number), `updateInvoice`, `deleteInvoice`
+- `src/components/invoices/InvoiceBuilder.jsx` — full invoice creation/editing UI
+- `src/components/invoices/InvoiceDetail.jsx` — read-only view with inline editing, PDF/CSV export, mark as paid, delete
+- `src/pages/Invoices.jsx` — list/builder/detail navigation; permission-gated; STX client selector aware
+
+**Key features:**
+- **Invoice numbering**: auto-incremented per client using Firestore `runTransaction` on a counter in the client doc; format `INV-{PREFIX}-{NNN}` where prefix is derived from `clientId`
+- **Invoice name**: free-text label (e.g. "April 2026") saved on the invoice document; shown in list and detail header
+- **Invoice status flow**: `draft` → `finalised` → `paid`; edits locked once paid
+- **Period selector**: quick-pick buttons (This/Last Month, Quarter, FY) + custom From/To date inputs; date arithmetic uses local calendar (not UTC) to avoid timezone shift for Australian users
+- **Scan for unbilled items** (`scanForUnbilledItems`):
+  - Builds `invoiced` Set from all finalised/paid invoice dedup keys (incl. `extraDedupKeys`)
+  - Builds `billedSectorTotals` Map per trip for cost delta detection
+  - New trip (created in period, sectors not yet billed): one combined line item = sector costs + in-period fees bundled; fee dedup keys stored in `extraDedupKeys` so future scans skip them
+  - Already-billed trip: new in-period fees as standalone line items + **cost adjustment item** if current sector gross exceeds previously billed total
+  - Old-format invoice items (pre `sectorAmount` field): fee amounts reconstructed from `extraDedupKeys` to correctly isolate sector-only cost for delta calculation
+  - `BILLABLE_STATUSES` matches dashboard `SPEND_STATUSES` (both exclude `pending_approval`) to keep totals consistent
+- **Line item types**: `trip` (sector costs + bundled fees), `fee` (standalone amendment/management fee), `adjustment` (cost delta after amendment), manual (STX-only free-form)
+- **Mixed-GST line items**: trip/adjustment items have `gstRate: null` (domestic + international sectors mixed); both `amount` (ex-GST) and `inclGST` (gross) editable independently in inline edit mode
+- **Inline editing**: available in both InvoiceBuilder (before save) and InvoiceDetail (after save, while not paid); pencil icon per line item
+- **PDF export**: `window.open + document.write + window.print()` — no extra dependencies; two-column header (STX logo left, client logo if configured, invoice number/name/status right)
+- **CSV export**: client name, period, all line items, totals
+- **Mark as paid**: `stx_admin` only; locks invoice from further editing
+- **Delete invoice**: `stx_admin` only; available at any status
+- **Client name resolution**: `TenantContext` now loads client display name from root `clients/{id}` document (not from `config/settings` which has no name field); exposed as `clientName` (non-STX) and `activeClientName` (STX working-client)
+- **STX logo URL**: `https://www.supportedtravelx.com.au/wp-content/uploads/STX-Logo-Transparent-min-1024x434-1.png`
+- **Client logo**: `clientConfig.branding.logo` URL (set in ClientForm); `onerror` fallback hides it if unavailable
+- **Access control**: all edits/deletions restricted to `stx_admin`; clients can view only
+
+**Dedup key design:**
+- `${tripId}_sectors` — marks that a trip's sector costs have been invoiced
+- `${tripId}_${fee.type}_${fee.appliedAt}` — marks a specific fee as invoiced
+- `extraDedupKeys[]` — additional keys bundled into a trip line item; future scans add these to the `invoiced` Set
+- `sectorAmount` / `sectorInclGST` — stored on `lineType: 'trip'` items to allow accurate cost delta calculations in future invoices without including bundled fee amounts in the baseline
 
 ---
 
-### Phase 8 — Reports
-Four analytics reports, tenant-scoped for clients, aggregate/cross-tenant for STX.
+### Phase 8 — Reports ⏳ Next
+Analytics reports, tenant-scoped for clients, aggregate/cross-tenant for STX.
+`src/pages/Reports.jsx` is currently a stub placeholder.
 
 ---
 
@@ -277,8 +313,12 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/components/trips/Attachments.jsx` | Firebase Storage upload/download/delete |
 | `src/hooks/useTrips.js` | Real-time trips listener; supports filterClientId param |
 | `src/hooks/useTeamScope.js` | Team hierarchy scope; filterTripsByScope() |
+| `src/hooks/useInvoices.js` | Real-time invoices listener; createInvoice (with atomic counter), updateInvoice, deleteInvoice |
+| `src/components/invoices/InvoiceBuilder.jsx` | Invoice creation/edit UI with period selector, scan, inline editing |
+| `src/components/invoices/InvoiceDetail.jsx` | Invoice view with inline editing, PDF/CSV export, mark paid, delete |
 | `src/pages/Dashboard.jsx` | Dashboard with stats, charts, upcoming/recent trips |
 | `src/pages/TravelManagement.jsx` | Trip CRUD orchestration page |
+| `src/pages/Invoices.jsx` | Invoice list/builder/detail navigation |
 | `src/pages/Team.jsx` | Team hierarchy + approver delegation management |
 | `src/pages/AdminPanel.jsx` | STX-only admin panel (clients + users tabs) |
 | `firestore.rules` | Firestore security rules |
@@ -296,4 +336,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 26 April 2026 — Phases 0–5 + post-phase enhancements complete, Phase 6 (Hotel Booking) next*
+*Last updated: 27 April 2026 — Phases 0–5 + 7 complete (Phase 6 deferred). Phase 8 (Reports) next.*
