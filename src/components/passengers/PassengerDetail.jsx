@@ -389,6 +389,34 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
         </Section>
       )}
 
+      {/* Data sharing consent */}
+      <Section title="Data sharing consent">
+        <div className="flex items-start gap-3">
+          <span className={`mt-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+            p.dataShareConsent ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          }`}>
+            {p.dataShareConsent ? '✓' : '!'}
+          </span>
+          <div>
+            <p className="text-sm font-medium text-gray-800">
+              {p.dataShareConsent
+                ? 'Consent given — accessibility data may be shared with providers'
+                : 'No consent — accessibility data cannot be shared with providers'}
+            </p>
+            {p.dataShareConsent && p.dataShareConsentAt && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                Recorded {new Date(p.dataShareConsentAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            )}
+            {!p.dataShareConsent && (
+              <p className="text-xs text-amber-600 mt-0.5">
+                Update the profile to record consent before sharing accessibility information with providers.
+              </p>
+            )}
+          </div>
+        </div>
+      </Section>
+
       {/* Document Vault */}
       <Section title="Document Vault">
         <DocumentVault

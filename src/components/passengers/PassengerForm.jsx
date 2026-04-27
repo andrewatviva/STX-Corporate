@@ -98,6 +98,7 @@ const EMPTY = {
   wheelchairAssemblyNotes: '',
   dietaryRequirements: [], allergyNotes: '', medicalNotes: '', supportNotes: '',
   seatPreference: '', mealPreference: '', loyaltyPrograms: [], travelNotes: '',
+  dataShareConsent: false, dataShareConsentAt: '',
   userId: '',
 };
 
@@ -143,6 +144,8 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
       loyaltyPrograms:      passenger.loyaltyPrograms      ||
         (passenger.frequentFlyer?.map(ff => ({ type: 'Airline', program: ff.airline || '', number: ff.number || '' })) ?? []),
       travelNotes:          passenger.travelNotes          || '',
+      dataShareConsent:     passenger.dataShareConsent     || false,
+      dataShareConsentAt:   passenger.dataShareConsentAt   || '',
       userId:               passenger.userId               || '',
     };
   });
@@ -458,6 +461,43 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
         <F label="Additional travel notes">
           <textarea className={inp} rows={2} value={form.travelNotes} onChange={e => set('travelNotes', e.target.value)} placeholder="e.g. prefers morning flights, always books aisle seat" />
         </F>
+      </Section>
+
+      {/* ── Data sharing consent ──────────────────────────────────────── */}
+      <Section title="Data sharing consent">
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.dataShareConsent}
+              onChange={e => {
+                set('dataShareConsent', e.target.checked);
+                set('dataShareConsentAt', new Date().toISOString());
+              }}
+              className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-800">
+                Consent to share accessibility information with travel providers
+              </p>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                I consent to my accessibility and support needs (including disability type, mobility aids, dietary requirements,
+                and medical requirements relevant to travel) being shared with travel providers — such as airlines, hotels,
+                and transfer companies — to facilitate appropriate assistance during travel.
+              </p>
+            </div>
+          </label>
+          {form.dataShareConsent && form.dataShareConsentAt && (
+            <p className="text-xs text-gray-400 pl-7">
+              Consent recorded {new Date(form.dataShareConsentAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          )}
+          {!form.dataShareConsent && (
+            <p className="text-xs text-amber-600 pl-7">
+              Without consent, accessibility information cannot be shared with providers on behalf of this traveller.
+            </p>
+          )}
+        </div>
       </Section>
 
       {/* ── Portal account link ───────────────────────────────────────── */}
