@@ -19,8 +19,8 @@
 | — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏸ Deferred |
 | 7 | Invoice generation | ✅ Complete |
-| 8 | Reports | ⏳ Next |
-| 9 | QA, security testing + production deploy | ⏳ Pending |
+| 8 | Reports | ✅ Complete |
+| 9 | QA, security testing + production deploy | ⏳ Next |
 
 ---
 
@@ -273,9 +273,31 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
-### Phase 8 — Reports ⏳ Next
-Analytics reports, tenant-scoped for clients, aggregate/cross-tenant for STX.
-`src/pages/Reports.jsx` is currently a stub placeholder.
+### Phase 8 — Reports ✅ Complete
+5 analytics reports, all tenant-scoped (STX must select a working client first).
+
+**Shared utilities**: `src/utils/reportHelpers.js`
+- `QUICK_PERIODS`, `getQuickRange(key)` — 7 date presets (This/Last Month, Quarter, FY, All Time)
+- `BILLABLE_STATUSES` — Set of `approved`, `booked`, `travelling`, `completed`
+- `getDisplayStatus(trip)` — derives `travelling`/`completed` from `booked` + dates
+- `sectorExGST(sector)`, `tripInclGST(trip)`, `tripExGST(trip)` — cost calculations
+- `accomCity(sector, trip)` — `sector.reportingCity || trip.destinationCity`
+- `nightsBetween(checkIn, checkOut)`, `toDate(val)`, `exportCSV(rows, filename)`
+
+**Reports** (`src/components/reports/`):
+
+| Report | File | Key behaviour |
+|--------|------|---------------|
+| All Travel | `AllTravelReport.jsx` | Reactive filters (no generate button) — date, status, trip type, cost centre, search; booking window column (days from `createdAt` to `startDate`); highlights ≤7 days red, ≤21 amber; CSV |
+| Avg Spend by Destination | `AvgSpendByDestination.jsx` | Grouped by `destinationCity`; expandable per-sector breakdown cards; per-night rate for accommodation; generate button |
+| Spend by Departure City | `SpendByDepartureCity.jsx` | Grouped by `originCity`; toggle to exclude international trips; generate button |
+| Hotel Popularity | `HotelPopularity.jsx` | Reactive; grouped by `accomCity(sector,trip)` → `propertyName`; expandable hotel list with rank badges, mini bar chart, avg nightly rate |
+| Accommodation Policy | `AccommodationPolicy.jsx` | Per-client rates at `clients/{clientId}/config/travelPolicy`; seeded once from DEFAULT_RATES (~80 AU cities, TD 2025/4); rate editor visible to STX only; OVER/UNDER badges; generate button |
+
+**V2 schema applied** in all reports (vs V1 legacy):
+- Sector types lowercase; `sector.propertyName` / `sector.checkIn` / `sector.checkOut`
+- `trip.destinationCity` / `trip.originCity` / `trip.tripType` / `trip.travellerName`
+- `sector.international === true` (not `sector.region === 'International'`)
 
 ---
 
@@ -318,6 +340,13 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/components/invoices/InvoiceDetail.jsx` | Invoice view with inline editing, PDF/CSV export, mark paid, delete |
 | `src/pages/Dashboard.jsx` | Dashboard with stats, charts, upcoming/recent trips |
 | `src/pages/TravelManagement.jsx` | Trip CRUD orchestration page |
+| `src/pages/Reports.jsx` | 5-tab reports page; loads trips via useTrips + useTeamScope; STX prompt if no client selected |
+| `src/components/reports/AllTravelReport.jsx` | All Travel report |
+| `src/components/reports/AvgSpendByDestination.jsx` | Avg Spend by Destination report |
+| `src/components/reports/SpendByDepartureCity.jsx` | Spend by Departure City report |
+| `src/components/reports/HotelPopularity.jsx` | Hotel Popularity report |
+| `src/components/reports/AccommodationPolicy.jsx` | Accommodation Policy Compliance report |
+| `src/utils/reportHelpers.js` | Shared report utilities (date ranges, cost calcs, CSV export) |
 | `src/pages/Invoices.jsx` | Invoice list/builder/detail navigation |
 | `src/pages/Team.jsx` | Team hierarchy + approver delegation management |
 | `src/pages/AdminPanel.jsx` | STX-only admin panel (clients + users tabs) |
@@ -336,4 +365,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 27 April 2026 — Phases 0–5 + 7 complete (Phase 6 deferred). Phase 8 (Reports) next.*
+*Last updated: 27 April 2026 — Phases 0–5, 7–8 complete (Phase 6 deferred). Phase 9 (QA + Production) next.*

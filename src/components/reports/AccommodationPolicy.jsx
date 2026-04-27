@@ -1,0 +1,431 @@
+import { useState, useEffect, useMemo } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import {
+  QUICK_PERIODS, getQuickRange, BILLABLE_STATUSES,
+  getDisplayStatus, accomCity, nightsBetween,
+} from '../../utils/reportHelpers';
+
+// Seeded from TD 2025/4 via DANA Travel Procedure March 2026
+const DEFAULT_RATES = {
+  'Adelaide':158,'Brisbane':181,'Canberra':178,'Darwin':220,'Hobart':176,
+  'Melbourne':173,'Perth':180,'Sydney':223,'Other country centres':141,
+  'Albany':193,'Albury':207,'Alice Springs':206,'Ararat':159,'Armidale':166,
+  'Ayr':207,'Bairnsdale':176,'Ballarat':187,'Bathurst':207,'Bega':207,
+  'Benalla':168,'Bendigo':170,'Bordertown':164,'Bourke':184,'Bright':180,
+  'Broken Hill':162,'Broome':255,'Bunbury':178,'Bundaberg':184,'Burnie':178,
+  'Cairns':175,'Carnarvon':174,'Castlemaine':162,'Ceduna':156,
+  'Charters Towers':168,'Chinchilla':207,'Christmas Island':218,'Cobar':207,
+  'Cocos (Keeling) Islands':331,'Coffs Harbour':207,'Colac':207,'Cooma':207,
+  'Cowra':207,'Dalby':201,'Dampier':199,'Derby':192,'Devonport':162,
+  'Dubbo':170,'Echuca':207,'Emerald':179,'Esperance':180,'Exmouth':235,
+  'Geelong':175,'Geraldton':190,'Gladstone':171,'Gold Coast':225,
+  'Goulburn':165,'Gosford':161,'Grafton':172,'Griffith':160,'Gunnedah':180,
+  'Halls Creek':204,'Hamilton':170,'Hervey Bay':175,'Horn Island':345,
+  'Horsham':166,'Innisfail':207,'Inverell':207,'Jabiru':216,'Kadina':207,
+  'Kalgoorlie':193,'Karratha':288,'Katherine':228,'Kingaroy':180,
+  'Kununurra':222,'Launceston':174,'Lismore':183,'Mackay':166,'Maitland':187,
+  'Maryborough':207,'Mildura':170,'Mount Gambier':164,'Mount Isa':185,
+  'Mudgee':206,'Muswellbrook':160,'Nambour':163,'Naracoorte':207,
+  'Narrabri':207,'Newcastle':195,'Newman':271,'Nhulunbuy':264,
+  'Norfolk Island':256,'Northam':220,'Nowra':168,'Orange':215,
+  'Port Augusta':207,'Port Hedland':266,'Port Lincoln':170,'Port Macquarie':190,
+  'Port Pirie':207,'Portland':163,'Queanbeyan':207,'Queenstown':207,
+  'Renmark':207,'Rockhampton':174,'Roma':182,'Sale':207,'Seymour':164,
+  'Shepparton':167,'Swan Hill':181,'Tamworth':207,'Taree':207,
+  'Tennant Creek':207,'Thursday Island':323,'Toowoomba':161,'Townsville':174,
+  'Tumut':207,'Wagga Wagga':177,'Wangaratta':186,'Warrnambool':175,
+  'Weipa':238,'Whyalla':167,'Wilpena-Pound':272,'Wodonga':207,
+  'Wollongong':182,'Wonthaggi':188,'Yulara':570,
+};
+
+function findPolicyRate(destination, rates) {
+  if (!rates) return null;
+  if (rates[destination] !== undefined) return rates[destination];
+  const lower = destination.toLowerCase();
+  for (const [city, rate] of Object.entries(rates)) {
+    if (city.toLowerCase() === lower) return rate;
+  }
+  for (const [city, rate] of Object.entries(rates)) {
+    if (lower.includes(city.toLowerCase()) || city.toLowerCase().includes(lower)) return rate;
+  }
+  return null;
+}
+
+export default function AccommodationPolicy({ trips, clientId, isSTX }) {
+  const now = new Date();
+  const fy  = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  const [periodKey,     setPeriodKey]     = useState('thisFY');
+  const [from,          setFrom]          = useState(`${fy}-07-01`);
+  const [to,            setTo]            = useState(`${fy + 1}-06-30`);
+  const [hasGenerated,  setHasGenerated]  = useState(false);
+  const [reportData,    setReportData]    = useState([]);
+  const [rates,         setRates]         = useState(null);
+  const [ratesLoading,  setRatesLoading]  = useState(true);
+  const [showEditor,    setShowEditor]    = useState(false);
+  const [editRates,     setEditRates]     = useState({});
+  const [newCity,       setNewCity]       = useState('');
+  const [newRate,       setNewRate]       = useState('');
+  const [saving,        setSaving]        = useState(false);
+  const [saveMsg,       setSaveMsg]       = useState('');
+  const [sortField,     setSortField]     = useState('variance');
+  const [sortDir,       setSortDir]       = useState('desc');
+  const [cityFilter,    setCityFilter]    = useState('');
+
+  const canEdit = isSTX;
+
+  useEffect(() => {
+    if (!clientId) { setRatesLoading(false); return; }
+    const load = async () => {
+      try {
+        const ref  = doc(db, 'clients', clientId, 'config', 'travelPolicy');
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          setRates(snap.data().rates || DEFAULT_RATES);
+        } else {
+          await setDoc(ref, { rates: DEFAULT_RATES });
+          setRates(DEFAULT_RATES);
+        }
+      } catch (e) {
+        console.error('Error loading policy rates', e);
+        setRates(DEFAULT_RATES);
+      }
+      setRatesLoading(false);
+    };
+    load();
+  }, [clientId]);
+
+  const applyPreset = (key) => {
+    setPeriodKey(key);
+    if (key === 'custom') return;
+    const r = getQuickRange(key);
+    setFrom(r.from); setTo(r.to);
+  };
+
+  const handleGenerate = () => {
+    const filtered = trips.filter(t => {
+      const ds = getDisplayStatus(t);
+      if (!BILLABLE_STATUSES.has(ds)) return false;
+      if (from && (t.startDate || '') < from) return false;
+      if (to   && (t.startDate || '') > to)   return false;
+      return true;
+    });
+
+    const destMap = {};
+    filtered.forEach(trip => {
+      const accomSectors = (trip.sectors || []).filter(s =>
+        s.type === 'accommodation' && s.checkIn && s.checkOut
+      );
+      accomSectors.forEach(sector => {
+        const dest   = accomCity(sector, trip);
+        const nights = nightsBetween(sector.checkIn, sector.checkOut);
+        if (nights === 0) return;
+
+        const cost   = parseFloat(sector.cost) || 0;
+        const costEx = sector.international ? cost : cost / 1.1;
+
+        const roomsByNight   = sector.roomsByNight;
+        const roomNightsForSector = roomsByNight?.length === nights
+          ? roomsByNight.reduce((s, r) => s + (r || 1), 0)
+          : nights;
+        const hasRoomData = roomsByNight?.length > 0;
+
+        if (!destMap[dest]) destMap[dest] = { stays:0, nights:0, roomNights:0, totalCostInc:0, totalCostEx:0, hasGroupBooking:false };
+        destMap[dest].stays++;
+        destMap[dest].nights       += nights;
+        destMap[dest].roomNights   += roomNightsForSector;
+        destMap[dest].totalCostInc += cost;
+        destMap[dest].totalCostEx  += costEx;
+        if (hasRoomData) destMap[dest].hasGroupBooking = true;
+      });
+    });
+
+    const data = Object.entries(destMap)
+      .filter(([, d]) => d.nights > 0)
+      .map(([destination, d]) => {
+        const avgPerNightInc = d.totalCostInc / d.roomNights;
+        const avgPerNightEx  = d.totalCostEx  / d.roomNights;
+        const policyRate     = findPolicyRate(destination, rates);
+        const variance       = policyRate !== null ? avgPerNightInc - policyRate : null;
+        const variancePct    = policyRate !== null ? ((avgPerNightInc - policyRate) / policyRate) * 100 : null;
+        return { destination, ...d, avgPerNightInc, avgPerNightEx, policyRate, variance, variancePct };
+      });
+
+    setReportData(data);
+    setHasGenerated(true);
+    setSortField('variance');
+    setSortDir('desc');
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('desc'); }
+  };
+
+  const sortedData = useMemo(() => {
+    if (!reportData.length) return [];
+    return [...reportData].sort((a, b) => {
+      if (sortField === 'destination')
+        return sortDir === 'asc' ? a.destination.localeCompare(b.destination) : b.destination.localeCompare(a.destination);
+      const aVal = a[sortField] ?? (sortDir === 'asc' ? Infinity : -Infinity);
+      const bVal = b[sortField] ?? (sortDir === 'asc' ? Infinity : -Infinity);
+      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [reportData, sortField, sortDir]);
+
+  const summaryStats = useMemo(() => {
+    if (!reportData.length) return null;
+    const withRate = reportData.filter(r => r.policyRate !== null);
+    const hasAnyGroup = reportData.some(r => r.hasGroupBooking);
+    return {
+      destinations: reportData.length,
+      totalNights:  reportData.reduce((s, r) => s + r.roomNights, 0),
+      hasAnyGroup,
+      overCount:    withRate.filter(r => r.variance > 0).length,
+      underCount:   withRate.filter(r => r.variance <= 0).length,
+      noRateCount:  reportData.filter(r => r.policyRate === null).length,
+    };
+  }, [reportData]);
+
+  // Policy editor
+  const openEditor = () => { setEditRates({ ...rates }); setNewCity(''); setNewRate(''); setSaveMsg(''); setShowEditor(true); };
+  const handleRateChange = (city, val) => setEditRates(prev => ({ ...prev, [city]: val === '' ? '' : parseFloat(val) || '' }));
+  const handleAddCity = () => {
+    const trimmed = newCity.trim();
+    const parsed  = parseFloat(newRate);
+    if (!trimmed || isNaN(parsed) || parsed <= 0) return;
+    setEditRates(prev => ({ ...prev, [trimmed]: parsed }));
+    setNewCity(''); setNewRate('');
+  };
+  const handleDeleteCity = (city) => setEditRates(prev => { const n = { ...prev }; delete n[city]; return n; });
+  const handleSavePolicy = async () => {
+    const cleaned = {};
+    for (const [city, val] of Object.entries(editRates)) {
+      const n = parseFloat(val);
+      if (city.trim() && !isNaN(n) && n > 0) cleaned[city.trim()] = n;
+    }
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'clients', clientId, 'config', 'travelPolicy'), { rates: cleaned });
+      setRates(cleaned);
+      setSaveMsg('Policy saved.');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (e) {
+      console.error('Error saving policy', e);
+      setSaveMsg('Error saving.');
+    }
+    setSaving(false);
+  };
+
+  const filteredEditCities = useMemo(() => {
+    const q = cityFilter.toLowerCase();
+    return Object.keys(editRates).filter(c => c.toLowerCase().includes(q)).sort();
+  }, [editRates, cityFilter]);
+
+  const sa = (f) => sortField === f ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+
+  return (
+    <div style={{ fontFamily:"'DM Sans','Helvetica Neue',sans-serif" }}>
+
+      {/* Policy editor (STX only) */}
+      {canEdit && (
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:12 }}>
+          <button onClick={showEditor ? () => setShowEditor(false) : openEditor}
+            style={{ padding:'7px 14px', background: showEditor ? '#e2e8f0' : '#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+            {showEditor ? '✕ Close Policy Editor' : '⚙ Manage Policy Rates'}
+          </button>
+        </div>
+      )}
+
+      {showEditor && canEdit && (
+        <div style={{ ...card, marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#0f172a' }}>Policy Rate Editor</div>
+              <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Max allowable nightly accommodation spend per city (incl. GST), from TD 2025/4.</div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {saveMsg && <span style={{ fontSize:12, color: saveMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontWeight:600 }}>{saveMsg}</span>}
+              <button onClick={handleSavePolicy} disabled={saving}
+                style={{ padding:'7px 16px', background: saving ? '#94a3b8' : '#0d9488', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                {saving ? 'Saving…' : '💾 Save Changes'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom:10 }}>
+            <input type="text" placeholder="Search city…" value={cityFilter} onChange={e => setCityFilter(e.target.value)} style={{ ...inp, width:220 }} />
+            <span style={{ marginLeft:10, fontSize:12, color:'#94a3b8' }}>{filteredEditCities.length} cities</span>
+          </div>
+
+          <div style={{ maxHeight:320, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:8 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'8px 14px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', position:'sticky', top:0 }}>
+              <span style={chdr}>City</span>
+              <span style={{ ...chdr, textAlign:'right' }}>Max/Night ($)</span>
+              <span />
+            </div>
+            {filteredEditCities.map((city, idx) => (
+              <div key={city} style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'6px 14px', alignItems:'center', background: idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom:'1px solid #f1f5f9' }}>
+                <span style={{ fontSize:13, color:'#1e293b' }}>{city}</span>
+                <div style={{ textAlign:'right' }}>
+                  <input type="number" min="0" step="1" value={editRates[city] ?? ''} onChange={e => handleRateChange(city, e.target.value)}
+                    style={{ ...inp, width:80, textAlign:'right', padding:'4px 8px', fontSize:13 }} />
+                </div>
+                <div style={{ textAlign:'center' }}>
+                  <button onClick={() => handleDeleteCity(city)} style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:16, lineHeight:1, padding:'2px 6px' }}>×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display:'flex', gap:8, marginTop:12, alignItems:'center', flexWrap:'wrap' }}>
+            <div>
+              <label style={lbl}>Add City</label>
+              <input type="text" placeholder="City name" value={newCity} onChange={e => setNewCity(e.target.value)} style={{ ...inp, width:180 }} />
+            </div>
+            <div>
+              <label style={lbl}>Max/Night ($)</label>
+              <input type="number" min="0" step="1" placeholder="e.g. 195" value={newRate}
+                onChange={e => setNewRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCity()}
+                style={{ ...inp, width:100 }} />
+            </div>
+            <button onClick={handleAddCity} disabled={!newCity.trim() || !newRate}
+              style={{ alignSelf:'flex-end', padding:'7px 14px', background: !newCity.trim() || !newRate ? '#e2e8f0' : '#0f172a', color: !newCity.trim() || !newRate ? '#94a3b8' : '#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor: !newCity.trim() || !newRate ? 'not-allowed' : 'pointer' }}>
+              + Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={card}>
+        <div style={{ marginBottom:14 }}>
+          <label style={lbl}>Period</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+            {QUICK_PERIODS.map(p => (
+              <button key={p.key} onClick={() => applyPreset(p.key)}
+                style={{ ...pill, background: periodKey === p.key ? '#0d9488' : '#f1f5f9', color: periodKey === p.key ? '#fff' : '#475569', borderColor: periodKey === p.key ? '#0d9488' : '#e2e8f0' }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            <div><label style={lbl}>From</label><input type="date" value={from} onChange={e => { setFrom(e.target.value); setPeriodKey('custom'); }} style={inp} /></div>
+            <div><label style={lbl}>To</label><input type="date" value={to} onChange={e => { setTo(e.target.value); setPeriodKey('custom'); }} style={inp} /></div>
+          </div>
+        </div>
+        {ratesLoading ? (
+          <button disabled style={{ padding:'8px 20px', background:'#e2e8f0', color:'#94a3b8', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'not-allowed' }}>Loading policy rates…</button>
+        ) : (
+          <button onClick={handleGenerate}
+            style={{ padding:'8px 20px', background:'#0f172a', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            ↻ Generate Report
+          </button>
+        )}
+      </div>
+
+      {hasGenerated && (
+        <div>
+          {summaryStats && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12, marginBottom:20 }}>
+              {[
+                { label:'Destinations',  value: summaryStats.destinations },
+                { label: summaryStats.hasAnyGroup ? 'Room-Nights' : 'Total Nights', value: summaryStats.totalNights },
+                { label:'Over Policy',   value: summaryStats.overCount,  color:'#dc2626' },
+                { label:'Under Policy',  value: summaryStats.underCount, color:'#16a34a' },
+                { label:'No Rate Set',   value: summaryStats.noRateCount, color:'#94a3b8' },
+              ].map(c => (
+                <div key={c.label} style={{ background:'#fff', borderRadius:10, border:'1px solid #e2e8f0', padding:'14px 18px', textAlign:'center', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize:24, fontWeight:800, color: c.color || '#0f172a', lineHeight:1.2 }}>{c.value}</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginTop:3 }}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+              <span style={{ fontSize:11, color:'#64748b', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>Sort:</span>
+              {[['destination','City'],['nights','Nights'],['avgPerNightInc','Avg/Night'],['policyRate','Policy Rate'],['variance','Variance $'],['variancePct','Variance %']].map(([f,label]) => (
+                <button key={f} onClick={() => handleSort(f)}
+                  style={{ ...pill, color: sortField === f ? '#0d9488' : '#94a3b8', borderColor: sortField === f ? '#0d9488' : '#e2e8f0', fontWeight:700 }}>
+                  {label}{sa(f)}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              <span style={{ fontSize:11, padding:'3px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', borderRadius:20, fontWeight:700 }}>Over policy</span>
+              <span style={{ fontSize:11, padding:'3px 10px', background:'#f0fdf4', color:'#16a34a', border:'1px solid #bbf7d0', borderRadius:20, fontWeight:700 }}>Under policy</span>
+              <span style={{ fontSize:11, padding:'3px 10px', background:'#f8fafc', color:'#94a3b8', border:'1px solid #e2e8f0', borderRadius:20, fontWeight:700 }}>No rate</span>
+            </div>
+          </div>
+
+          {sortedData.length === 0 ? (
+            <div style={{ textAlign:'center', padding:60, color:'#94a3b8' }}>
+              <div style={{ fontSize:36, marginBottom:10 }}>🔍</div>
+              <div style={{ fontSize:15, fontWeight:600, color:'#64748b' }}>No accommodation data for the selected period</div>
+              <div style={{ fontSize:13, marginTop:4 }}>Only accommodation sectors with check-in and check-out dates are included.</div>
+            </div>
+          ) : (
+            <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 110px 110px 100px 90px 90px', padding:'10px 18px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+                {[['destination','Destination','left'],['stays','Stays','right'],['roomNights','Nights','right'],['avgPerNightInc','Avg/Night (Inc)','right'],['avgPerNightEx','Avg/Night (Ex)','right'],['policyRate','Policy Rate','right'],['variance','Variance $','right'],['variancePct','Variance %','right']].map(([f,label,align]) => (
+                  <div key={f} onClick={() => handleSort(f)} style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em', textAlign:align, cursor:'pointer', userSelect:'none' }}>
+                    {label}{sa(f)}
+                  </div>
+                ))}
+              </div>
+              {sortedData.map((row, idx) => {
+                const isOver  = row.variance !== null && row.variance > 0;
+                const isUnder = row.variance !== null && row.variance <= 0;
+                const hasRate = row.policyRate !== null;
+                const rowBg   = isOver  ? (idx%2===0 ? '#fff5f5':'#fff0f0') : isUnder ? (idx%2===0 ? '#f0fdf4':'#ebfdf0') : (idx%2===0 ? '#fff':'#fafafa');
+                const badge   = isOver  ? { text:'OVER',     bg:'#fef2f2', color:'#dc2626', border:'#fecaca' }
+                              : isUnder ? { text:'UNDER',    bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' }
+                              :           { text:'NO RATE',  bg:'#f8fafc', color:'#94a3b8', border:'#e2e8f0' };
+                return (
+                  <div key={row.destination}
+                    style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 110px 110px 100px 90px 90px', padding:'12px 18px', alignItems:'center', background:rowBg, borderBottom: idx < sortedData.length-1 ? '1px solid #f1f5f9' : 'none' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontWeight:600, fontSize:14, color:'#1e293b' }}>{row.destination}</span>
+                      <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:20, background:badge.bg, color:badge.color, border:`1px solid ${badge.border}` }}>{badge.text}</span>
+                    </div>
+                    <div style={{ textAlign:'right', fontSize:13, color:'#475569' }}>{row.stays}</div>
+                    <div style={{ textAlign:'right', fontSize:13, color:'#475569' }}>
+                      {row.hasGroupBooking
+                        ? <span title={`${row.nights} calendar nights · ${row.roomNights} room-nights`}>{row.roomNights} <span style={{ fontSize:10, color:'#94a3b8' }}>rm-nts</span></span>
+                        : row.nights}
+                    </div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:600, color:'#1e293b' }}>${row.avgPerNightInc.toFixed(0)}</div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, color:'#64748b' }}>${row.avgPerNightEx.toFixed(0)}</div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, color: hasRate ? '#475569' : '#cbd5e1' }}>
+                      {hasRate ? `$${row.policyRate}` : '—'}
+                    </div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:700, color: !hasRate ? '#cbd5e1' : isOver ? '#dc2626' : '#16a34a' }}>
+                      {hasRate ? `${row.variance >= 0 ? '+' : ''}$${row.variance.toFixed(0)}` : '—'}
+                    </div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:700, color: !hasRate ? '#cbd5e1' : isOver ? '#dc2626' : '#16a34a' }}>
+                      {hasRate ? `${row.variancePct >= 0 ? '+' : ''}${row.variancePct.toFixed(1)}%` : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {sortedData.length > 0 && (
+            <p style={{ fontSize:11, color:'#94a3b8', marginTop:14, textAlign:'center' }}>
+              Avg/Night (Inc GST) vs TD 2025/4 policy rates · Only accommodation sectors with check-in &amp; check-out dates included · Approved, Booked, Travelling &amp; Completed trips only
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const card = { background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', padding:'18px 20px', marginBottom:20, boxShadow:'0 1px 3px rgba(0,0,0,0.05)' };
+const lbl  = { display:'block', fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 };
+const inp  = { padding:'7px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, color:'#1e293b', outline:'none', background:'#fff' };
+const pill = { padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:6, background:'#f1f5f9', color:'#475569', fontSize:12, fontWeight:500, cursor:'pointer' };
+const chdr = { fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em' };

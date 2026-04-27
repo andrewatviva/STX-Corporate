@@ -189,6 +189,30 @@ lineItem {
 - Already-billed trip: new in-period fees as standalone items + cost delta item if `currentGross > billedSectorTotals`
 - Date arithmetic uses local calendar (`getFullYear/getMonth/getDate`) — not `toISOString()` which shifts to UTC
 
+### Reports (Phase 8)
+5 reports, all in `src/components/reports/`, rendered via `src/pages/Reports.jsx`.
+
+| Report | File | Description |
+|--------|------|-------------|
+| All Travel | `AllTravelReport.jsx` | Filterable trip table — status, type, cost centre, date, search; booking window (days from creation to start); CSV export |
+| Avg Spend by Destination | `AvgSpendByDestination.jsx` | Grouped by `destinationCity`, expandable sector breakdown, per-night rate for accommodation |
+| Spend by Departure City | `SpendByDepartureCity.jsx` | Grouped by `originCity`, excludes international option |
+| Hotel Popularity | `HotelPopularity.jsx` | Grouped by `accomCity(sector,trip)` → `propertyName`, avg nightly rate, expandable |
+| Accommodation Policy | `AccommodationPolicy.jsx` | Per-client rates at `clients/{clientId}/config/travelPolicy`; seeded from DEFAULT_RATES (~80 AU cities, TD 2025/4); editable by STX only |
+
+**Shared utilities**: `src/utils/reportHelpers.js` — `toISO`, `getQuickRange`, `QUICK_PERIODS`, `BILLABLE_STATUSES`, `getDisplayStatus`, `sectorExGST`, `tripInclGST`, `tripExGST`, `accomCity`, `toDate`, `exportCSV`, `nightsBetween`.
+
+**V2 schema** used in all reports:
+- Sector types lowercase: `accommodation`, `flight`, `car-hire`, `parking`, `transfers`, `meals`, `other`
+- `sector.propertyName` (not `details`); `sector.checkIn`/`checkOut` (not `date`/`endDate`)
+- `trip.destinationCity`/`originCity` (not `destination`/`departureCity`); `trip.tripType` (not `type`)
+- `sector.international === true` (not `sector.region === 'International'`)
+- Status lowercase: `approved`, `booked`, `travelling`, `completed`; use `getDisplayStatus()` for derived states
+
+**Booking window** (All Travel report): `toDate(trip.createdAt)` → days until `trip.startDate`; red ≤ 7 days, amber ≤ 21 days.
+
+**Policy report flow**: load rates from Firestore on mount → generate button → compare `avgPerNightInc` against `findPolicyRate(destination, rates)` → variance $ and %.
+
 ### Current status
-**Phases 0–5 + 7 complete. Phase 6 (Hotel Booking) deferred. Phase 8 (Reports) next.**
+**Phases 0–5, 7–8 complete. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
 See `PROGRESS.md` for full phase breakdown.
