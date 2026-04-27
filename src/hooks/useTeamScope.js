@@ -18,22 +18,25 @@ export function useTeamScope(userProfile, clientId) {
   useEffect(() => {
     if (!userProfile) { setScope(null); return; }
 
-    const role = userProfile.role;
+    const role   = userProfile.role;
+    const myUid  = userProfile.uid;
 
-    // STX staff and client_ops see everything in the client; all other client roles are scoped
+    // STX staff and client_ops see everything in the client
     if (STX_ROLES.includes(role) || role === 'client_ops') {
       setScope({ type: 'all' });
       return;
     }
 
-    const myUid = userProfile.uid;
+    if (!myUid) { setScope(null); return; }
 
-    if (!clientId) {
-      setScope({ type: 'self', uids: new Set([myUid]) });
-      return;
-    }
+    // Immediately set a restrictive self-only scope so nothing leaks during load.
+    // If the Firestore query below fails or is slow, the user still only sees their
+    // own data rather than seeing everything (which happens when scope is null).
+    setScope({ type: 'self', uids: new Set([myUid]) });
 
-    // Subscribe to direct reports (users who have this person as their manager)
+    if (!clientId) return;
+
+    // Then expand to team scope if this user has direct reports
     const q = query(
       collection(db, 'users'),
       where('managerId', '==', myUid),
