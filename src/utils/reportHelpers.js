@@ -44,11 +44,15 @@ export function sectorExGST(sector) {
 }
 
 export function tripInclGST(trip) {
-  return (trip.sectors||[]).reduce((s,sec) => s + (parseFloat(sec.cost)||0), 0);
+  const sectors = (trip.sectors||[]).reduce((s,sec) => s + (parseFloat(sec.cost)||0), 0);
+  const fees    = (trip.fees||[]).reduce((s,fee) => s + (parseFloat(fee.amount)||0) * (1 + (fee.gstRate ?? 0.1)), 0);
+  return sectors + fees;
 }
 
 export function tripExGST(trip) {
-  return (trip.sectors||[]).reduce((s,sec) => s + sectorExGST(sec), 0);
+  const sectors = (trip.sectors||[]).reduce((s,sec) => s + sectorExGST(sec), 0);
+  const fees    = (trip.fees||[]).reduce((s,fee) => s + (parseFloat(fee.amount)||0), 0);
+  return sectors + fees;
 }
 
 export function accomCity(sector, trip) {
