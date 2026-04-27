@@ -1,5 +1,5 @@
-import React from 'react';
-import { Edit2, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Edit2, User, Printer, AlertTriangle, X } from 'lucide-react';
 
 const lbl = 'text-xs font-medium text-gray-500';
 const val = 'text-sm text-gray-800 mt-0.5';
@@ -50,13 +50,183 @@ function formatDate(d) {
 
 const WHEELCHAIR_AIDS = ['Manual Wheelchair', 'Power Wheelchair'];
 
+// ── Emergency Summary Card ────────────────────────────────────────────────────
+
+function ERow({ label, value, highlight }) {
+  if (!value) return null;
+  return (
+    <div className={`py-2 border-b border-gray-100 last:border-0 ${highlight ? 'bg-red-50 -mx-4 px-4 rounded' : ''}`}>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+      <p className="text-sm text-gray-900 whitespace-pre-line">{value}</p>
+    </div>
+  );
+}
+
+function ESection({ title, color = 'gray', children }) {
+  const colors = {
+    red:    'border-red-400 bg-red-50',
+    amber:  'border-amber-400 bg-amber-50',
+    blue:   'border-blue-400 bg-blue-50',
+    gray:   'border-gray-300 bg-gray-50',
+  };
+  return (
+    <div className={`rounded-xl border-l-4 p-4 ${colors[color]}`}>
+      <p className={`text-xs font-bold uppercase tracking-widest mb-3 ${color === 'red' ? 'text-red-700' : color === 'amber' ? 'text-amber-700' : color === 'blue' ? 'text-blue-700' : 'text-gray-600'}`}>
+        {title}
+      </p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function EmergencyCard({ passenger: p, onClose }) {
+  const fullName  = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
+  const legalName = p.preferredName ? [p.title, p.firstName, p.lastName].filter(Boolean).join(' ') : null;
+  const age = p.dateOfBirth
+    ? Math.floor((new Date() - new Date(p.dateOfBirth)) / (365.25 * 24 * 3600 * 1000))
+    : null;
+
+  return (
+    <>
+      {/* Print isolation styles */}
+      <style>{`
+        @media print {
+          body > * { visibility: hidden !important; }
+          #emg-print, #emg-print * { visibility: visible !important; }
+          #emg-print { position: fixed; inset: 0; overflow: visible; padding: 24px; background: white; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/60 z-40 no-print" onClick={onClose} />
+
+      {/* Scrollable overlay */}
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="min-h-full flex items-start justify-center p-4 sm:p-8">
+          <div id="emg-print" className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+
+            {/* Action bar (hidden on print) */}
+            <div className="no-print flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-200">
+              <span className="text-sm font-medium text-gray-600">Emergency Summary</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                >
+                  <Printer size={14} /> Print / Save PDF
+                </button>
+                <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Card content */}
+            <div className="p-6 space-y-4">
+
+              {/* Header */}
+              <div className="flex items-start gap-4 pb-4 border-b-2 border-red-500">
+                <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <User size={26} className="text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-red-600 uppercase tracking-widest mb-0.5">Emergency Summary</div>
+                  <h2 className="text-xl font-bold text-gray-900 leading-tight">{fullName}</h2>
+                  {legalName && <p className="text-xs text-gray-500">Legal name: {legalName}</p>}
+                  <p className="text-xs text-gray-500">
+                    {p.dateOfBirth && formatDate(p.dateOfBirth)}
+                    {age != null && ` (age ${age})`}
+                    {p.gender && ` · ${p.gender}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Emergency contacts */}
+              {(p.emergencyName || p.emergencyPhone) && (
+                <ESection title="Emergency Contact" color="red">
+                  <ERow label="Name" value={[p.emergencyName, p.emergencyRelationship && `(${p.emergencyRelationship})`].filter(Boolean).join(' ')} />
+                  <ERow label="Phone" value={p.emergencyPhone} />
+                  <ERow label="Email" value={p.emergencyEmail} />
+                </ESection>
+              )}
+
+              {/* Immediate medical requirements */}
+              {(p.medicalNotes || p.allergyNotes) && (
+                <ESection title="Medical Requirements" color="red">
+                  <ERow label="Medical conditions / notes" value={p.medicalNotes} />
+                  <ERow label="Allergy / dietary alerts" value={p.allergyNotes} />
+                </ESection>
+              )}
+
+              {/* Dietary */}
+              {p.dietaryRequirements?.length > 0 && (
+                <ESection title="Dietary Requirements" color="amber">
+                  <p className="text-sm text-gray-900">{p.dietaryRequirements.join(', ')}</p>
+                </ESection>
+              )}
+
+              {/* Communication & support needs */}
+              {p.supportNotes && (
+                <ESection title="Communication & Support Needs" color="amber">
+                  <p className="text-sm text-gray-900 whitespace-pre-line">{p.supportNotes}</p>
+                </ESection>
+              )}
+
+              {/* Mobility aids */}
+              {p.mobilityAids?.length > 0 && (
+                <ESection title="Mobility Aids" color="blue">
+                  <p className="text-sm text-gray-900 mb-2">{p.mobilityAids.join(', ')}</p>
+                  {p.mobilityAids.some(a => WHEELCHAIR_AIDS.includes(a)) && (
+                    <div className="space-y-1 text-xs text-gray-600">
+                      {p.wheelchairModel      && <p>Model: {p.wheelchairModel}</p>}
+                      {p.wheelchairWeight     && <p>Weight: {p.wheelchairWeight} kg</p>}
+                      {p.wheelchairDimensions && <p>Dimensions: {p.wheelchairDimensions} cm</p>}
+                      {p.wheelchairTransfer   && <p>Transfer: {p.wheelchairTransfer}</p>}
+                    </div>
+                  )}
+                  {p.carerRequired && (
+                    <p className="text-sm text-gray-900 mt-1">
+                      Travels with carer{p.carerName ? `: ${p.carerName}` : ''}
+                    </p>
+                  )}
+                </ESection>
+              )}
+
+              {/* Disability / support types */}
+              {p.disabilityType?.length > 0 && (
+                <ESection title="Disability / Support Needs" color="gray">
+                  <p className="text-sm text-gray-900">{p.disabilityType.join(', ')}</p>
+                </ESection>
+              )}
+
+              {/* Footer */}
+              <p className="text-xs text-gray-400 text-center pt-2 border-t border-gray-100">
+                Generated {new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} · Disability Aware Travel Management
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main detail view ──────────────────────────────────────────────────────────
+
 export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName }) {
+  const [showEmergency, setShowEmergency] = useState(false);
   const p = passenger;
   const fullName  = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
   const legalName = p.preferredName ? [p.title, p.firstName, p.lastName].filter(Boolean).join(' ') : null;
 
+  const hasEmergencyData = p.emergencyName || p.emergencyPhone || p.medicalNotes ||
+    p.allergyNotes || p.supportNotes || p.mobilityAids?.length > 0 || p.disabilityType?.length > 0;
+
   return (
     <div className="space-y-4">
+      {showEmergency && <EmergencyCard passenger={p} onClose={() => setShowEmergency(false)} />}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -71,7 +241,7 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
           {completeness !== undefined && (
             <div className="flex items-center gap-2">
               <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -82,6 +252,15 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
               </div>
               <span className="text-xs text-gray-500">{completeness}% complete</span>
             </div>
+          )}
+          {hasEmergencyData && (
+            <button
+              onClick={() => setShowEmergency(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+              title="View printable emergency summary"
+            >
+              <AlertTriangle size={14} /> Emergency card
+            </button>
           )}
           <button
             onClick={onEdit}
