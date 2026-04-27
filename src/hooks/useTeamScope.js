@@ -20,7 +20,7 @@ export function useTeamScope(userProfile, clientId) {
 
     const role = userProfile.role;
 
-    // STX staff and client_ops always see all trips in the client
+    // STX staff and client_ops see everything in the client; all other client roles are scoped
     if (STX_ROLES.includes(role) || role === 'client_ops') {
       setScope({ type: 'all' });
       return;
@@ -64,9 +64,12 @@ export function filterTripsByScope(trips, scope, userProfile) {
   const myName = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ').toLowerCase();
 
   return trips.filter(t => {
-    if (t.travellerId) return scope.uids.has(t.travellerId);
-    if (scope.uids.has(t.createdBy)) return true;
-    if (myName && t.travellerName?.toLowerCase() === myName) return true;
+    // Primary traveller match
+    if (t.travellerId && scope.uids.has(t.travellerId)) return true;
+    if (!t.travellerId && scope.uids.has(t.createdBy)) return true;
+    if (!t.travellerId && myName && t.travellerName?.toLowerCase() === myName) return true;
+    // Additional passenger match (by passengerId linked to a scoped user)
+    if ((t.additionalPassengers || []).some(p => p.passengerId && scope.uids.has(p.passengerId))) return true;
     return false;
   });
 }
