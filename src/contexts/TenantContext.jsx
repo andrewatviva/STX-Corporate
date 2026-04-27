@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { STX_ROLES } from '../utils/permissions';
@@ -72,6 +72,7 @@ export function TenantProvider({ children }) {
   const { userProfile } = useAuth();
   const [clientConfig, setClientConfig]   = useState(null);
   const [clientId, setClientId]           = useState(null);
+  const [clientName, setClientName]       = useState('');
   const [tenantLoading, setTenantLoading] = useState(true);
 
   // STX working-client context
@@ -104,6 +105,10 @@ export function TenantProvider({ children }) {
     }
 
     setClientId(cid);
+    // Load the client's display name from the root document
+    getDoc(doc(db, 'clients', cid)).then(snap => {
+      if (snap.exists()) setClientName(snap.data()?.name || '');
+    });
     const unsub = onSnapshot(
       doc(db, 'clients', cid, 'config', 'settings'),
       (snap) => {
@@ -141,10 +146,16 @@ export function TenantProvider({ children }) {
     return unsub;
   }, [isSTX, activeClientId]);
 
+  // Resolved display name — works for both STX (from clientsList) and client users
+  const activeClientName = isSTX && activeClientId
+    ? (clientsList.find(c => c.id === activeClientId)?.name || '')
+    : '';
+
   return (
     <TenantContext.Provider value={{
       clientId,
       clientConfig,
+      clientName,         // non-STX: org name from clients/{id}
       tenantLoading,
       isSTX,
       // STX working-client
@@ -152,6 +163,7 @@ export function TenantProvider({ children }) {
       activeClientId,
       setActiveClientId,
       activeClientConfig,
+      activeClientName,   // STX: name of the currently selected client
     }}>
       {children}
     </TenantContext.Provider>

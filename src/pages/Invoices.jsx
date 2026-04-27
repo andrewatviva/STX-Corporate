@@ -23,11 +23,12 @@ function StatusBadge({ status }) {
 
 export default function Invoices() {
   const { userProfile } = useAuth();
-  const { clientId: tenantClientId, activeClientId, activeClientConfig, clientConfig, isSTX } = useTenant();
+  const { clientId: tenantClientId, activeClientId, activeClientConfig, clientConfig, isSTX, clientName, activeClientName } = useTenant();
   const isAdmin = userProfile?.role === 'stx_admin';
 
   const clientId            = isSTX ? activeClientId  : tenantClientId;
   const currentClientConfig = isSTX ? activeClientConfig : clientConfig;
+  const resolvedClientName  = isSTX ? activeClientName : clientName;
 
   const { invoices, loading: invLoading, createInvoice, updateInvoice, deleteInvoice } = useInvoices(clientId);
   const { trips } = useTrips(clientId, isSTX, isSTX ? activeClientId : null);
@@ -121,6 +122,7 @@ export default function Invoices() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Invoice #</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Name</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Period</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Status</th>
                       <th className="px-5 py-3 text-right text-xs font-medium text-gray-500">Items</th>
@@ -137,6 +139,9 @@ export default function Invoices() {
                       >
                         <td className="px-5 py-3 font-mono font-medium text-gray-800">
                           {inv.invoiceNumber}
+                        </td>
+                        <td className="px-5 py-3 text-gray-700">
+                          {inv.name || <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-5 py-3 text-gray-600">
                           {formatDateDisplay(inv.periodFrom)} – {formatDateDisplay(inv.periodTo)}
@@ -198,6 +203,7 @@ export default function Invoices() {
           <InvoiceDetail
             invoice={selectedInvoice}
             clientConfig={currentClientConfig}
+            clientName={resolvedClientName}
             clientId={clientId}
             onBack={backToList}
             onEdit={() => openEdit(selectedInvoice)}

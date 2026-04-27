@@ -264,11 +264,12 @@ export default function InvoiceBuilder({
     ? { from: editInvoice.periodFrom, to: editInvoice.periodTo }
     : getQuickRange('lastMonth');
 
-  const [quickPeriod, setQuickPeriod] = useState(editInvoice ? null : 'lastMonth');
-  const [periodFrom, setPeriodFrom]   = useState(initPeriod.from);
-  const [periodTo,   setPeriodTo]     = useState(initPeriod.to);
-  const [lineItems,  setLineItems]    = useState(editInvoice?.lineItems || []);
-  const [notes,      setNotes]        = useState(editInvoice?.notes || '');
+  const [quickPeriod,   setQuickPeriod]   = useState(editInvoice ? null : 'lastMonth');
+  const [invoiceName,   setInvoiceName]   = useState(editInvoice?.name || '');
+  const [periodFrom,    setPeriodFrom]    = useState(initPeriod.from);
+  const [periodTo,      setPeriodTo]      = useState(initPeriod.to);
+  const [lineItems,     setLineItems]     = useState(editInvoice?.lineItems || []);
+  const [notes,         setNotes]         = useState(editInvoice?.notes || '');
   const [scanned,    setScanned]      = useState(!!editInvoice);
   const [saving,     setSaving]       = useState(false);
   const [editingIdx, setEditingIdx]   = useState(null);
@@ -363,6 +364,7 @@ export default function InvoiceBuilder({
     try {
       const data = {
         status,
+        name:          invoiceName.trim(),
         periodFrom,
         periodTo,
         lineItems,
@@ -397,6 +399,18 @@ export default function InvoiceBuilder({
         <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700">
           Cancel
         </button>
+      </div>
+
+      {/* Invoice name */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Invoice name</h3>
+        <input
+          type="text"
+          value={invoiceName}
+          onChange={e => setInvoiceName(e.target.value)}
+          placeholder="e.g. April 2026"
+          className="w-full max-w-sm border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
       {/* Period selector */}

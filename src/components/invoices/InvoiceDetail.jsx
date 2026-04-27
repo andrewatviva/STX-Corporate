@@ -25,7 +25,7 @@ function recalcTotals(items) {
 }
 
 export default function InvoiceDetail({
-  invoice, clientConfig, clientId,
+  invoice, clientConfig, clientName, clientId,
   onBack, onEdit, updateInvoice, deleteInvoice, onDeleted,
 }) {
   const { userProfile } = useAuth();
@@ -97,10 +97,10 @@ export default function InvoiceDetail({
   }
 
   function downloadCSV() {
-    const clientName = clientConfig?.name || '';
     const rows = [
       ['Invoice Number', invoice.invoiceNumber],
-      ['Client', clientName],
+      ...(invoice.name ? [['Invoice Name', invoice.name]] : []),
+      ['Client', clientName || ''],
       ['Period', `${formatDateDisplay(invoice.periodFrom)} – ${formatDateDisplay(invoice.periodTo)}`],
       ['Status', STATUS_CFG[invoice.status]?.label || invoice.status],
       [],
@@ -128,8 +128,11 @@ export default function InvoiceDetail({
   }
 
   function printPDF() {
-    const clientName = clientConfig?.name || 'Client';
+    const resolvedClientName = clientName || clientConfig?.name || '';
     const statusLabel = STATUS_CFG[invoice.status]?.label || invoice.status;
+    const stxLogoUrl  = `${window.location.origin}/logo192.png`;
+    const clientLogoUrl = clientConfig?.branding?.logo || '';
+
     const lineRows = (invoice.lineItems || []).map(item => `
       <tr>
         <td class="mono">${item.tripRef || '—'}</td>
@@ -145,8 +148,14 @@ export default function InvoiceDetail({
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:40px}
-  h1{font-size:24px;font-weight:bold;margin-bottom:4px}
-  .meta{color:#555;margin-bottom:24px;line-height:1.9}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e5e7eb}
+  .logos{display:flex;align-items:center;gap:20px}
+  .logos img{max-height:56px;max-width:140px;object-fit:contain}
+  .inv-title{text-align:right}
+  .inv-title h1{font-size:22px;font-weight:bold;font-family:monospace;margin-bottom:4px}
+  .inv-title .inv-name{font-size:14px;color:#374151;margin-bottom:2px}
+  .inv-title .status{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#d1fae5;color:#065f46}
+  .meta{color:#555;margin-bottom:24px;line-height:2}
   table{width:100%;border-collapse:collapse;margin-bottom:24px}
   th{background:#f3f4f6;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #d1d5db}
   td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top}
@@ -157,11 +166,20 @@ export default function InvoiceDetail({
   .notes{margin-top:24px;padding:12px;background:#f9fafb;border-radius:6px}
   @media print{body{padding:20px}}
 </style></head><body>
-  <h1>${invoice.invoiceNumber}</h1>
+  <div class="header">
+    <div class="logos">
+      <img src="${stxLogoUrl}" alt="STX" onerror="this.style.display='none'" />
+      ${clientLogoUrl ? `<img src="${clientLogoUrl}" alt="${resolvedClientName}" onerror="this.style.display='none'" />` : ''}
+    </div>
+    <div class="inv-title">
+      <h1>${invoice.invoiceNumber}</h1>
+      ${invoice.name ? `<div class="inv-name">${invoice.name}</div>` : ''}
+      <span class="status">${statusLabel}</span>
+    </div>
+  </div>
   <div class="meta">
-    <div><strong>Client:</strong> ${clientName}</div>
+    <div><strong>Client:</strong> ${resolvedClientName || '—'}</div>
     <div><strong>Period:</strong> ${formatDateDisplay(invoice.periodFrom)} – ${formatDateDisplay(invoice.periodTo)}</div>
-    <div><strong>Status:</strong> ${statusLabel}</div>
   </div>
   <table><thead><tr>
     <th>Ref</th><th>Traveller</th><th>Cost Centre</th><th>Description</th>
@@ -196,6 +214,9 @@ export default function InvoiceDetail({
           </button>
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-xl font-semibold text-gray-800 font-mono">{invoice.invoiceNumber}</h2>
+            {invoice.name && (
+              <span className="text-base font-medium text-gray-600">{invoice.name}</span>
+            )}
             <StatusBadge status={invoice.status} />
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
