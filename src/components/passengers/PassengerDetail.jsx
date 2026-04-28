@@ -302,42 +302,65 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
           overdue:  'Annual review overdue',
           never:    'Profile has never been reviewed',
         };
+
+        // Changes made after the last review
+        const changesSinceReview = (p.changeLog || []).filter(
+          entry => !p.lastReviewedAt || entry.at > p.lastReviewedAt
+        );
+        const changedFields = [...new Set(changesSinceReview.flatMap(e => e.fields || []))];
+
         return (
-          <div className={`flex items-center justify-between gap-4 px-4 py-3 rounded-xl border ${statusStyles[status]}`}>
-            <div className="flex items-center gap-3">
-              <ClipboardCheck size={16} className="shrink-0" />
-              <div>
-                <p className="text-sm font-medium">{statusLabels[status]}</p>
-                {p.lastReviewedAt ? (
-                  <p className="text-xs opacity-70 mt-0.5">
-                    Last reviewed {new Date(p.lastReviewedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    {p.lastReviewedBy && ` by ${p.lastReviewedBy}`}
-                  </p>
-                ) : (
-                  <p className="text-xs opacity-70 mt-0.5">Review annually to ensure accessibility needs are current</p>
-                )}
+          <div className={`rounded-xl border ${statusStyles[status]}`}>
+            <div className="flex items-center justify-between gap-4 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <ClipboardCheck size={16} className="shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">{statusLabels[status]}</p>
+                  {p.lastReviewedAt ? (
+                    <p className="text-xs opacity-70 mt-0.5">
+                      Last reviewed {new Date(p.lastReviewedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {p.lastReviewedBy && ` by ${p.lastReviewedBy}`}
+                    </p>
+                  ) : (
+                    <p className="text-xs opacity-70 mt-0.5">Review annually to ensure accessibility needs are current</p>
+                  )}
+                </div>
               </div>
+              {canEdit && (
+                <button
+                  onClick={async () => {
+                    setMarking(true);
+                    try {
+                      const name = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '';
+                      await onUpdate({
+                        lastReviewedAt: new Date().toISOString(),
+                        lastReviewedBy: name,
+                        lastReviewedByUid: userProfile?.uid || '',
+                      });
+                    } finally {
+                      setMarking(false);
+                    }
+                  }}
+                  disabled={marking}
+                  className="shrink-0 px-3 py-1.5 bg-white border border-current text-xs font-medium rounded-lg hover:bg-white/80 disabled:opacity-50 transition-colors"
+                >
+                  {marking ? 'Saving…' : 'Mark as reviewed'}
+                </button>
+              )}
             </div>
-            {canEdit && (
-              <button
-                onClick={async () => {
-                  setMarking(true);
-                  try {
-                    const name = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '';
-                    await onUpdate({
-                      lastReviewedAt: new Date().toISOString(),
-                      lastReviewedBy: name,
-                      lastReviewedByUid: userProfile?.uid || '',
-                    });
-                  } finally {
-                    setMarking(false);
-                  }
-                }}
-                disabled={marking}
-                className="shrink-0 px-3 py-1.5 bg-white border border-current text-xs font-medium rounded-lg hover:bg-white/80 disabled:opacity-50 transition-colors"
-              >
-                {marking ? 'Saving…' : 'Mark as reviewed'}
-              </button>
+
+            {/* Fields changed since last review */}
+            {changedFields.length > 0 && (
+              <div className="px-4 py-2.5 border-t border-current/20">
+                <p className="text-xs font-semibold opacity-80 mb-1">Updated since last review:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {changedFields.map(f => (
+                    <span key={f} className="px-2 py-0.5 bg-white/60 rounded text-xs font-medium border border-current/20">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         );

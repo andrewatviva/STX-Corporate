@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, User, Trash2, AlertCircle } from 'lucide-react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
@@ -97,6 +97,62 @@ function AccessTags({ passenger }) {
   );
 }
 
+// ── Profile change tracking ───────────────────────────────────────────────────
+const FIELD_LABELS = {
+  firstName:             'First name',
+  lastName:              'Last name',
+  preferredName:         'Preferred name',
+  dateOfBirth:           'Date of birth',
+  gender:                'Gender',
+  email:                 'Email',
+  phone:                 'Phone',
+  emergencyName:         'Emergency contact name',
+  emergencyPhone:        'Emergency contact phone',
+  emergencyRelationship: 'Emergency contact relationship',
+  emergencyEmail:        'Emergency contact email',
+  identityDocuments:     'Identity documents',
+  disabilityType:        'Disability / support needs',
+  mobilityAids:          'Mobility aids',
+  carerRequired:         'Carer requirement',
+  carerName:             'Carer name',
+  wheelchairTransfer:    'Wheelchair transfer method',
+  wheelchairModel:       'Wheelchair model',
+  wheelchairWeight:      'Wheelchair weight',
+  wheelchairBatteryType: 'Battery type',
+  wheelchairBatteryWh:   'Battery capacity (Wh)',
+  wheelchairAssemblyNotes: 'Assembly / disassembly notes',
+  dietaryRequirements:   'Dietary requirements',
+  allergyNotes:          'Allergy / dietary notes',
+  medicalNotes:          'Medical conditions',
+  supportNotes:          'Additional support requirements',
+  seatPreference:        'Seat preference',
+  mealPreference:        'Meal preference',
+  loyaltyPrograms:       'Loyalty programs',
+  travelNotes:           'Travel notes',
+  dataShareConsent:      'Data sharing consent',
+};
+
+const DIMENSION_FIELDS = ['wheelchairLengthCm', 'wheelchairWidthCm', 'wheelchairHeightCm'];
+
+function diffPassenger(original, updated) {
+  const changed = new Set();
+
+  for (const [field, label] of Object.entries(FIELD_LABELS)) {
+    const oldVal = original[field];
+    const newVal = updated[field];
+    const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : String(oldVal ?? '');
+    const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal ?? '');
+    if (oldStr !== newStr) changed.add(label);
+  }
+
+  // Group the three dimension fields into one label
+  if (DIMENSION_FIELDS.some(f => String(original[f] ?? '') !== String(updated[f] ?? ''))) {
+    changed.add('Wheelchair dimensions');
+  }
+
+  return [...changed];
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Profiles() {
   const { userProfile } = useAuth();
@@ -143,7 +199,12 @@ export default function Profiles() {
 
   const handleSave = async (data) => {
     if (editing) {
-      await updatePassenger(editing.id, { ...data, updatedBy: userProfile.uid });
+      const changedFields = diffPassenger(editing, data);
+      const byName = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '';
+      const extra = changedFields.length > 0
+        ? { changeLog: arrayUnion({ at: new Date().toISOString(), by: byName, byUid: userProfile?.uid || '', fields: changedFields }) }
+        : {};
+      await updatePassenger(editing.id, { ...data, updatedBy: userProfile.uid, ...extra });
     } else {
       await addPassenger({ ...data, createdBy: userProfile.uid });
     }
