@@ -252,29 +252,76 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     try {
       await onStatusChange(trip, newStatus, extra);
 
-      // Queue rating request emails 2 days after trip end date
-      if (newStatus === 'booked' && trip.endDate) {
-        const scheduledFor = new Date(trip.endDate);
-        scheduledFor.setDate(scheduledFor.getDate() + 2);
+      const now       = new Date().toISOString();
+      const tripId    = trip.id;
+      const tripTitle = trip.title || '';
+      const cid       = clientId || '';
 
-        const travellers = [
-          { name: trip.travellerName, uid: trip.travellerId },
-          ...(trip.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
-        ].filter(t => t.uid);
+      const queue = (doc) => addDoc(collection(db, 'emailQueue'), {
+        status: 'pending', createdAt: now, clientId: cid, tripId, tripTitle, ...doc,
+      });
 
-        await Promise.all(travellers.map(t =>
-          addDoc(collection(db, 'emailQueue'), {
-            type: 'trip_rating_request',
-            tripId: trip.id,
-            tripTitle: trip.title || '',
-            travellerId: t.uid,
+      if (newStatus === 'pending_approval') {
+        // Notify all approvers for this traveller
+        await queue({
+          type:          'trip_submitted',
+          travellerId:   trip.travellerId || '',
+          travellerName: trip.travellerName || '',
+          scheduledFor:  now,
+        });
+      }
+
+      if (newStatus === 'approved') {
+        // Notify whoever submitted the trip
+        if (trip.createdBy) {
+          await queue({
+            type:        'trip_approved',
+            recipientId: trip.createdBy,
+            scheduledFor: now,
+          });
+        }
+      }
+
+      if (newStatus === 'declined') {
+        // Notify the trip creator with the reason
+        if (trip.createdBy) {
+          await queue({
+            type:          'trip_declined',
+            recipientId:   trip.createdBy,
+            declineReason: extra.declineReason || '',
+            scheduledFor:  now,
+          });
+        }
+      }
+
+      if (newStatus === 'booked') {
+        // Booking confirmation to the traveller
+        if (trip.travellerId) {
+          await queue({
+            type:          'trip_booked',
+            recipientId:   trip.travellerId,
+            travellerName: trip.travellerName || '',
+            scheduledFor:  now,
+          });
+        }
+
+        // Rating request emails 2 days after trip end date
+        if (trip.endDate) {
+          const scheduledFor = new Date(trip.endDate);
+          scheduledFor.setDate(scheduledFor.getDate() + 2);
+
+          const travellers = [
+            { name: trip.travellerName, uid: trip.travellerId },
+            ...(trip.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
+          ].filter(t => t.uid);
+
+          await Promise.all(travellers.map(t => queue({
+            type:          'trip_rating_request',
+            travellerId:   t.uid,
             travellerName: t.name,
-            clientId: clientId || '',
-            scheduledFor: scheduledFor.toISOString(),
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-          })
-        ));
+            scheduledFor:  scheduledFor.toISOString(),
+          })));
+        }
       }
     } finally {
       setActing(false);
