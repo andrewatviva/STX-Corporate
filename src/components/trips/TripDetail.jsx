@@ -295,31 +295,41 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       }
 
       if (newStatus === 'booked') {
-        // Booking confirmation to the traveller
-        if (trip.travellerId) {
-          await queue({
-            type:          'trip_booked',
-            recipientId:   trip.travellerId,
-            travellerName: trip.travellerName || '',
-            scheduledFor:  now,
-          });
+        const travellers = [
+          { name: trip.travellerName, uid: trip.travellerId },
+          ...(trip.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
+        ].filter(t => t.uid);
+
+        // Booking confirmation to each traveller
+        await Promise.all(travellers.map(t => queue({
+          type:          'trip_booked',
+          recipientId:   t.uid,
+          travellerName: t.name,
+          scheduledFor:  now,
+        })));
+
+        // Pre-departure reminder 3 days before start date
+        if (trip.startDate) {
+          const preDeparture = new Date(trip.startDate);
+          preDeparture.setDate(preDeparture.getDate() - 3);
+          await Promise.all(travellers.map(t => queue({
+            type:                  'trip_pre_departure',
+            recipientId:           t.uid,
+            travellerName:         t.name,
+            digitalItineraryLink:  trip.digitalItineraryLink || '',
+            scheduledFor:          preDeparture.toISOString(),
+          })));
         }
 
         // Rating request emails 2 days after trip end date
         if (trip.endDate) {
-          const scheduledFor = new Date(trip.endDate);
-          scheduledFor.setDate(scheduledFor.getDate() + 2);
-
-          const travellers = [
-            { name: trip.travellerName, uid: trip.travellerId },
-            ...(trip.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
-          ].filter(t => t.uid);
-
+          const ratingDate = new Date(trip.endDate);
+          ratingDate.setDate(ratingDate.getDate() + 2);
           await Promise.all(travellers.map(t => queue({
             type:          'trip_rating_request',
             travellerId:   t.uid,
             travellerName: t.name,
-            scheduledFor:  scheduledFor.toISOString(),
+            scheduledFor:  ratingDate.toISOString(),
           })));
         }
       }

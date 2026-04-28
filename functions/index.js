@@ -120,6 +120,11 @@ function fmtDate(iso) {
   } catch { return iso; }
 }
 
+function normaliseUrl(url) {
+  if (!url) return null;
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 function buildEmailMessage(type, data, recipientEmails, trip) {
   const portal = portalUrl();
   const travelUrl = `${portal}/travel`;
@@ -200,6 +205,59 @@ function buildEmailMessage(type, data, recipientEmails, trip) {
       ctaUrl:  travelUrl,
     },
 
+    trip_pre_departure: (() => {
+      const itineraryUrl = normaliseUrl(data.digitalItineraryLink || trip?.digitalItineraryLink);
+
+      // Build sector summary rows
+      const sectors = (trip?.sectors || []);
+      const sectorSummaryRows = sectors.map(s => {
+        if (s.type === 'flight') {
+          return infoRow('Flight', [s.flightNumber, s.departureAirport, '→', s.arrivalAirport].filter(Boolean).join(' ') || '—');
+        }
+        if (s.type === 'accommodation') {
+          return infoRow('Accommodation', [s.propertyName, s.city].filter(Boolean).join(', ') || '—');
+        }
+        if (s.type === 'transfers') {
+          return infoRow('Transfer', [s.provider, s.from && s.to ? `${s.from} → ${s.to}` : ''].filter(Boolean).join(' — ') || '—');
+        }
+        return '';
+      }).filter(Boolean).join('');
+
+      const summaryBox = sectorSummaryRows
+        ? `<table cellpadding="0" cellspacing="0"
+             style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;
+                    padding:14px 16px;width:100%;margin:16px 0;">
+             ${infoRow('Departure', fmtDate(trip?.startDate))}
+             ${infoRow('Return', fmtDate(trip?.endDate))}
+             ${sectorSummaryRows}
+           </table>`
+        : tripInfoBox([
+            ['Departure', fmtDate(trip?.startDate)],
+            ['Return',    fmtDate(trip?.endDate)],
+          ]);
+
+      return {
+        subject:   `Your trip starts in 3 days — ${data.tripTitle}`,
+        preheader: `Reminder: your trip "${data.tripTitle}" is coming up in 3 days.`,
+        heading:   `Your trip is coming up${firstName ? ', ' + firstName : ''}!`,
+        body: `
+          <p style="font-size:14px;color:#374151;margin:0 0 4px;line-height:1.6;">
+            Just a reminder that your trip is 3 days away. Here's a summary of what's arranged.
+          </p>
+          ${summaryBox}
+          ${itineraryUrl ? `
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin:12px 0;">
+            <p style="margin:0 0 6px;font-size:13px;color:#0369a1;font-weight:600;">Digital itinerary available</p>
+            <a href="${itineraryUrl}" style="font-size:13px;color:#0284c7;word-break:break-all;">${itineraryUrl}</a>
+          </div>` : ''}
+          <p style="font-size:13px;color:#6b7280;margin:12px 0 0;line-height:1.5;">
+            If anything needs to change, please contact STX as soon as possible.
+          </p>`,
+        ctaText: 'View full itinerary →',
+        ctaUrl:  travelUrl,
+      };
+    })(),
+
     trip_rating_request: {
       subject:   `How was your trip? — ${data.tripTitle}`,
       preheader: 'Take a minute to rate the providers from your recent trip.',
@@ -243,6 +301,9 @@ async function dispatchQueuedEmail(docRef, data) {
   const db = getFirestore();
   let recipientEmails = [];
 
+  // Mandatory types always send regardless of preferences
+  const mandatory = new Set(['trip_approved', 'trip_declined']);
+
   if (data.type === 'trip_submitted') {
     // Find all active client_approver users who cover this traveller
     const snap = await db.collection('users')
@@ -254,16 +315,24 @@ async function dispatchQueuedEmail(docRef, data) {
       const u = d.data();
       if (u.active === false || !u.email) continue;
       const af = u.approveFor || [];
-      if (af.length === 0 || (data.travellerId && af.includes(data.travellerId))) {
-        recipientEmails.push(u.email);
-      }
+      if (af.length > 0 && (!data.travellerId || !af.includes(data.travellerId))) continue;
+      // Respect approver's preference (default on)
+      const prefs = u.emailPreferences || {};
+      if (prefs.trip_submitted === false) continue;
+      recipientEmails.push(u.email);
     }
   } else {
     const uid = data.recipientId || data.travellerId;
     if (uid) {
       const snap = await db.collection('users').doc(uid).get();
-      const email = snap.data()?.email;
-      if (email) recipientEmails.push(email);
+      const u = snap.data();
+      if (u?.email) {
+        // Check preference unless mandatory
+        const prefs = u.emailPreferences || {};
+        if (mandatory.has(data.type) || prefs[data.type] !== false) {
+          recipientEmails.push(u.email);
+        }
+      }
     }
   }
 
