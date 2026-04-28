@@ -38,3 +38,8 @@ jobs:
           projectId: stx-corporate-dev
           channelId: live
 
+      - name: Deploy Firestore and Storage rules (Dev)
+        run: npx firebase-tools deploy --only firestore:rules,storage --project stx-corporate-dev
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_CI_TOKEN }}
+
