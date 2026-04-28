@@ -36,6 +36,8 @@ export default function ProviderRatings() {
   const [feedbackDocs, setFeedbackDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [minRating, setMinRating] = useState(0);
 
   useEffect(() => {
     getDocs(collection(db, 'tripFeedback'))
@@ -67,7 +69,12 @@ export default function ProviderRatings() {
     return { providers, processRatings, generalComments, types };
   }, [feedbackDocs]);
 
-  const filtered = typeFilter === 'all' ? providers : providers.filter(p => p.type === typeFilter);
+  const filtered = providers.filter(p => {
+    if (typeFilter !== 'all' && p.type !== typeFilter) return false;
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (minRating > 0 && avg(p.stars) < minRating) return false;
+    return true;
+  });
   const processAvg = avg(processRatings);
 
   if (loading) {
@@ -94,7 +101,7 @@ export default function ProviderRatings() {
           <p className="text-xs text-gray-400 mb-1">Total reviews</p>
           <p className="text-2xl font-bold text-gray-900">{feedbackDocs.length}</p>
         </div>
-        {processRatings.length > 0 && (
+        {processRatings.length > 0 && processAvg >= 4.5 && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <p className="text-xs text-gray-400 mb-1">STX service rating</p>
             <div className="flex items-center gap-2">
@@ -119,35 +126,66 @@ export default function ProviderRatings() {
       {/* Provider ratings */}
       {providers.length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Provider Ratings</h3>
-            {types.length > 1 && (
-              <div className="flex gap-1 flex-wrap">
-                <button
-                  onClick={() => setTypeFilter('all')}
-                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                    typeFilter === 'all'
-                      ? 'bg-teal-600 text-white border-teal-600'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  All
-                </button>
-                {types.map(t => (
+          <div className="flex flex-col gap-3 mb-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="text-sm font-semibold text-gray-700">Provider Ratings</h3>
+              {types.length > 1 && (
+                <div className="flex gap-1 flex-wrap">
                   <button
-                    key={t}
-                    onClick={() => setTypeFilter(t)}
+                    onClick={() => setTypeFilter('all')}
                     className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                      typeFilter === t
+                      typeFilter === 'all'
                         ? 'bg-teal-600 text-white border-teal-600'
                         : 'border-gray-200 text-gray-500 hover:border-gray-300'
                     }`}
                   >
-                    {TYPE_LABELS[t] || t}
+                    All
+                  </button>
+                  {types.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setTypeFilter(t)}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        typeFilter === t
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {TYPE_LABELS[t] || t}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search provider…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 w-48 focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-400"
+              />
+              <div className="flex gap-1">
+                {[0, 3, 4, 4.5].map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setMinRating(r)}
+                    className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                      minRating === r
+                        ? 'bg-amber-400 text-white border-amber-400'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {r === 0 ? 'Any rating' : `${r}★+`}
                   </button>
                 ))}
               </div>
-            )}
+              {(search || minRating > 0) && (
+                <span className="text-xs text-gray-400">
+                  {filtered.length} of {providers.length}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

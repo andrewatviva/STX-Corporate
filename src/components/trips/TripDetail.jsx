@@ -674,7 +674,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           <div className="mt-4 pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400 mb-1">Digital Itinerary</p>
             <a
-              href={trip.digitalItineraryLink}
+              href={/^https?:\/\//i.test(trip.digitalItineraryLink) ? trip.digitalItineraryLink : `https://${trip.digitalItineraryLink}`}
               target="_blank"
               rel="noreferrer"
               className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
