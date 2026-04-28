@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Edit2, User, Printer, AlertTriangle, X } from 'lucide-react';
+import { Edit2, User, Printer, AlertTriangle, X, ClipboardCheck } from 'lucide-react';
 import DocumentVault from './DocumentVault';
+import { useAuth } from '../../contexts/AuthContext';
 
 const lbl = 'text-xs font-medium text-gray-500';
 const val = 'text-sm text-gray-800 mt-0.5';
@@ -219,8 +220,18 @@ function EmergencyCard({ passenger: p, onClose }) {
 
 // ── Main detail view ──────────────────────────────────────────────────────────
 
+function reviewStatus(lastReviewedAt) {
+  if (!lastReviewedAt) return 'never';
+  const months = (Date.now() - new Date(lastReviewedAt)) / (1000 * 60 * 60 * 24 * 30.44);
+  if (months >= 12) return 'overdue';
+  if (months >= 10) return 'due_soon';
+  return 'ok';
+}
+
 export default function PassengerDetail({ passenger, onEdit, onBack, completeness, managerName, clientId, onUpdate, canEdit }) {
+  const { userProfile } = useAuth();
   const [showEmergency, setShowEmergency] = useState(false);
+  const [marking, setMarking] = useState(false);
   const p = passenger;
   const fullName  = [p.title, p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
   const legalName = p.preferredName ? [p.title, p.firstName, p.lastName].filter(Boolean).join(' ') : null;
@@ -275,6 +286,62 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
           </button>
         </div>
       </div>
+
+      {/* Last reviewed */}
+      {(() => {
+        const status = reviewStatus(p.lastReviewedAt);
+        const statusStyles = {
+          ok:       'bg-green-50 border-green-200 text-green-700',
+          due_soon: 'bg-amber-50 border-amber-200 text-amber-700',
+          overdue:  'bg-red-50 border-red-200 text-red-700',
+          never:    'bg-red-50 border-red-200 text-red-700',
+        };
+        const statusLabels = {
+          ok:       'Profile up to date',
+          due_soon: 'Annual review due soon',
+          overdue:  'Annual review overdue',
+          never:    'Profile has never been reviewed',
+        };
+        return (
+          <div className={`flex items-center justify-between gap-4 px-4 py-3 rounded-xl border ${statusStyles[status]}`}>
+            <div className="flex items-center gap-3">
+              <ClipboardCheck size={16} className="shrink-0" />
+              <div>
+                <p className="text-sm font-medium">{statusLabels[status]}</p>
+                {p.lastReviewedAt ? (
+                  <p className="text-xs opacity-70 mt-0.5">
+                    Last reviewed {new Date(p.lastReviewedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {p.lastReviewedBy && ` by ${p.lastReviewedBy}`}
+                  </p>
+                ) : (
+                  <p className="text-xs opacity-70 mt-0.5">Review annually to ensure accessibility needs are current</p>
+                )}
+              </div>
+            </div>
+            {canEdit && (
+              <button
+                onClick={async () => {
+                  setMarking(true);
+                  try {
+                    const name = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '';
+                    await onUpdate({
+                      lastReviewedAt: new Date().toISOString(),
+                      lastReviewedBy: name,
+                      lastReviewedByUid: userProfile?.uid || '',
+                    });
+                  } finally {
+                    setMarking(false);
+                  }
+                }}
+                disabled={marking}
+                className="shrink-0 px-3 py-1.5 bg-white border border-current text-xs font-medium rounded-lg hover:bg-white/80 disabled:opacity-50 transition-colors"
+              >
+                {marking ? 'Saving…' : 'Mark as reviewed'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Personal details */}
       <Section title="Personal details">

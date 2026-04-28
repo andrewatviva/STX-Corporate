@@ -39,6 +39,35 @@ function CompletenessBadge({ pct }) {
   );
 }
 
+// ── Review status ─────────────────────────────────────────────────────────────
+function reviewStatus(p) {
+  if (!p.lastReviewedAt) return 'never';
+  const months = (Date.now() - new Date(p.lastReviewedAt)) / (1000 * 60 * 60 * 24 * 30.44);
+  if (months >= 12) return 'overdue';
+  if (months >= 10) return 'due_soon';
+  return 'ok';
+}
+
+function ReviewBadge({ passenger }) {
+  const status = reviewStatus(passenger);
+  if (status === 'ok') return null;
+  const styles = {
+    never:    'bg-red-100 text-red-700',
+    overdue:  'bg-red-100 text-red-700',
+    due_soon: 'bg-amber-100 text-amber-700',
+  };
+  const labels = {
+    never:    'Never reviewed',
+    overdue:  'Review overdue',
+    due_soon: 'Review due soon',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}>
+      {labels[status]}
+    </span>
+  );
+}
+
 // ── Initials avatar ───────────────────────────────────────────────────────────
 function Avatar({ passenger }) {
   const initials = [(passenger.firstName || '')[0], (passenger.lastName || '')[0]].filter(Boolean).join('').toUpperCase();
@@ -272,7 +301,10 @@ export default function Profiles() {
                       <AccessTags passenger={p} />
                     </td>
                     <td className="px-4 py-3">
-                      <CompletenessBadge pct={completeness} />
+                      <div className="flex flex-col gap-1">
+                        <CompletenessBadge pct={completeness} />
+                        <ReviewBadge passenger={p} />
+                      </div>
                     </td>
                     {canEdit && (
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
