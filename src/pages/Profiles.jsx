@@ -175,8 +175,14 @@ export default function Profiles() {
   const [search, setSearch]           = useState('');
   const [showModal, setShowModal]     = useState(false);
   const [editing, setEditing]         = useState(null);   // passenger object being edited
-  const [selected, setSelected]       = useState(null);   // passenger object being viewed
+  const [selectedId, setSelectedId]   = useState(null);   // ID of passenger being viewed
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  // Derive selected passenger from live onSnapshot data so it auto-refreshes after edits
+  const selected = useMemo(
+    () => passengers.find(p => p.id === selectedId) ?? null,
+    [passengers, selectedId]
+  );
 
   const canEdit   = hasPermission(PERMISSIONS.PASSENGER_EDIT);
 
@@ -195,7 +201,7 @@ export default function Profiles() {
   }, [scopedPassengers, search]);
 
   const handleCreate = () => { setEditing(null); setShowModal(true); };
-  const handleEdit   = (p) => { setEditing(p); setShowModal(true); setSelected(null); };
+  const handleEdit   = (p) => { setEditing(p); setShowModal(true); };
 
   const handleSave = async (data) => {
     if (editing) {
@@ -205,6 +211,7 @@ export default function Profiles() {
         ? { changeLog: arrayUnion({ at: new Date().toISOString(), by: byName, byUid: userProfile?.uid || '', fields: changedFields }) }
         : {};
       await updatePassenger(editing.id, { ...data, updatedBy: userProfile.uid, ...extra });
+      setSelectedId(editing.id); // Return to detail view with fresh data
     } else {
       await addPassenger({ ...data, createdBy: userProfile.uid });
     }
@@ -216,7 +223,7 @@ export default function Profiles() {
     if (!confirmDelete) return;
     await deletePassenger(confirmDelete.id);
     setConfirmDelete(null);
-    if (selected?.id === confirmDelete.id) setSelected(null);
+    if (selectedId === confirmDelete.id) setSelectedId(null);
   };
 
   // If STX with no active client
@@ -235,7 +242,6 @@ export default function Profiles() {
   // If viewing a detail
   if (selected) {
     const completeness = calcCompleteness(selected);
-    // Resolve manager name: find linked user, then find that user's manager
     const linkedUser  = selected.userId ? teamMembers.find(m => m.id === selected.userId) : null;
     const manager     = linkedUser?.managerId ? teamMembers.find(m => m.id === linkedUser.managerId) : null;
     const managerName = manager ? [manager.firstName, manager.lastName].filter(Boolean).join(' ') : null;
@@ -244,7 +250,7 @@ export default function Profiles() {
       <div>
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => setSelected(null)}
+            onClick={() => setSelectedId(null)}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
             ← Profiles
@@ -256,7 +262,7 @@ export default function Profiles() {
             completeness={completeness}
             managerName={managerName}
             onEdit={() => handleEdit(selected)}
-            onBack={() => setSelected(null)}
+            onBack={() => setSelectedId(null)}
             clientId={effectiveClientId}
             canEdit={canEdit}
             onUpdate={(data) => updatePassenger(selected.id, data)}
@@ -272,6 +278,39 @@ export default function Profiles() {
             </div>
           )}
         </div>
+
+        {/* Edit modal — available from detail view */}
+        {showModal && (
+          <Modal
+            title="Edit passenger profile"
+            onClose={() => { setShowModal(false); setEditing(null); }}
+            wide
+          >
+            <PassengerForm
+              passenger={editing}
+              teamMembers={teamMembers}
+              onSave={handleSave}
+              onCancel={() => { setShowModal(false); setEditing(null); }}
+            />
+          </Modal>
+        )}
+        {confirmDelete && (
+          <Modal title="Delete profile" onClose={() => setConfirmDelete(null)}>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
+                <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">
+                  Permanently delete the profile for <strong>{confirmDelete.firstName} {confirmDelete.lastName}</strong>?
+                  This cannot be undone.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700">Delete profile</button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     );
   }
@@ -341,7 +380,7 @@ export default function Profiles() {
                   <tr
                     key={p.id}
                     className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setSelected(p)}
+                    onClick={() => setSelectedId(p.id)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
