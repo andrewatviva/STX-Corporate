@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
-import { Plus, Edit2, UserCheck, UserX, Mail, Trash2 } from 'lucide-react';
+import { Plus, Edit2, UserCheck, UserX, Mail, Trash2, Search } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Toggle from '../shared/Toggle';
 import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES } from '../../utils/permissions';
@@ -291,6 +291,7 @@ export default function UserManager() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing]   = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [search, setSearch]     = useState('');
 
   useEffect(() => {
     const unsubUsers = onSnapshot(
@@ -304,6 +305,17 @@ export default function UserManager() {
   }, []);
 
   const clientName = (cid) => clients.find(c => c.id === cid)?.name ?? cid ?? '—';
+
+  const visibleUsers = (() => {
+    const q = search.toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      [u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (ROLE_LABELS[u.role] || u.role || '').toLowerCase().includes(q) ||
+      clientName(u.clientId).toLowerCase().includes(q)
+    );
+  })();
 
   const handleDelete = async (user) => {
     setDeleting(user.id);
@@ -321,17 +333,37 @@ export default function UserManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-500">{users.length} user{users.length !== 1 ? 's' : ''}</p>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          <Plus size={15} /> Add user
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-gray-500">
+          {search
+            ? `${visibleUsers.length} of ${users.length} user${users.length !== 1 ? 's' : ''}`
+            : `${users.length} user${users.length !== 1 ? 's' : ''}`}
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search users…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+            />
+          </div>
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
+            <Plus size={15} /> Add user
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {users.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-sm">No users yet.</div>
+        ) : visibleUsers.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm">
+            No users match <strong className="text-gray-600">"{search}"</strong>.
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -345,7 +377,7 @@ export default function UserManager() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user, i) => (
+              {visibleUsers.map((user, i) => (
                 <tr key={user.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-4 py-3 font-medium text-gray-800">
                     {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.displayName || '—'}

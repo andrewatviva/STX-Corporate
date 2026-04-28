@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, User, Building2, ChevronDown, X } from 'lucide-react';
-import { signOut } from 'firebase/auth';
+import { LogOut, User, Building2, ChevronDown, X, KeyRound, CheckCircle2 } from 'lucide-react';
+import { signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -98,8 +98,20 @@ function ClientSelector({ clientsList, activeClientId, setActiveClientId }) {
 }
 
 export default function TopBar() {
-  const { userProfile } = useAuth();
+  const { userProfile, currentUser } = useAuth();
   const { clientConfig, isSTX, clientsList, activeClientId, setActiveClientId, activeClientConfig } = useTenant();
+  const [resetSent, setResetSent] = useState(false);
+
+  const handlePasswordReset = async () => {
+    if (!currentUser?.email) return;
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email);
+      setResetSent(true);
+      setTimeout(() => setResetSent(false), 4000);
+    } catch {
+      // silently ignore — user will see no change
+    }
+  };
 
   // Show active client's branding when STX has selected a client, otherwise own client's branding
   const effectiveConfig = isSTX ? activeClientConfig : clientConfig;
@@ -143,6 +155,20 @@ export default function TopBar() {
           <span className="text-gray-400">·</span>
           <span className="text-gray-400">{ROLE_LABELS[userProfile?.role] ?? userProfile?.role}</span>
         </div>
+        {resetSent ? (
+          <span className="flex items-center gap-1.5 text-xs text-green-600">
+            <CheckCircle2 size={13} /> Reset email sent
+          </span>
+        ) : (
+          <button
+            onClick={handlePasswordReset}
+            title="Send a password reset link to my email"
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
+          >
+            <KeyRound size={14} />
+            <span className="hidden sm:inline">Change password</span>
+          </button>
+        )}
         <button
           onClick={() => signOut(auth)}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors"

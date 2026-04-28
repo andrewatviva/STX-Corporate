@@ -4,7 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebase';
 import {
   Plus, Edit2, UserCheck, UserX, Mail, Trash2,
-  Users, GitBranch, ChevronRight, User,
+  Users, GitBranch, ChevronRight, User, Search,
 } from 'lucide-react';
 import Modal from '../components/shared/Modal';
 import Toggle from '../components/shared/Toggle';
@@ -456,6 +456,7 @@ export default function Team() {
   const [showCreate, setCreate]     = useState(false);
   const [editing, setEditing]       = useState(null);
   const [passengerFor, setPassengerFor] = useState(null); // member whose passenger profile is open
+  const [search, setSearch]         = useState('');
 
   useEffect(() => {
     if (!effectiveClientId) { setMembers([]); setLoading(false); return; }
@@ -496,7 +497,7 @@ export default function Team() {
       </p>
 
       {/* Tabs + actions */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setTab('members')}
@@ -514,12 +515,26 @@ export default function Team() {
             <GitBranch size={14} /> Hierarchy
           </button>
         </div>
-        <button
-          onClick={() => setCreate(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
-        >
-          <Plus size={15} /> Add member
-        </button>
+        <div className="flex items-center gap-2">
+          {tab === 'members' && (
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search members…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+              />
+            </div>
+          )}
+          <button
+            onClick={() => setCreate(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+          >
+            <Plus size={15} /> Add member
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -528,10 +543,25 @@ export default function Team() {
         <HierarchyView members={members} />
       ) : (
         /* Members table */
+        (() => {
+          const q = search.toLowerCase();
+          const visible = q
+            ? members.filter(m =>
+                memberName(m).toLowerCase().includes(q) ||
+                (m.email || '').toLowerCase().includes(q) ||
+                (ROLE_LABELS[m.role] || m.role || '').toLowerCase().includes(q) ||
+                (m.costCentre || '').toLowerCase().includes(q)
+              )
+            : members;
+          return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {members.length === 0 ? (
             <div className="p-10 text-center text-gray-400 text-sm">
               No team members yet. Click "Add member" to get started.
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 text-sm">
+              No members match <strong className="text-gray-600">"{search}"</strong>.
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -548,7 +578,7 @@ export default function Team() {
                 </tr>
               </thead>
               <tbody>
-                {members.map((m, i) => {
+                {visible.map((m, i) => {
                   const manager    = members.find(x => x.id === m.managerId);
                   const hasProfile = passengers.some(p => p.userId === m.id);
                   return (
@@ -600,6 +630,8 @@ export default function Team() {
             </table>
           )}
         </div>
+          );
+        })()
       )}
 
       {showCreate && (
