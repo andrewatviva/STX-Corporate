@@ -404,6 +404,11 @@ export default function Profiles() {
                       <div className="flex flex-col gap-1">
                         <CompletenessBadge pct={completeness} />
                         <ReviewBadge passenger={p} />
+                        <p className="text-xs text-gray-400">
+                          {p.lastReviewedAt
+                            ? `Reviewed ${new Date(p.lastReviewedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                            : 'Never reviewed'}
+                        </p>
                       </div>
                     </td>
                     {canEdit && (
