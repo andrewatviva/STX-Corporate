@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { arrayUnion, doc, getDoc } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -215,6 +215,28 @@ export default function TravelManagement() {
       }
 
       await updateTrip(cid, formTrip.id, updateData);
+
+      // Email travellers when digital itinerary link is first added
+      const oldLink = (formTrip.digitalItineraryLink || '').trim();
+      const newLink = (tripData.digitalItineraryLink || '').trim();
+      if (!oldLink && newLink) {
+        const now = new Date().toISOString();
+        const travellers = [
+          { name: tripData.travellerName, uid: tripData.travellerId },
+          ...(tripData.additionalPassengers || []).map(p => ({ name: p.name, uid: p.passengerId })),
+        ].filter(t => t.uid);
+        await Promise.all(travellers.map(t =>
+          addDoc(collection(db, 'emailQueue'), {
+            status: 'pending', createdAt: now, scheduledFor: now,
+            type: 'trip_itinerary_added',
+            clientId: cid, tripId: formTrip.id, tripTitle: tripData.title || formTrip.title,
+            recipientId: t.uid,
+            travellerName: t.name,
+            digitalItineraryLink: newLink,
+          })
+        ));
+      }
+
       setIsAmending(false);
       setPendingAmendFee(null);
     } else {

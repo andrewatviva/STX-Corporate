@@ -30,6 +30,11 @@ const NOTIFICATION_TYPES = [
     desc:  'When your trip is fully booked and confirmed.',
   },
   {
+    key:   'trip_itinerary_added',
+    label: 'Digital itinerary ready',
+    desc:  'When your digital travel itinerary is added to your trip.',
+  },
+  {
     key:   'trip_pre_departure',
     label: 'Pre-departure reminder',
     desc:  'Sent 3 days before your trip starts with itinerary details.',

@@ -258,6 +258,30 @@ function buildEmailMessage(type, data, recipientEmails, trip) {
       };
     })(),
 
+    trip_itinerary_added: {
+      subject:   `Your digital itinerary is ready — ${data.tripTitle}`,
+      preheader: 'Your travel itinerary is now available. Click the link to access it.',
+      heading:   `Your itinerary is ready${firstName ? ', ' + firstName : ''}`,
+      body: (() => {
+        const itineraryUrl = normaliseUrl(data.digitalItineraryLink || trip?.digitalItineraryLink);
+        return `
+          <p style="font-size:14px;color:#374151;margin:0 0 4px;line-height:1.6;">
+            Your digital travel itinerary has been added to your upcoming trip.
+          </p>
+          ${tripInfoBox(tripFields)}
+          ${itineraryUrl ? `
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin:16px 0;">
+            <p style="margin:0 0 6px;font-size:13px;color:#0369a1;font-weight:600;">Access your itinerary</p>
+            <a href="${itineraryUrl}" style="font-size:13px;color:#0284c7;word-break:break-all;">${itineraryUrl}</a>
+          </div>` : ''}
+          <p style="font-size:13px;color:#6b7280;margin:12px 0 0;line-height:1.5;">
+            If you have any questions or need changes, please contact STX.
+          </p>`;
+      })(),
+      ctaText: 'View trip in portal →',
+      ctaUrl:  travelUrl,
+    },
+
     trip_rating_request: {
       subject:   `How was your trip? — ${data.tripTitle}`,
       preheader: 'Take a minute to rate the providers from your recent trip.',
