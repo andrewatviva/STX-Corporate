@@ -19,6 +19,7 @@
 | — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
 | — | Email notifications + user preferences + notification badge | ✅ Complete (⚠️ SendGrid pending domain verification) |
 | — | Account settings, password reset, CI/CD service account auth | ✅ Complete |
+| — | Lead time indicator, Travel Policy report (flights + ex-GST + flags), feedback form, itinerary email, badge tooltip | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏸ Deferred |
 | 7 | Invoice generation | ✅ Complete |
 | 8 | Reports | ✅ Complete |
@@ -294,7 +295,7 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 | Avg Spend by Destination | `AvgSpendByDestination.jsx` | Grouped by `destinationCity`; expandable per-sector breakdown cards; per-night rate for accommodation; generate button |
 | Spend by Departure City | `SpendByDepartureCity.jsx` | Grouped by `originCity`; toggle to exclude international trips; generate button |
 | Hotel Popularity | `HotelPopularity.jsx` | Reactive; grouped by `accomCity(sector,trip)` → `propertyName`; expandable hotel list with rank badges, mini bar chart, avg nightly rate |
-| Accommodation Policy | `AccommodationPolicy.jsx` | Per-client rates at `clients/{clientId}/config/travelPolicy`; seeded once from DEFAULT_RATES (~80 AU cities, TD 2025/4); rate editor visible to STX only; OVER/UNDER badges; generate button |
+| Travel Policy | `TravelPolicy.jsx` | Two-tab (Accommodation / Flights); per-client rates at `clients/{clientId}/config/travelPolicy` (`rates` + `flightRates`); comparison all ex-GST; rate editor in Admin Panel; controlled by `features.accommodationPolicy` + `features.flightPolicy` flags; tab hidden if both off |
 
 **V2 schema applied** in all reports (vs V1 legacy):
 - Sector types lowercase; `sector.propertyName` / `sector.checkIn` / `sector.checkOut`
@@ -303,7 +304,48 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
-### Post-Phase 8 Enhancements ✅
+### Post-Phase 8 Enhancements (Session 2) ✅
+
+#### Lead Time Indicator
+- `leadTimeDays(trip)` — days between `createdAt` and `startDate`; exported from `TripList.jsx`
+- `LeadTimeBadge` component — colour-coded pill: 0–3 days (red), 4–10 (amber), 11–20 (yellow), 21+ (green)
+- **TripList**: "Booking Window" column (hidden below `lg` breakpoint) showing label; `showDays` prop for compact form
+- **TripDetail**: lead time shown in trip header alongside dates
+- **All Travel report**: uses `leadTimeDays` + `LeadTimeBadge`
+
+#### Travel Policy Report (full rebuild)
+- Renamed from "Accommodation Policy" → "Travel Policy" (tab label + component)
+- Component moved: `AccommodationPolicy.jsx` → `TravelPolicy.jsx`
+- **Ex-GST comparison**: stored rates (incl. GST TD 2025/4) divided by 1.1 for all comparisons; incl-GST column removed
+- **Flights tab**: groups trips by `destinationCity`, sums all flight sector costs per trip, compares avg ex-GST vs `flightRates[dest] / 1.1`
+- **Feature flags**: `accommodationPolicy` (defaults true) + `flightPolicy` (defaults false) in `clientConfig.features`
+  - Tab toggle only shown when both enabled; individual tab hidden when its flag is off; entire report tab hidden when both off
+- **Rate editor in Admin Panel** (`ClientForm.jsx`): accommodation + flights tabs; `{ merge: true }` on all saves to preserve both `rates` and `flightRates`
+- Two new feature toggles in ClientForm Features section: "Accommodation policy" + "Flight cost policy"
+
+#### Digital Itinerary Email Notification
+- `TravelManagement.jsx`: after saving a trip, detects when `digitalItineraryLink` is first added (was blank, now has value)
+- Queues `trip_itinerary_added` email to all trip travellers via `/emailQueue`
+- Cloud Function `onEmailQueued` handles new `trip_itinerary_added` type
+- AccountSettings: new `trip_itinerary_added` preference ("Digital itinerary ready") between booked and pre-departure
+
+#### Contact Page — Feedback & Fault Form
+- `src/pages/Contact.jsx` rewritten: preserves original contact info + adds feedback/fault form
+- Form fields: type toggle (Feedback / Report a fault), subject, description
+- On submit: saves to `/portalFeedback/{id}` collection + queues `portal_feedback` email
+- `portal_feedback` email type: Cloud Function queries all `stx_admin` + `stx_ops` users and sends to each
+- Firestore rules: `portalFeedback` — create: any authenticated user; read: STX only
+- Success state with "Send another" link
+
+#### Sidebar Badge Tooltip
+- `useAttentionCount` now returns `{ count, tooltip }` instead of a plain number
+- Tooltip breakdown for STX/ops/client_ops: `"N pending approval · N to book"` on hover
+- `client_approver`: `"N pending your approval"`; `client_traveller`: `"N trips declined"`
+- `Badge` component in `Sidebar.jsx` accepts `tooltip` prop, renders as native `title` attribute
+
+---
+
+### Post-Phase 8 Enhancements (Session 1) ✅
 
 #### Email Notifications (SendGrid)
 - Cloud Functions: `onEmailQueued` (immediate dispatch) + `sweepEmailQueue` (daily scheduled)
@@ -362,7 +404,7 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/components/admin/ClientForm.jsx` | Full tenant config form |
 | `src/components/admin/UserManager.jsx` | List + create/edit/delete users (STX Admin Panel) |
 | `src/data/cities.js` | Canonical ~150-city list for trip origin/destination autocomplete |
-| `src/components/trips/TripList.jsx` | Trip table with enhanced filters; exports calcTripExGST, StatusBadge, getDisplayStatus |
+| `src/components/trips/TripList.jsx` | Trip table with enhanced filters; exports calcTripExGST, StatusBadge, getDisplayStatus, leadTimeDays, LeadTimeBadge |
 | `src/components/trips/TripForm.jsx` | Trip creation/edit form with sector sub-forms; origin/destination city fields |
 | `src/components/trips/TripDetail.jsx` | Trip detail view with workflow actions + history; inline cost centre edit |
 | `src/components/trips/Attachments.jsx` | Firebase Storage upload/download/delete |
@@ -378,7 +420,8 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | `src/components/reports/AvgSpendByDestination.jsx` | Avg Spend by Destination report |
 | `src/components/reports/SpendByDepartureCity.jsx` | Spend by Departure City report |
 | `src/components/reports/HotelPopularity.jsx` | Hotel Popularity report |
-| `src/components/reports/AccommodationPolicy.jsx` | Accommodation Policy Compliance report |
+| `src/components/reports/TravelPolicy.jsx` | Travel Policy report — accommodation + flights tabs, ex-GST comparison, feature-flag controlled |
+| `src/pages/Contact.jsx` | Contact page with STX details + feedback/fault submission form |
 | `src/utils/reportHelpers.js` | Shared report utilities (date ranges, cost calcs, CSV export) |
 | `src/pages/Invoices.jsx` | Invoice list/builder/detail navigation |
 | `src/pages/Team.jsx` | Team hierarchy + approver delegation management |
@@ -398,4 +441,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete plus email notifications, account settings, and CI/CD fixes. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
+*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete plus email notifications, account settings, CI/CD fixes, lead time indicator, Travel Policy report (accommodation + flights, ex-GST, feature flags), contact feedback form, digital itinerary email, badge tooltip breakdown. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*

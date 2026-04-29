@@ -62,12 +62,12 @@ function toDate(val) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Returns { exGST, gross } for all sectors.
+// Returns { exGST, gross } for the given sector array.
 // sector.cost is the total cost as entered (incl. GST for domestic; GST-free for international).
-function calcSectorTotals(trip, gstRate = 0.1) {
+function calcSectorTotals(sectors, gstRate = 0.1) {
   let exGST = 0;
   let gross  = 0;
-  for (const s of (trip.sectors || [])) {
+  for (const s of (sectors || [])) {
     const c = parseFloat(s.cost) || 0;
     gross += c;
     exGST += s.international ? c : c / (1 + gstRate);
@@ -132,56 +132,77 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
   const items = [];
 
   for (const trip of trips) {
-    if (!BILLABLE_STATUSES.has(trip.status)) continue;
+    // Include billable-status trips, or cancelled trips with non-refundable items flagged by STX
+    const isCancelledWithBillable = trip.status === 'cancelled'
+      && Array.isArray(trip.billableSectorIndices)
+      && trip.billableSectorIndices.length > 0;
+
+    if (!BILLABLE_STATUSES.has(trip.status) && !isCancelledWithBillable) continue;
+
+    // For cancelled trips: only count the flagged sectors
+    const billableSectors = isCancelledWithBillable
+      ? (trip.billableSectorIndices || []).map(i => trip.sectors?.[i]).filter(Boolean)
+      : null;
 
     const sectorsDedupKey      = `${trip.id}_sectors`;
     const sectorsAlreadyBilled = invoiced.has(sectorsDedupKey);
-    const createdAt            = toDate(trip.createdAt);
-    const tripCreatedInPeriod  = createdAt && createdAt >= from && createdAt <= to;
 
-    if (!sectorsAlreadyBilled && tripCreatedInPeriod) {
-      // ── New trip: sectors + all in-period fees → single line item ────────
-      const { exGST: sectorExGST, gross: sectorGross } = calcSectorTotals(trip);
+    // Use cancelledAt for period check on cancelled trips (so they appear in the right billing period)
+    const relevantDate = isCancelledWithBillable
+      ? toDate(trip.cancelledAt || trip.updatedAt)
+      : toDate(trip.createdAt);
+    const tripInPeriod = relevantDate && relevantDate >= from && relevantDate <= to;
 
+    if (!sectorsAlreadyBilled && tripInPeriod) {
+      // ── New trip (or cancelled with flagged items): build line item ─────────
+      const { exGST: sectorExGST, gross: sectorGross } = calcSectorTotals(billableSectors ?? trip.sectors);
+
+      // Don't bundle fees for cancelled trips — fees are typically waived on cancellation
       let feeExGST   = 0;
       let feeInclGST = 0;
       const feeDedupKeys = [];
-      for (const fee of (trip.fees || [])) {
-        if (fee.waived) continue;
-        const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
-        if (!appliedAt || appliedAt < from || appliedAt > to) continue;
-        const fdk = `${trip.id}_${fee.type}_${fee.appliedAt}`;
-        if (invoiced.has(fdk)) continue;
-        const amt  = parseFloat(fee.amount) || 0;
-        const gst  = parseFloat(fee.gstRate ?? 0.1);
-        feeExGST   += amt;
-        feeInclGST += parseFloat((amt * (1 + gst)).toFixed(2));
-        feeDedupKeys.push(fdk);
+      if (!isCancelledWithBillable) {
+        for (const fee of (trip.fees || [])) {
+          if (fee.waived) continue;
+          const appliedAt = fee.appliedAt ? new Date(fee.appliedAt) : null;
+          if (!appliedAt || appliedAt < from || appliedAt > to) continue;
+          const fdk = `${trip.id}_${fee.type}_${fee.appliedAt}`;
+          if (invoiced.has(fdk)) continue;
+          const amt  = parseFloat(fee.amount) || 0;
+          const gst  = parseFloat(fee.gstRate ?? 0.1);
+          feeExGST   += amt;
+          feeInclGST += parseFloat((amt * (1 + gst)).toFixed(2));
+          feeDedupKeys.push(fdk);
+        }
       }
 
       const totalExGST   = parseFloat((sectorExGST  + feeExGST).toFixed(2));
       const totalInclGST = parseFloat((sectorGross   + feeInclGST).toFixed(2));
+      const description  = isCancelledWithBillable
+        ? `Cancelled — non-refundable: ${trip.title || `Trip ${trip.tripRef || trip.id}`}`
+        : trip.title || `Trip ${trip.tripRef || trip.id}`;
 
       if (totalInclGST > 0) {
         items.push({
           dedupKey:       sectorsDedupKey,
-          extraDedupKeys: feeDedupKeys,  // stored so future scans skip these fees
+          extraDedupKeys: feeDedupKeys,
           tripId:         trip.id,
           tripRef:        trip.tripRef || '',
           travellerName:  trip.travellerName || '',
           costCentre:     trip.costCentre || '',
-          description:    trip.title || `Trip ${trip.tripRef || trip.id}`,
+          description,
           amount:         totalExGST,
-          sectorAmount:   sectorExGST,   // sector-only ex-GST — used by future delta scans
-          sectorInclGST:  sectorGross,   // sector-only gross — used by future delta scans
-          gstRate:        null,          // mixed — not a single rate
+          sectorAmount:   sectorExGST,
+          sectorInclGST:  sectorGross,
+          gstRate:        null,
           inclGST:        totalInclGST,
           isManual:       false,
           lineType:       'trip',
         });
       }
-    } else {
-      // ── Already-invoiced trip or prior period: pick up new fees + cost delta ─
+    } else if (!isCancelledWithBillable) {
+      // ── Already-invoiced or prior-period trip: pick up new fees + cost delta ─
+      // (cancelled trips are never subject to delta billing)
 
       // 1. New fees applied within the invoice period that haven't been billed yet
       for (const fee of (trip.fees || [])) {
@@ -215,14 +236,14 @@ function scanForUnbilledItems(trips, finalisedInvoices, periodFrom, periodTo) {
 
       // 2. Sector cost delta — only for trips whose sectors were previously billed
       if (sectorsAlreadyBilled) {
-        const { exGST: currentExGST, gross: currentGross } = calcSectorTotals(trip);
+        const { exGST: currentExGST, gross: currentGross } = calcSectorTotals(trip.sectors);
         const prev = billedSectorTotals.get(trip.id) || { exGST: 0, inclGST: 0 };
         const deltaInclGST = parseFloat((currentGross - prev.inclGST).toFixed(2));
         const deltaExGST   = parseFloat((currentExGST - prev.exGST).toFixed(2));
 
         if (deltaInclGST > 0.01) {
           items.push({
-            dedupKey:      null, // no static key — accumulated via billedSectorTotals
+            dedupKey:      null,
             extraDedupKeys: [],
             tripId:        trip.id,
             tripRef:       trip.tripRef || '',

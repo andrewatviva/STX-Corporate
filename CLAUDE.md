@@ -88,10 +88,13 @@ src/
 ### Firestore collections
 - `/clients/{clientId}` — tenant root (name, active status)
 - `/clients/{clientId}/config/settings` — full tenant config
+- `/clients/{clientId}/config/travelPolicy` — `{ rates: {city: rateInclGST}, flightRates: {city: rateInclGST} }` — always save with `{ merge: true }`
 - `/clients/{clientId}/trips/{tripId}` — trips (includes `travellerId`, `createdBy`, `amendments[]`, `fees[]`, `attachments[]`)
 - `/clients/{clientId}/passengers/{passengerId}` — passenger profiles ← Phase 5
 - `/clients/{clientId}/invoices/{invoiceId}` — invoices ← Phase 7 ✅
 - `/users/{userId}` — user profiles with role, clientId, managerId, approveFor
+- `/emailQueue/{id}` — email dispatch queue (`type`, `recipientId`, `clientId`, `tripId`, `scheduledFor`, `status`)
+- `/portalFeedback/{id}` — portal feedback/fault reports; create: any auth user; read: STX only
 
 ### Trip data model (key fields)
 ```
@@ -129,12 +132,14 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 | `sendPasswordReset` | HTTPS callable | Generate password reset link |
 | `onEmailQueued` | Firestore onCreate `/emailQueue/{id}` | Dispatches email immediately if `scheduledFor` ≤ now; skips if deferred |
 | `sweepEmailQueue` | Cloud Scheduler (daily) | Processes pending deferred emailQueue items |
+| `portal_feedback` email type | (dispatched by onEmailQueued) | Sends feedback/fault report to all `stx_admin` + `stx_ops` users |
+| `trip_itinerary_added` email type | (dispatched by onEmailQueued) | Sent to traveller when digital itinerary link first added to a trip |
 
 ### Email notifications (SendGrid)
 - Secret: `SENDGRID_API_KEY` stored in Firebase Secret Manager (both projects)
 - From: `notifications@supportedtravelx.com.au`
 - Queue collection: `/emailQueue/{id}` — `{ type, recipientId, clientId, tripId, tripTitle, scheduledFor, status, createdAt }`
-- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after)
+- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after), `portal_feedback` (to all STX staff)
 - Mandatory types (bypass preferences): `trip_approved`, `trip_declined`
 - User preferences stored at `/users/{uid}.emailPreferences.{type}` — `undefined` = opted in, `false` = opted out
 - Queued from `TripDetail.jsx` act() function on status transitions
@@ -210,7 +215,7 @@ lineItem {
 | Avg Spend by Destination | `AvgSpendByDestination.jsx` | Grouped by `destinationCity`, expandable sector breakdown, per-night rate for accommodation |
 | Spend by Departure City | `SpendByDepartureCity.jsx` | Grouped by `originCity`, excludes international option |
 | Hotel Popularity | `HotelPopularity.jsx` | Grouped by `accomCity(sector,trip)` → `propertyName`, avg nightly rate, expandable |
-| Accommodation Policy | `AccommodationPolicy.jsx` | Per-client rates at `clients/{clientId}/config/travelPolicy`; seeded from DEFAULT_RATES (~80 AU cities, TD 2025/4); editable by STX only |
+| Travel Policy | `TravelPolicy.jsx` | Two-tab report (Accommodation / Flights); per-client rates at `clients/{clientId}/config/travelPolicy` (`rates` + `flightRates`); comparison all ex-GST; seeded from DEFAULT_RATES (~80 AU cities, TD 2025/4); controlled by `features.accommodationPolicy` + `features.flightPolicy` flags |
 
 **Shared utilities**: `src/utils/reportHelpers.js` — `toISO`, `getQuickRange`, `QUICK_PERIODS`, `BILLABLE_STATUSES`, `getDisplayStatus`, `sectorExGST`, `tripInclGST`, `tripExGST`, `accomCity`, `toDate`, `exportCSV`, `nightsBetween`.
 
@@ -221,9 +226,11 @@ lineItem {
 - `sector.international === true` (not `sector.region === 'International'`)
 - Status lowercase: `approved`, `booked`, `travelling`, `completed`; use `getDisplayStatus()` for derived states
 
-**Booking window** (All Travel report): `toDate(trip.createdAt)` → days until `trip.startDate`; red ≤ 7 days, amber ≤ 21 days.
+**Booking window / Lead time** (All Travel report + TripList + TripDetail): `leadTimeDays(trip)` = days from `createdAt` to `startDate`; groups 0–3 (red), 4–10 (amber), 11–20 (yellow), 21+ (green). Exported from `TripList.jsx` as `leadTimeDays` + `LeadTimeBadge`.
 
-**Policy report flow**: load rates from Firestore on mount → generate button → compare `avgPerNightInc` against `findPolicyRate(destination, rates)` → variance $ and %.
+**Travel Policy report**: stored rates are incl. GST (TD 2025/4 values); report converts to ex-GST (`rate / 1.1`) for comparison. Accommodation tab: avg nightly spend vs policy rate. Flights tab: avg total flight cost per trip by destination vs policy rate. Both tabs controlled by feature flags (`accommodationPolicy` defaults true, `flightPolicy` defaults false). Tab toggle hidden if both on; entire report tab hidden if both off.
+
+**Policy report flow**: load rates from Firestore on mount → generate button → compare avg ex-GST spend against `findPolicyRate(destination, rates) / 1.1` → variance $ and %.
 
 ### Hooks
 | Hook | Purpose |
@@ -232,14 +239,15 @@ lineItem {
 | `usePassengers` | Real-time passengers listener |
 | `useInvoices` | Real-time invoices listener + createInvoice (atomic counter) |
 | `useTeamScope` | Derives all/team/self scope from reporting hierarchy |
-| `useAttentionCount` | Counts actionable trips for sidebar badge (pending_approval for ops/approvers, declined for travellers) |
+| `useAttentionCount` | Returns `{ count, tooltip }` for sidebar badge — STX/ops: pending_approval + approved; approvers: pending_approval; travellers: declined |
 
 ### Account Settings
 - `src/components/account/AccountSettings.jsx` — modal launched from TopBar Settings button
 - Password reset via `sendPasswordResetEmail(auth, currentUser.email)`
 - Email notification preferences per type — saved to `/users/{uid}.emailPreferences`
+- Notification types: `trip_submitted`, `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure`, `trip_rating_request`
 - Approver-only preferences (e.g. `trip_submitted`) hidden from traveller roles
 
 ### Current status
-**Phases 0–5, 7–8 complete. Plus email notifications, notification badge, account settings, and CI/CD fixes. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
+**Phases 0–5, 7–8 complete. Plus email notifications, notification badge, account settings, CI/CD fixes, lead time indicator, Travel Policy report (accommodation + flights, ex-GST, feature flags), contact feedback/fault form, digital itinerary email, badge tooltip breakdown. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
 See `PROGRESS.md` for full phase breakdown.

@@ -157,6 +157,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [declineReason, setDeclineReason] = useState('');
   const [showDeclineInput, setShowDeclineInput] = useState(false);
   const [showAmendPrompt, setShowAmendPrompt] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelBillableSectors, setCancelBillableSectors] = useState(new Set());
   // For STX users: load the trip's client config (fees + cost centres)
   const [tripClientFees, setTripClientFees]               = useState(null);
   const [tripClientCostCentres, setTripClientCostCentres] = useState([]);
@@ -292,6 +295,15 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             scheduledFor:  now,
           });
         }
+      }
+
+      if (newStatus === 'cancelled' && !isSTX) {
+        await queue({
+          type:             'trip_cancelled_by_client',
+          cancellationReason: extra.cancellationReason || '',
+          cancelledByName:  [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+          scheduledFor:     now,
+        });
       }
 
       if (newStatus === 'booked') {
@@ -461,10 +473,10 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             </button>
           )}
 
-          {/* Cancel — approved or booked trips, STX only */}
-          {isSTX && ['approved', 'booked'].includes(trip.status) && (
+          {/* Cancel — STX always, client_ops for their client's trips */}
+          {['approved', 'booked'].includes(trip.status) && (isSTX || role === 'client_ops') && !showCancelModal && (
             <button
-              onClick={() => act('cancelled')}
+              onClick={() => { setCancelReason(''); setCancelBillableSectors(new Set()); setShowCancelModal(true); }}
               disabled={acting}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
@@ -551,6 +563,96 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
         </div>
       )}
 
+      {/* Cancel modal */}
+      {showCancelModal && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm font-medium text-red-800 mb-1">Cancel trip</p>
+          <p className="text-sm text-red-700 mb-3">
+            {isSTX
+              ? 'Provide a reason and select any non-refundable items that still need to be invoiced.'
+              : 'Provide a reason for cancellation. STX will be notified to review for any invoicing.'}
+          </p>
+          <textarea
+            className="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-3"
+            rows={2}
+            value={cancelReason}
+            onChange={e => setCancelReason(e.target.value)}
+            placeholder="Reason for cancellation (required)"
+          />
+
+          {/* STX only: sector billability checklist */}
+          {isSTX && (trip.sectors || []).some(s => parseFloat(s.cost) > 0) && (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide">
+                Non-refundable items to invoice:
+              </p>
+              <div className="space-y-2">
+                {(trip.sectors || []).map((s, i) => {
+                  const cost = parseFloat(s.cost);
+                  if (!cost) return null;
+                  const label = SECTOR_LABELS[s.type] || s.type;
+                  const summary = s.type === 'flight'
+                    ? [s.from, s.to].filter(Boolean).join(' → ')
+                    : s.type === 'accommodation'
+                    ? s.propertyName || ''
+                    : s.type === 'car-hire'
+                    ? [s.pickupLocation, s.dropOffLocation].filter(Boolean).join(' → ')
+                    : '';
+                  return (
+                    <label key={i} className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cancelBillableSectors.has(i)}
+                        onChange={e => {
+                          const next = new Set(cancelBillableSectors);
+                          if (e.target.checked) next.add(i); else next.delete(i);
+                          setCancelBillableSectors(next);
+                        }}
+                        className="mt-0.5 accent-red-600"
+                      />
+                      <span className="text-sm text-gray-700">
+                        <span className="font-medium">{label}</span>
+                        {summary && <span className="text-gray-500"> — {summary}</span>}
+                        <span className="text-gray-500 ml-1">A${cost.toFixed(2)}</span>
+                      </span>
+                    </label>
+                  );
+                }).filter(Boolean)}
+              </div>
+              {cancelBillableSectors.size > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {cancelBillableSectors.size} item{cancelBillableSectors.size !== 1 ? 's' : ''} will be flagged for invoicing.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                await act('cancelled', {
+                  cancellationReason: cancelReason.trim(),
+                  ...(isSTX && cancelBillableSectors.size > 0
+                    ? { billableSectorIndices: [...cancelBillableSectors].sort((a, b) => a - b) }
+                    : {}),
+                });
+                setShowCancelModal(false);
+              }}
+              disabled={!cancelReason.trim() || acting}
+              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              {acting ? 'Cancelling…' : 'Confirm cancellation'}
+            </button>
+            <button
+              onClick={() => setShowCancelModal(false)}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Keep trip
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Trip header card */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
         <div className="flex items-start justify-between gap-4 mb-4">
@@ -558,6 +660,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             <h2 className="text-xl font-semibold text-gray-900">{trip.title || '—'}</h2>
             {trip.declineReason && trip.status === 'declined' && (
               <p className="text-sm text-red-600 mt-1">Declined: {trip.declineReason}</p>
+            )}
+            {trip.cancellationReason && trip.status === 'cancelled' && (
+              <p className="text-sm text-gray-500 mt-1">Cancelled: {trip.cancellationReason}</p>
             )}
           </div>
           <StatusBadge status={getDisplayStatus(trip)} />
@@ -726,6 +831,26 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               <Lock size={11} /> STX internal notes
             </p>
             <p className="text-sm text-gray-700 whitespace-pre-line">{trip.internalNotes}</p>
+          </div>
+        )}
+
+        {isSTX && trip.status === 'cancelled' && (trip.billableSectorIndices?.length > 0) && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+              <Receipt size={11} /> Non-refundable items flagged for invoicing
+            </p>
+            <ul className="space-y-0.5">
+              {trip.billableSectorIndices.map(i => {
+                const s = trip.sectors?.[i];
+                if (!s) return null;
+                const label = SECTOR_LABELS[s.type] || s.type;
+                return (
+                  <li key={i} className="text-xs text-gray-700">
+                    · {label}{parseFloat(s.cost) ? ` — A$${parseFloat(s.cost).toFixed(2)}` : ''}
+                  </li>
+                );
+              }).filter(Boolean)}
+            </ul>
           </div>
         )}
 

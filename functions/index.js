@@ -282,6 +282,31 @@ function buildEmailMessage(type, data, recipientEmails, trip) {
       ctaUrl:  travelUrl,
     },
 
+    trip_cancelled_by_client: {
+      subject:   `[Trip cancelled] ${data.tripTitle}`,
+      preheader: `${data.cancelledByName || 'A client user'} has cancelled a trip. Review for non-refundable invoicing.`,
+      heading:   'Trip cancelled — invoice review required',
+      body: `
+        <p style="font-size:14px;color:#374151;margin:0 0 4px;line-height:1.6;">
+          A client user has cancelled a trip. Please review whether any non-refundable costs
+          should be invoiced to the client before closing this trip.
+        </p>
+        <table cellpadding="0" cellspacing="0"
+          style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;width:100%;margin:16px 0;">
+          ${infoRow('Cancelled by', data.cancelledByName || 'Unknown')}
+          ${data.clientId ? infoRow('Client', data.clientId) : ''}
+          ${data.cancellationReason ? infoRow('Reason', data.cancellationReason) : ''}
+        </table>
+        ${tripInfoBox([
+          ['Trip', data.tripTitle || trip?.title],
+        ])}
+        <p style="font-size:13px;color:#6b7280;margin:12px 0 0;line-height:1.5;">
+          Open the trip to review sectors and mark any non-refundable items for invoicing.
+        </p>`,
+      ctaText: 'Review trip →',
+      ctaUrl:  travelUrl,
+    },
+
     portal_feedback: {
       subject:   `[${data.feedbackType === 'fault' ? 'Fault report' : 'Feedback'}] ${data.subject}`,
       preheader: `Portal ${data.feedbackType === 'fault' ? 'fault report' : 'feedback'} from ${data.userName || data.userEmail || 'a user'}.`,
@@ -351,8 +376,8 @@ async function dispatchQueuedEmail(docRef, data) {
   // Mandatory types always send regardless of preferences
   const mandatory = new Set(['trip_approved', 'trip_declined']);
 
-  if (data.type === 'portal_feedback') {
-    // Send to all active STX admins
+  if (data.type === 'portal_feedback' || data.type === 'trip_cancelled_by_client') {
+    // Send to all active STX staff
     const snap = await db.collection('users')
       .where('role', 'in', ['stx_admin', 'stx_ops'])
       .get();

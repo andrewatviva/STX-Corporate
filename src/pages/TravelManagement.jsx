@@ -191,19 +191,13 @@ export default function TravelManagement() {
       // Editing or amending an existing trip
       const { costCentreChangeReason, ...tripData } = data;
       const changes = diffTrip(formTrip, tripData);
-      const baseNote = isAmending ? 'Trip amended' : 'Trip details updated';
-      const note = costCentreChangeReason?.trim()
-        ? `${baseNote} · Cost centre change reason: ${costCentreChangeReason.trim()}`
-        : baseNote;
-      const amendExtra = isAmending
-        ? { note, changes, ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
-        : { note, changes };
-      const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
-      const updateData = { ...tripData, amendments: arrayUnion(amendment) };
 
-      // If the user confirmed the amendment fee, add it to trip.fees[]
+      // Collect fees to add in one arrayUnion call
+      const feesToAdd = [];
+
+      // Amendment fee (if STX confirmed it)
       if (isAmending && pendingAmendFee?.apply) {
-        updateData.fees = arrayUnion({
+        feesToAdd.push({
           type: 'amendment',
           label: 'Amendment Fee',
           amount: pendingAmendFee.amount,
@@ -212,6 +206,47 @@ export default function TravelManagement() {
           appliedBy: userProfile?.uid || '',
           appliedByName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
         });
+      }
+
+      // Auto-apply management fee when trip type changes to one that qualifies
+      let autoFeeNote = '';
+      const oldType = (formTrip.tripType || '').toString();
+      const newType = (tripData.tripType || '').toString();
+      if (oldType !== newType) {
+        const feeConfig = await getClientFeeConfig(cid);
+        if (feeConfig.managementFeeEnabled && (feeConfig.managementFeeAmount || 0) > 0) {
+          const appliesTo = feeConfig.managementFeeAppliesTo || [];
+          const newQualifies = appliesTo.length === 0 || appliesTo.includes(newType);
+          const alreadyHasMgmtFee = (formTrip.fees || []).some(f => f.type === 'management' && !f.waived);
+          if (newQualifies && !alreadyHasMgmtFee) {
+            feesToAdd.push({
+              type: 'management',
+              label: feeConfig.managementFeeLabel || 'Management Fee',
+              amount: feeConfig.managementFeeAmount,
+              gstRate: feeConfig.gstRate || 0.1,
+              appliedAt: new Date().toISOString(),
+              appliedBy: 'system',
+              appliedByName: 'Auto-applied (trip type change)',
+            });
+            autoFeeNote = 'Management fee auto-applied';
+          }
+        }
+      }
+
+      // Build amendment note
+      const noteParts = [isAmending ? 'Trip amended' : 'Trip details updated'];
+      if (costCentreChangeReason?.trim()) noteParts.push(`Cost centre change reason: ${costCentreChangeReason.trim()}`);
+      if (autoFeeNote) noteParts.push(autoFeeNote);
+      const note = noteParts.join(' · ');
+
+      const amendExtra = isAmending
+        ? { note, changes, ...(pendingAmendFee?.apply ? { amendmentFee: pendingAmendFee.amount } : {}) }
+        : { note, changes };
+      const amendment = makeAmendment(isAmending ? 'amendment' : 'edit', amendExtra);
+      const updateData = { ...tripData, amendments: arrayUnion(amendment) };
+
+      if (feesToAdd.length > 0) {
+        updateData.fees = arrayUnion(...feesToAdd);
       }
 
       await updateTrip(cid, formTrip.id, updateData);
@@ -269,12 +304,15 @@ export default function TravelManagement() {
 
   const handleStatusChange = async (trip, newStatus, extra = {}) => {
     const cid = resolveClientId(trip);
+    const note = extra.declineReason || extra.cancellationReason || undefined;
     const amendment = makeAmendment('status_change', {
       from: trip.status,
       to: newStatus,
-      ...(extra.declineReason ? { note: extra.declineReason } : {}),
+      ...(note ? { note } : {}),
     });
-    await updateTrip(cid, trip.id, { status: newStatus, ...extra, amendments: arrayUnion(amendment) });
+    const updateFields = { status: newStatus, ...extra, amendments: arrayUnion(amendment) };
+    if (newStatus === 'cancelled') updateFields.cancelledAt = new Date().toISOString();
+    await updateTrip(cid, trip.id, updateFields);
   };
 
   const handleUpdate = async (data) => {
