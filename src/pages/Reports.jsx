@@ -9,7 +9,7 @@ import AllTravelReport from '../components/reports/AllTravelReport';
 import AvgSpendByDestination from '../components/reports/AvgSpendByDestination';
 import SpendByDepartureCity from '../components/reports/SpendByDepartureCity';
 import HotelPopularity from '../components/reports/HotelPopularity';
-import AccommodationPolicy from '../components/reports/AccommodationPolicy';
+import TravelPolicy from '../components/reports/TravelPolicy';
 import ProviderRatings from '../components/reports/ProviderRatings';
 
 const TABS = [
@@ -17,7 +17,7 @@ const TABS = [
   { key: 'avg_dest',         label: 'Avg Spend by Destination' },
   { key: 'departure',        label: 'Spend by Departure City' },
   { key: 'hotel',            label: 'Hotel Popularity' },
-  { key: 'policy',           label: 'Accommodation Policy' },
+  { key: 'policy',           label: 'Travel Policy' },
   { key: 'provider_ratings', label: 'Provider Ratings', global: true },
 ];
 
@@ -26,16 +26,17 @@ const BLURBS = {
   avg_dest:         'Shows the average and total cost of trips broken down by destination city, with an optional per-sector breakdown. Useful for benchmarking spend and identifying high-cost destinations.',
   departure:        'Groups total and average spend by the city each trip departs from. Helps you understand where most travel originates and compare costs across locations.',
   hotel:            'Ranks hotels by booking frequency within each destination, with average nightly rates. Use this to identify preferred suppliers, track usage patterns, and support rate negotiation.',
-  policy:           'Compares actual accommodation spend against your organisation\'s configured nightly rate limits for each city. Flags bookings that exceed policy thresholds so you can track and report on compliance.',
+  policy:           'Compares actual accommodation and flight spend against your organisation\'s configured policy limits by city. Flags bookings that exceed thresholds so you can track and report on compliance.',
   provider_ratings: 'Anonymised ratings and feedback submitted by travellers after their trips. Covers accessibility, service quality, and overall experience across airlines, hotels, and other providers.',
 };
 
 export default function Reports() {
   const { userProfile } = useAuth();
-  const { clientId: tenantClientId, activeClientId, isSTX } = useTenant();
+  const { clientId: tenantClientId, activeClientId, isSTX, clientConfig, activeClientConfig } = useTenant();
   const [activeTab, setActiveTab] = useState('all_travel');
 
   const clientId = isSTX ? activeClientId : tenantClientId;
+  const effectiveConfig = isSTX ? activeClientConfig : clientConfig;
 
   const { trips, loading } = useTrips(clientId, isSTX, isSTX ? activeClientId : null);
   const scope = useTeamScope(userProfile, clientId);
@@ -44,6 +45,11 @@ export default function Reports() {
     [trips, scope, userProfile]
   );
 
+  // Hide Travel Policy tab if both sub-policies are disabled
+  const showPolicyTab = effectiveConfig?.features?.accommodationPolicy !== false
+    || effectiveConfig?.features?.flightPolicy === true;
+
+  const visibleTabs = TABS.filter(t => t.key !== 'policy' || showPolicyTab);
   const activeTabIsGlobal = TABS.find(t => t.key === activeTab)?.global;
 
   if (isSTX && !activeClientId && !activeTabIsGlobal) {
@@ -52,7 +58,7 @@ export default function Reports() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Reports</h1>
 
         <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
-          {TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -80,7 +86,7 @@ export default function Reports() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Reports</h1>
 
         <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
-          {TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -109,7 +115,7 @@ export default function Reports() {
             {activeTab === 'avg_dest'   && <AvgSpendByDestination trips={scopedTrips} />}
             {activeTab === 'departure'  && <SpendByDepartureCity  trips={scopedTrips} />}
             {activeTab === 'hotel'      && <HotelPopularity       trips={scopedTrips} />}
-            {activeTab === 'policy'     && <AccommodationPolicy   trips={scopedTrips} clientId={clientId} isSTX={isSTX} />}
+            {activeTab === 'policy'     && <TravelPolicy trips={scopedTrips} clientId={clientId} isSTX={isSTX} clientConfig={effectiveConfig} />}
           </>
         )}
       </div>

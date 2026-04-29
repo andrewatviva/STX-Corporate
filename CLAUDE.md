@@ -127,6 +127,18 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 | `updateClientUser` | HTTPS callable | Update user profile + sync to Auth |
 | `deleteClientUser` | HTTPS callable | Remove user from Auth + Firestore |
 | `sendPasswordReset` | HTTPS callable | Generate password reset link |
+| `onEmailQueued` | Firestore onCreate `/emailQueue/{id}` | Dispatches email immediately if `scheduledFor` ≤ now; skips if deferred |
+| `sweepEmailQueue` | Cloud Scheduler (daily) | Processes pending deferred emailQueue items |
+
+### Email notifications (SendGrid)
+- Secret: `SENDGRID_API_KEY` stored in Firebase Secret Manager (both projects)
+- From: `notifications@supportedtravelx.com.au`
+- Queue collection: `/emailQueue/{id}` — `{ type, recipientId, clientId, tripId, tripTitle, scheduledFor, status, createdAt }`
+- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after)
+- Mandatory types (bypass preferences): `trip_approved`, `trip_declined`
+- User preferences stored at `/users/{uid}.emailPreferences.{type}` — `undefined` = opted in, `false` = opted out
+- Queued from `TripDetail.jsx` act() function on status transitions
+- **Status**: SendGrid account pending domain verification — emails queued but not yet dispatching in production
 
 ### Firebase projects
 - **Dev/Staging**: `stx-corporate-dev` — used during development, `.env.development`
@@ -213,6 +225,21 @@ lineItem {
 
 **Policy report flow**: load rates from Firestore on mount → generate button → compare `avgPerNightInc` against `findPolicyRate(destination, rates)` → variance $ and %.
 
+### Hooks
+| Hook | Purpose |
+|------|---------|
+| `useTrips` | Real-time trips listener (collectionGroup for STX global, scoped for client) |
+| `usePassengers` | Real-time passengers listener |
+| `useInvoices` | Real-time invoices listener + createInvoice (atomic counter) |
+| `useTeamScope` | Derives all/team/self scope from reporting hierarchy |
+| `useAttentionCount` | Counts actionable trips for sidebar badge (pending_approval for ops/approvers, declined for travellers) |
+
+### Account Settings
+- `src/components/account/AccountSettings.jsx` — modal launched from TopBar Settings button
+- Password reset via `sendPasswordResetEmail(auth, currentUser.email)`
+- Email notification preferences per type — saved to `/users/{uid}.emailPreferences`
+- Approver-only preferences (e.g. `trip_submitted`) hidden from traveller roles
+
 ### Current status
-**Phases 0–5, 7–8 complete. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
+**Phases 0–5, 7–8 complete. Plus email notifications, notification badge, account settings, and CI/CD fixes. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
 See `PROGRESS.md` for full phase breakdown.

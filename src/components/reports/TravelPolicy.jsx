@@ -23,10 +23,13 @@ function findPolicyRate(destination, rates) {
   return rates['All Cities'] !== undefined ? rates['All Cities'] : null;
 }
 
-export default function AccommodationPolicy({ trips, clientId, isSTX }) {
+export default function TravelPolicy({ trips, clientId, isSTX, clientConfig }) {
+  const showAccom   = clientConfig?.features?.accommodationPolicy !== false;
+  const showFlights = clientConfig?.features?.flightPolicy === true;
+
   const now = new Date();
   const fy  = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  const [activeView,    setActiveView]    = useState('accommodation'); // 'accommodation' | 'flights'
+  const [activeView,    setActiveView]    = useState(() => showAccom ? 'accommodation' : 'flights');
   const [periodKey,     setPeriodKey]     = useState('thisFY');
   const [from,          setFrom]          = useState(`${fy}-07-01`);
   const [to,            setTo]            = useState(`${fy + 1}-06-30`);
@@ -318,17 +321,26 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
   return (
     <div style={{ fontFamily:"'DM Sans','Helvetica Neue',sans-serif" }}>
 
-      {/* View toggle */}
-      <div style={{ display:'flex', gap:8, marginBottom:18 }}>
-        {[['accommodation','🏨 Accommodation'],['flights','✈️ Flights']].map(([v,label]) => (
-          <button key={v} onClick={() => setActiveView(v)}
-            style={{ padding:'8px 18px', background: activeView === v ? '#0d9488' : '#f1f5f9', color: activeView === v ? '#fff' : '#475569', border:`1px solid ${activeView === v ? '#0d9488' : '#e2e8f0'}`, borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* View toggle — only show tabs when both policies are enabled */}
+      {showAccom && showFlights && (
+        <div style={{ display:'flex', gap:8, marginBottom:18 }}>
+          {[['accommodation','🏨 Accommodation'],['flights','✈️ Flights']].map(([v,label]) => (
+            <button key={v} onClick={() => setActiveView(v)}
+              style={{ padding:'8px 18px', background: activeView === v ? '#0d9488' : '#f1f5f9', color: activeView === v ? '#fff' : '#475569', border:`1px solid ${activeView === v ? '#0d9488' : '#e2e8f0'}`, borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {activeView === 'flights' ? (
+      {!showAccom && !showFlights && (
+        <div style={{ textAlign:'center', padding:60, color:'#94a3b8' }}>
+          <div style={{ fontSize:15, fontWeight:600, color:'#64748b' }}>Travel Policy reporting is not enabled for this client</div>
+          <div style={{ fontSize:13, marginTop:4 }}>Enable Accommodation Policy or Flight Cost Policy in the client settings.</div>
+        </div>
+      )}
+
+      {showFlights && activeView === 'flights' ? (
         <FlightsView
           canEdit={canEdit}
           showFlightEditor={showFlightEditor} setShowFlightEditor={setShowFlightEditor}
@@ -357,7 +369,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
         />
       ) : null}
 
-      {activeView === 'accommodation' && (
+      {showAccom && activeView === 'accommodation' && (
         <>
       {/* Policy editor (STX only) */}
       {canEdit && (

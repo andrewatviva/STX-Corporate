@@ -17,6 +17,8 @@
 | 4 | Trip management + Dashboard + STX client context | ✅ Complete |
 | 5 | Passenger profiles | ✅ Complete |
 | — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
+| — | Email notifications + user preferences + notification badge | ✅ Complete (⚠️ SendGrid pending domain verification) |
+| — | Account settings, password reset, CI/CD service account auth | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏸ Deferred |
 | 7 | Invoice generation | ✅ Complete |
 | 8 | Reports | ✅ Complete |
@@ -301,6 +303,37 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
+### Post-Phase 8 Enhancements ✅
+
+#### Email Notifications (SendGrid)
+- Cloud Functions: `onEmailQueued` (immediate dispatch) + `sweepEmailQueue` (daily scheduled)
+- `/emailQueue` collection as dispatch queue; `scheduledFor` field for deferred delivery
+- Templates: trip_submitted (to approvers), trip_approved, trip_declined, trip_booked, trip_pre_departure (3 days before), trip_rating_request (2 days after)
+- Mandatory emails (approved/declined) bypass user preference checks
+- Queued from `TripDetail.jsx` on each status transition
+- Pre-departure email scheduled 3 days before `startDate`; rating request 2 days after `endDate`
+- **⚠️ SendGrid account under domain verification review — emails queued correctly but not dispatching until verified**
+
+#### User Email Preferences (Account Settings)
+- `src/components/account/AccountSettings.jsx` — modal from TopBar Settings button
+- Toggle per notification type; approver-only types hidden for non-approver roles
+- Preferences stored at `/users/{uid}.emailPreferences.{type}`
+- Password reset via `sendPasswordResetEmail`
+
+#### Sidebar Notification Badge
+- `src/hooks/useAttentionCount.js` — targeted Firestore queries by role:
+  - STX/client_ops: `pending_approval` + `approved` trips
+  - client_approver: `pending_approval` trips (filtered by `approveFor[]`)
+  - client_traveller: `declined` trips for own trips
+- Red badge on Travel Management sidebar link; disappears at 0, shows `99+` above 99
+
+#### CI/CD Fix
+- Replaced deprecated `FIREBASE_TOKEN` with `google-github-actions/auth@v2` using `firebase-adminsdk` service account
+- Both `deploy-dev.yml` and `deploy-prod.yml` updated
+- Service account: `firebase-adminsdk-fbsvc@stx-corporate-dev.iam.gserviceaccount.com` (Firebase Admin + Storage Admin roles)
+
+---
+
 ### Phase 9 — QA + Production Deploy
 Security rules testing, full regression checklist, deploy to `stx-corporate` production.
 
@@ -365,4 +398,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 27 April 2026 — Phases 0–5, 7–8 complete (Phase 6 deferred). Phase 9 (QA + Production) next.*
+*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete plus email notifications, account settings, and CI/CD fixes. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
