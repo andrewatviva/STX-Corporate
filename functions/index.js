@@ -380,7 +380,7 @@ async function dispatchQueuedEmail(docRef, data) {
   if (data.type === 'portal_feedback' || data.type === 'trip_cancelled_by_client') {
     // Send to all active STX staff
     const snap = await db.collection('users')
-      .where('role', 'in', ['stx_admin', 'stx_ops'])
+      .where('role', 'in', ['stx_admin', 'stx_ops', 'stx'])
       .get();
     for (const d of snap.docs) {
       const u = d.data();
