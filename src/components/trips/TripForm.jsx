@@ -833,7 +833,17 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   };
 
   const isDraftOrDeclined = !trip || ['draft', 'declined'].includes(trip.status);
-  const tripIsBookable = ['approved', 'booked'].includes(trip?.status);
+
+  // Approval required for this trip type?
+  const tripNeedsApproval = (() => {
+    const byType = clientConfig?.workflow?.approvalByTripType;
+    return (byType && form.tripType in byType)
+      ? byType[form.tripType]
+      : clientConfig?.workflow?.requiresApproval !== false;
+  })();
+
+  // Hotel booking unlocked when: already approved/booked, OR trip exists and no approval required
+  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || (!!trip && !tripNeedsApproval);
 
   return (
     <div className="space-y-5">
