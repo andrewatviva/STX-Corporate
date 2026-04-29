@@ -19,6 +19,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Functions dependencies
+        run: cd functions && npm ci
+
       - name: Build
         run: npm run build
         env:
@@ -43,6 +46,6 @@ jobs:
           projectId: stx-corporate
           channelId: live
 
-      - name: Deploy Firestore and Storage rules (Prod)
-        run: npx firebase-tools deploy --only firestore:rules,storage --project stx-corporate
+      - name: Deploy Cloud Functions, Firestore and Storage rules (Prod)
+        run: npx firebase-tools deploy --only functions,firestore:rules,storage --project stx-corporate
 
