@@ -842,8 +842,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       : clientConfig?.workflow?.requiresApproval !== false;
   })();
 
-  // Hotel booking unlocked when: already approved/booked, OR trip exists and no approval required
-  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || (!!trip && !tripNeedsApproval);
+  // Hotel booking unlocked when: already approved/booked, OR no approval required (even before first save)
+  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval;
 
   return (
     <div className="space-y-5">
