@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle,
+  Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal, ExternalLink,
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -83,7 +83,7 @@ function FlightFields({ s, upd }) {
   );
 }
 
-function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking }) {
+function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, hotelBookingLocked }) {
   const nights = s.checkIn && s.checkOut
     ? Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000))
     : null;
@@ -116,18 +116,27 @@ function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking }
       </F>
 
       {/* Nuitee hotel booking launcher */}
-      {onOpenHotelBooking && (
+      {(onOpenHotelBooking || hotelBookingLocked) && (
         <div className="col-span-2">
-          <button
-            type="button"
-            onClick={onOpenHotelBooking}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            <Hotel size={13} />
-            Search &amp; Book via Nuitee
-            <ExternalLink size={11} className="opacity-70" />
-          </button>
-          <p className="text-[10px] text-gray-400 mt-1">Opens hotel search in a new tab — booking details will auto-fill here.</p>
+          {onOpenHotelBooking ? (
+            <>
+              <button
+                type="button"
+                onClick={onOpenHotelBooking}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                <Hotel size={13} />
+                Search &amp; Book via Nuitee
+                <ExternalLink size={11} className="opacity-70" />
+              </button>
+              <p className="text-[10px] text-gray-400 mt-1">Opens hotel search in a new tab — booking details will auto-fill here.</p>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-400 cursor-not-allowed">
+              <Hotel size={13} />
+              Search &amp; Book via Nuitee — available once trip is approved
+            </div>
+          )}
         </div>
       )}
 
@@ -334,7 +343,7 @@ function sectorSummary(s) {
 
 // ── Sector card ───────────────────────────────────────────────────────────────
 
-function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, onOpenHotelBooking }) {
+function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, onOpenHotelBooking, hotelBookingLocked }) {
   const [expanded, setExpanded] = useState(!sector.type);
   const cfg = SECTOR_TYPES[sector.type];
   const Icon = cfg?.Icon;
@@ -343,7 +352,7 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
 
   const fields = {
     flight:        <FlightFields s={sector} upd={upd} />,
-    accommodation: <AccommodationFields s={sector} upd={upd} tripDestinationCity={tripDestinationCity} onOpenHotelBooking={onOpenHotelBooking} />,
+    accommodation: <AccommodationFields s={sector} upd={upd} tripDestinationCity={tripDestinationCity} onOpenHotelBooking={onOpenHotelBooking} hotelBookingLocked={hotelBookingLocked} />,
     'car-hire':    <CarHireFields s={sector} upd={upd} />,
     parking:       <ParkingFields s={sector} upd={upd} />,
     transfers:     <TransfersFields s={sector} upd={upd} />,
@@ -671,6 +680,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
   // ── Hotel booking via Nuitee (new tab + postMessage) ──────────────────────
   const hotelWindowRef = useRef(null);
+  const [nuiteeBooked, setNuiteeBooked] = useState(false);
 
   useEffect(() => {
     const handleMessage = (e) => {
@@ -697,6 +707,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         };
         return { ...prev, sectors };
       });
+      setNuiteeBooked(true);
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
@@ -801,7 +812,9 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         : null;
 
       let status = trip?.status || 'draft';
-      if (submitForApproval) {
+      if (nuiteeBooked) {
+        status = 'booked';
+      } else if (submitForApproval) {
         const byType = clientConfig?.workflow?.approvalByTripType;
         const needsApproval = (byType && form.tripType in byType)
           ? byType[form.tripType]
@@ -820,9 +833,20 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   };
 
   const isDraftOrDeclined = !trip || ['draft', 'declined'].includes(trip.status);
+  const tripIsBookable = ['approved', 'booked'].includes(trip?.status);
 
   return (
     <div className="space-y-5">
+      {/* Nuitee booking confirmed banner */}
+      {nuiteeBooked && (
+        <div className="p-3 bg-teal-50 border border-teal-300 rounded-lg flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-teal-800">
+            <CheckCircle size={15} className="text-teal-600 flex-shrink-0" />
+            <span><strong>Hotel booked via Nuitee.</strong> Save the trip below — status will update to <strong>Booked</strong> automatically.</span>
+          </div>
+        </div>
+      )}
+
       {/* Client selector — STX users only */}
       {isSTX && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1053,9 +1077,12 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               onRemove={() => removeSector(i)}
               tripDestinationCity={form.destinationCity}
               onOpenHotelBooking={
-                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false
+                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false && tripIsBookable
                   ? () => openHotelBooking(i)
                   : undefined
+              }
+              hotelBookingLocked={
+                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false && !!trip && !tripIsBookable
               }
             />
           ))}
