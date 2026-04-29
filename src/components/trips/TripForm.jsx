@@ -713,6 +713,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       checkout:        form.sectors[sectorIndex]?.checkOut || form.endDate   || '',
       travellerName:   form.travellerName || '',
       destinationCity: form.destinationCity || '',
+      email:           matchedPassenger?.email || '',
     });
     const url = `/hotel-booking?${params.toString()}`;
     if (hotelWindowRef.current && !hotelWindowRef.current.closed) {

@@ -229,7 +229,7 @@ function ProgressBar({ step }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function HotelBookingFlow({ tripId, sectorIndex, tripType, clientId, checkinPre, checkoutPre, travellerName, destinationCity, onBooked }) {
+export default function HotelBookingFlow({ tripId, sectorIndex, tripType, clientId, checkinPre, checkoutPre, travellerName, destinationCity, email, onBooked }) {
   const { userProfile } = useAuth();
   const isSTX = userProfile?.role === 'stx' || userProfile?.role === 'stx_admin' || userProfile?.role === 'stx_ops';
   const isSelfManaged = (tripType || '').toLowerCase().includes('self');
@@ -308,7 +308,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
     const parts = travellerName.trim().split(' ');
     return parts.slice(1).join(' ') || '';
   });
-  const [guestEmail,      setGuestEmail]      = useState('');
+  const [guestEmail,      setGuestEmail]      = useState(email || '');
   const [specialRequests, setSpecialRequests] = useState('');
 
   // Booking flow
@@ -873,14 +873,16 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           const ratingMeta = getRatingMeta(hotel.guestScore || hotel.reviewScore);
           const stars      = Math.round(hotel.starRating || hotel.stars || 0);
           const address    = [hotel.address?.addressLine1, hotel.address?.city].filter(Boolean).join(', ');
-          const hotelFacilities = detail?.hotel_facilities || detail?.facilities || [];
+          const hotelFacilities = detail?.hotelFacilities || detail?.hotel_facilities || detail?.facilities || [];
 
           return (
-            <div key={hotel.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div key={hotel.id}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-teal-300 transition-all"
+              onClick={() => { setSelectedHotelForDetail(hotel); setGalleryIndex(0); setStep('hotel_detail'); }}>
               <div className="flex flex-col md:flex-row">
-                {/* Image */}
-                <div className="md:w-56 w-full h-40 md:h-auto bg-slate-100 flex-shrink-0 relative overflow-hidden cursor-pointer"
-                  onClick={() => { if (hotelImgs.length) { setLightboxPhotos(hotelImgs); setLightboxIndex(0); } }}>
+                {/* Image — click opens lightbox instead of navigating */}
+                <div className="md:w-56 w-full h-40 md:h-auto bg-slate-100 flex-shrink-0 relative overflow-hidden"
+                  onClick={e => { if (hotelImgs.length) { e.stopPropagation(); setLightboxPhotos(hotelImgs); setLightboxIndex(0); } }}>
                   {mainPhoto
                     ? <img src={mainPhoto} alt={hotel.name} className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
                     : <div className="w-full h-full flex items-center justify-center"><Hotel size={32} className="text-slate-300" /></div>
@@ -939,12 +941,8 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setSelectedHotelForDetail(hotel); setGalleryIndex(0); setStep('hotel_detail'); }}
-                      className="flex-1 py-2 border border-teal-600 text-teal-600 text-xs font-bold rounded-lg hover:bg-teal-50 transition-colors">
-                      View Rooms
-                    </button>
+                  <div className="flex items-center gap-1 text-teal-600 text-xs font-semibold mt-1">
+                    View rooms &amp; details <ChevronRight size={13} />
                   </div>
                 </div>
               </div>
@@ -967,8 +965,23 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
     const displayRates = allRates.filter(r => isSelfManaged ? true : r.paymentType !== 'PROPERTY_PAY');
     const stars = Math.round(hotel.starRating || hotel.stars || 0);
 
-    // Helper: get room content for a rate via mappedRoomId
-    const getRoomContent = (rate) => roomsData.find(r => r.id === rate.mappedRoomId) || null;
+    // Helper: get room content via mappedRoomId, then fuzzy name fallback
+    const getRoomContent = (rate) => {
+      if (rate.mappedRoomId) {
+        const byId = roomsData.find(r => r.id === rate.mappedRoomId);
+        if (byId) return byId;
+      }
+      const rateName = (rate.roomName || '').toLowerCase().trim();
+      if (rateName.length >= 4) {
+        return roomsData.find(r => {
+          const rn = (r.roomName || '').toLowerCase().trim();
+          return rn === rateName ||
+            rn.includes(rateName.slice(0, 8)) ||
+            rateName.includes(rn.slice(0, 8));
+        }) || null;
+      }
+      return null;
+    };
 
     return (
       <div className="flex-1 overflow-y-auto">
@@ -1023,15 +1036,47 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             {stars > 0 && <p className="text-amber-400 mt-0.5">{'★'.repeat(stars)}</p>}
             {hotel.address?.city && <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><MapPin size={12} />{hotel.address.city}</p>}
             {detail?.hotelDescription && (
-              <p className="text-sm text-slate-600 mt-3 leading-relaxed">{detail.hotelDescription}</p>
+              <div className="text-sm text-slate-600 mt-3 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_p]:mb-1"
+                dangerouslySetInnerHTML={{ __html: detail.hotelDescription }} />
             )}
             {detail?.hotelImportantInformation && (
               <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
                 <p className="text-[10px] font-bold text-amber-700 uppercase mb-1">Good to know</p>
-                <p className="text-xs text-amber-800 leading-relaxed">{detail.hotelImportantInformation}</p>
+                <div className="text-xs text-amber-800 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_p]:mb-1"
+                  dangerouslySetInnerHTML={{ __html: detail.hotelImportantInformation }} />
+              </div>
+            )}
+            {(detail?.checkinCheckoutTimes?.checkinTime || detail?.checkinCheckoutTimes?.checkoutTime) && (
+              <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                {detail.checkinCheckoutTimes.checkinTime && (
+                  <span>Check-in: <strong className="text-slate-700">{detail.checkinCheckoutTimes.checkinTime}</strong></span>
+                )}
+                {detail.checkinCheckoutTimes.checkoutTime && (
+                  <span>Check-out: <strong className="text-slate-700">{detail.checkinCheckoutTimes.checkoutTime}</strong></span>
+                )}
               </div>
             )}
           </div>
+
+          {/* Facilities */}
+          {(() => {
+            const facs = detail?.hotelFacilities || detail?.hotel_facilities || detail?.facilities || [];
+            const matched = FACILITY_ICON_MAP.filter(({ match }) =>
+              facs.some(f => {
+                const name = typeof f === 'string' ? f : (f?.name || f?.facilityName || '');
+                return match.some(rx => rx.test(name));
+              })
+            );
+            return matched.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {matched.map(({ Icon, label }) => (
+                  <span key={label} className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                    <Icon size={12} />{label}
+                  </span>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
 
@@ -1046,17 +1091,19 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                 const displayPrice  = applyMarkup(rate.price, markupPercent);
                 const isPropertyPay = rate.paymentType === 'PROPERTY_PAY';
                 const roomContent   = getRoomContent(rate);
-                const roomPhotos    = roomContent?.photos || [];
+                const roomPhotos    = (roomContent?.photos || []).filter(p => p.hd_url || p.url);
                 const roomPhoto     = roomPhotos.find(p => p.mainPhoto) || roomPhotos[0];
+                // Fallback to hotel gallery when room has no photos
+                const fallbackImgUrl = !roomPhoto ? (hotelImgs[0]?.urlHd || hotelImgs[0]?.url || null) : null;
 
                 return (
                   <div key={rate.key} className="border border-slate-200 rounded-xl overflow-hidden hover:border-teal-400 transition-colors">
-                    {/* Room photo (if available via room mapping) */}
-                    {roomPhoto && (
-                      <div className="h-36 bg-slate-100 overflow-hidden cursor-pointer"
+                    {/* Room photo — use room-specific photos, fallback to hotel gallery */}
+                    {(roomPhoto || fallbackImgUrl) && (
+                      <div className="h-36 bg-slate-100 overflow-hidden relative cursor-pointer"
                         onClick={() => { if (roomPhotos.length) { setLightboxPhotos(roomPhotos); setLightboxIndex(0); } }}>
                         <img
-                          src={roomPhoto.hd_url || roomPhoto.url || roomPhoto.failoverPhoto}
+                          src={roomPhoto ? (roomPhoto.hd_url || roomPhoto.url || roomPhoto.failoverPhoto) : fallbackImgUrl}
                           alt={rate.roomName}
                           className="w-full h-full object-cover"
                           onError={e => { e.target.style.display='none'; }}

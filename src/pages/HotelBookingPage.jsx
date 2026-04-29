@@ -11,6 +11,7 @@ export default function HotelBookingPage() {
   const checkoutPre     = params.get('checkout') || '';
   const travellerName   = params.get('travellerName') || '';
   const destinationCity = params.get('destinationCity') || '';
+  const email           = params.get('email') || '';
 
   const handleBooked = (bookingData) => {
     if (window.opener && !window.opener.closed) {
@@ -30,6 +31,7 @@ export default function HotelBookingPage() {
         checkoutPre={checkoutPre}
         travellerName={travellerName}
         destinationCity={destinationCity}
+        email={email}
         onBooked={handleBooked}
       />
     </div>
