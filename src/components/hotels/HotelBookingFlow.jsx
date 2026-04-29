@@ -239,16 +239,20 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
   const apiKey = makeApiKey(useSandbox);
 
   // Client config
-  const [markupPercent, setMarkupPercent] = useState(0);
-  const [feed,          setFeed]          = useState('vivatravelholdingscug');
+  const [markupPercent,   setMarkupPercent]   = useState(0);
+  const [feed,            setFeed]            = useState('vivatravelholdingscug');
+  const [stxNotifyEmail,  setStxNotifyEmail]  = useState('enquiries@supportedtravelx.com.au');
 
   useEffect(() => {
     if (!clientId) return;
     getDoc(doc(db, 'clients', clientId, 'config', 'settings')).then(snap => {
       if (!snap.exists()) return;
-      const hb = snap.data()?.hotelBooking || {};
+      const data = snap.data();
+      const hb = data?.hotelBooking || {};
       if (typeof hb.markupPercent === 'number') setMarkupPercent(hb.markupPercent);
       if (hb.nuiteeFeed) setFeed(hb.nuiteeFeed);
+      const notifyEmail = data?.contact?.stxNotifyEmail;
+      if (notifyEmail) setStxNotifyEmail(notifyEmail);
     }).catch(() => {});
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -554,7 +558,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
         holder:        { firstName: overrideFirst || guestFirst, lastName: overrideLast || guestLast, email: overrideEmail || guestEmail },
         guests:        [{ occupancyNumber: 1, firstName: overrideFirst || guestFirst, lastName: overrideLast || guestLast, email: overrideEmail || guestEmail }],
         payment:       { method: 'TRANSACTION_ID', transactionId: overrideTransactionId || transactionId },
-        contactEmails: ['bookings@supportedtravelx.com.au'],
+        contactEmails: [stxNotifyEmail],
       };
       if (specialRequests) body.remarks = specialRequests;
       const res = await nuiteePost('/rates/book', body, apiKey);

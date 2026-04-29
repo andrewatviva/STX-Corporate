@@ -420,7 +420,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       </Section>
 
       <Section title="Contact">
-        <Field label="Contact email">
+        <Field label="Contact email (client-facing)">
           <input
             type="email"
             className={inp}
@@ -431,6 +431,18 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
         </Field>
         <p className="text-xs text-gray-400">
           Shown on the Contact page for client users. Leave blank to use the default STX enquiries address.
+        </p>
+        <Field label="STX notifications email">
+          <input
+            type="email"
+            className={inp}
+            value={cfg.contact.stxNotifyEmail || ''}
+            onChange={e => set('contact', 'stxNotifyEmail', e.target.value)}
+            placeholder="enquiries@supportedtravelx.com.au"
+          />
+        </Field>
+        <p className="text-xs text-gray-400">
+          STX inbox that receives portal feedback, fault reports, cancellation alerts, and hotel booking confirmations for this client. Leave blank to use the default STX enquiries address.
         </p>
       </Section>
 

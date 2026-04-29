@@ -13,7 +13,7 @@ const SENDGRID_KEY    = defineSecret('SENDGRID_API_KEY');
 const FROM_EMAIL      = 'notifications@supportedtravelx.com.au';
 const FROM_NAME       = 'STX Corporate';
 // Always receives portal_feedback and trip_cancelled_by_client regardless of registered users
-const STX_ADMIN_EMAIL = 'bookings@supportedtravelx.com.au';
+const STX_DEFAULT_NOTIFY_EMAIL = 'enquiries@supportedtravelx.com.au';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -380,8 +380,16 @@ async function dispatchQueuedEmail(docRef, data) {
   const mandatory = new Set(['trip_approved', 'trip_declined']);
 
   if (data.type === 'portal_feedback' || data.type === 'trip_cancelled_by_client') {
-    // Always notify the STX admin inbox
-    recipientEmails.push(STX_ADMIN_EMAIL);
+    // Resolve client's STX notification email, fall back to default
+    let stxNotifyEmail = STX_DEFAULT_NOTIFY_EMAIL;
+    if (data.clientId) {
+      try {
+        const cfgSnap = await db.doc(`clients/${data.clientId}/config/settings`).get();
+        const configured = cfgSnap.exists && cfgSnap.data()?.contact?.stxNotifyEmail;
+        if (configured) stxNotifyEmail = configured;
+      } catch {}
+    }
+    recipientEmails.push(stxNotifyEmail);
     // Also notify any registered STX staff users
     const snap = await db.collection('users')
       .where('role', 'in', ['stx_admin', 'stx_ops', 'stx'])

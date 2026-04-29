@@ -51,6 +51,7 @@ const CONFIG_DEFAULTS = {
   },
   contact: {
     email: 'enquiries@supportedtravelx.com.au',
+    stxNotifyEmail: '',
   },
 };
 
