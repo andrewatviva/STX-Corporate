@@ -116,12 +116,12 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
     const data = Object.entries(destMap)
       .filter(([, d]) => d.nights > 0)
       .map(([destination, d]) => {
-        const avgPerNightInc = d.totalCostInc / d.roomNights;
         const avgPerNightEx  = d.totalCostEx  / d.roomNights;
         const policyRate     = findPolicyRate(destination, rates);
-        const variance       = policyRate !== null ? avgPerNightInc - policyRate : null;
-        const variancePct    = policyRate !== null ? ((avgPerNightInc - policyRate) / policyRate) * 100 : null;
-        return { destination, ...d, avgPerNightInc, avgPerNightEx, policyRate, variance, variancePct };
+        const policyRateEx   = policyRate !== null ? policyRate / 1.1 : null;
+        const variance       = policyRateEx !== null ? avgPerNightEx - policyRateEx : null;
+        const variancePct    = policyRateEx !== null ? ((avgPerNightEx - policyRateEx) / policyRateEx) * 100 : null;
+        return { destination, ...d, avgPerNightEx, policyRate, policyRateEx, variance, variancePct };
       });
 
     setReportData(data);
@@ -214,7 +214,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:10 }}>
             <div>
               <div style={{ fontSize:15, fontWeight:700, color:'#0f172a' }}>Policy Rate Editor</div>
-              <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Max allowable nightly accommodation spend per city (incl. GST). Add <strong>All Cities</strong> to set a blanket rate that applies to any destination without a specific entry.</div>
+              <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Enter max allowable nightly accommodation spend per city <strong>incl. GST</strong> (as per TD rates). The report compares on an ex-GST basis. Add <strong>All Cities</strong> to set a blanket rate for any destination without a specific entry.</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               {saveMsg && <span style={{ fontSize:12, color: saveMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontWeight:600 }}>{saveMsg}</span>}
@@ -246,7 +246,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
                   onChange={e => handleRateChange('All Cities', e.target.value)}
                   style={{ ...inp, width:90, padding:'4px 8px', fontSize:13 }}
                 />
-                <span style={{ fontSize:12, color:'#64748b' }}>/night (incl. GST) — applies to destinations not listed below</span>
+                <span style={{ fontSize:12, color:'#64748b' }}>/night (incl. GST) — applies to destinations not listed below; report compares ex-GST</span>
               </>
             )}
           </div>
@@ -259,7 +259,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
           <div style={{ maxHeight:320, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:8 }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 140px 48px', padding:'8px 14px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', position:'sticky', top:0 }}>
               <span style={chdr}>City</span>
-              <span style={{ ...chdr, textAlign:'right' }}>Max/Night ($)</span>
+              <span style={{ ...chdr, textAlign:'right' }}>Max/Night (incl. GST)</span>
               <span />
             </div>
             {filteredEditCities.map((city, idx) => (
@@ -282,7 +282,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
               <input type="text" placeholder="City name" value={newCity} onChange={e => setNewCity(e.target.value)} style={{ ...inp, width:180 }} />
             </div>
             <div>
-              <label style={lbl}>Max/Night ($)</label>
+              <label style={lbl}>Max/Night (incl. GST)</label>
               <input type="number" min="0" step="1" placeholder="e.g. 195" value={newRate}
                 onChange={e => setNewRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCity()}
                 style={{ ...inp, width:100 }} />
@@ -353,7 +353,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
               <span style={{ fontSize:11, color:'#64748b', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>Sort:</span>
-              {[['destination','City'],['nights','Nights'],['avgPerNightInc','Avg/Night'],['policyRate','Policy Rate'],['variance','Variance $'],['variancePct','Variance %']].map(([f,label]) => (
+              {[['destination','City'],['nights','Nights'],['avgPerNightEx','Avg/Night (Ex GST)'],['policyRateEx','Policy Rate (Ex GST)'],['variance','Variance $'],['variancePct','Variance %']].map(([f,label]) => (
                 <button key={f} onClick={() => handleSort(f)}
                   style={{ ...pill, color: sortField === f ? '#0d9488' : '#94a3b8', borderColor: sortField === f ? '#0d9488' : '#e2e8f0', fontWeight:700 }}>
                   {label}{sa(f)}
@@ -375,8 +375,8 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
             </div>
           ) : (
             <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 110px 110px 100px 90px 90px', padding:'10px 18px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
-                {[['destination','Destination','left'],['stays','Stays','right'],['roomNights','Nights','right'],['avgPerNightInc','Avg/Night (Inc)','right'],['avgPerNightEx','Avg/Night (Ex)','right'],['policyRate','Policy Rate','right'],['variance','Variance $','right'],['variancePct','Variance %','right']].map(([f,label,align]) => (
+              <div style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 120px 110px 90px 90px', padding:'10px 18px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+                {[['destination','Destination','left'],['stays','Stays','right'],['roomNights','Nights','right'],['avgPerNightEx','Avg/Night (Ex GST)','right'],['policyRateEx','Policy Rate (Ex GST)','right'],['variance','Variance $','right'],['variancePct','Variance %','right']].map(([f,label,align]) => (
                   <div key={f} onClick={() => handleSort(f)} style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em', textAlign:align, cursor:'pointer', userSelect:'none' }}>
                     {label}{sa(f)}
                   </div>
@@ -385,14 +385,14 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
               {sortedData.map((row, idx) => {
                 const isOver  = row.variance !== null && row.variance > 0;
                 const isUnder = row.variance !== null && row.variance <= 0;
-                const hasRate = row.policyRate !== null;
+                const hasRate = row.policyRateEx !== null;
                 const rowBg   = isOver  ? (idx%2===0?'#fff5f5':'#fff0f0') : isUnder ? (idx%2===0?'#f0fdf4':'#ebfdf0') : (idx%2===0?'#fff':'#fafafa');
                 const badge   = isOver  ? { text:'OVER',    bg:'#fef2f2', color:'#dc2626', border:'#fecaca' }
                               : isUnder ? { text:'UNDER',   bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' }
                               :           { text:'NO RATE', bg:'#f8fafc', color:'#94a3b8', border:'#e2e8f0' };
                 return (
                   <div key={row.destination}
-                    style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 110px 110px 100px 90px 90px', padding:'12px 18px', alignItems:'center', background:rowBg, borderBottom: idx < sortedData.length-1 ? '1px solid #f1f5f9' : 'none' }}>
+                    style={{ display:'grid', gridTemplateColumns:'2fr 60px 70px 120px 110px 90px 90px', padding:'12px 18px', alignItems:'center', background:rowBg, borderBottom: idx < sortedData.length-1 ? '1px solid #f1f5f9' : 'none' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontWeight:600, fontSize:14, color:'#1e293b' }}>{row.destination}</span>
                       <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:20, background:badge.bg, color:badge.color, border:`1px solid ${badge.border}` }}>{badge.text}</span>
@@ -403,10 +403,9 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
                         ? <span title={`${row.nights} calendar nights · ${row.roomNights} room-nights`}>{row.roomNights} <span style={{ fontSize:10, color:'#94a3b8' }}>rm-nts</span></span>
                         : row.nights}
                     </div>
-                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:600, color:'#1e293b' }}>${row.avgPerNightInc.toFixed(0)}</div>
-                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, color:'#64748b' }}>${row.avgPerNightEx.toFixed(0)}</div>
+                    <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:600, color:'#1e293b' }}>${row.avgPerNightEx.toFixed(0)}</div>
                     <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, color: hasRate ? '#475569' : '#cbd5e1' }}>
-                      {hasRate ? `$${row.policyRate}` : '—'}
+                      {hasRate ? `$${row.policyRateEx.toFixed(0)}` : '—'}
                     </div>
                     <div style={{ textAlign:'right', fontFamily:'monospace', fontSize:13, fontWeight:700, color: !hasRate ? '#cbd5e1' : isOver ? '#dc2626' : '#16a34a' }}>
                       {hasRate ? `${row.variance >= 0 ? '+' : ''}$${row.variance.toFixed(0)}` : '—'}
@@ -422,7 +421,7 @@ export default function AccommodationPolicy({ trips, clientId, isSTX }) {
 
           {sortedData.length > 0 && (
             <p style={{ fontSize:11, color:'#94a3b8', marginTop:14, textAlign:'center' }}>
-              Avg/Night (Inc GST) vs TD 2025/4 policy rates · Only accommodation sectors with check-in &amp; check-out dates included · Approved, Booked, Travelling &amp; Completed trips only
+              All figures ex-GST · Policy rates entered incl. GST (TD 2025/4) and converted for comparison · Only accommodation sectors with check-in &amp; check-out dates included · Approved, Booked, Travelling &amp; Completed trips only
             </p>
           )}
         </div>
