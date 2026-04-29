@@ -7,8 +7,10 @@ export default function HotelBookingPage() {
   const sectorIndex  = params.get('sectorIndex') !== null ? Number(params.get('sectorIndex')) : null;
   const tripType     = params.get('tripType') || '';
   const clientId     = params.get('clientId') || '';
-  const checkinPre   = params.get('checkin') || '';
-  const checkoutPre  = params.get('checkout') || '';
+  const checkinPre      = params.get('checkin') || '';
+  const checkoutPre     = params.get('checkout') || '';
+  const travellerName   = params.get('travellerName') || '';
+  const destinationCity = params.get('destinationCity') || '';
 
   const handleBooked = (bookingData) => {
     if (window.opener && !window.opener.closed) {
@@ -26,6 +28,8 @@ export default function HotelBookingPage() {
         clientId={clientId}
         checkinPre={checkinPre}
         checkoutPre={checkoutPre}
+        travellerName={travellerName}
+        destinationCity={destinationCity}
         onBooked={handleBooked}
       />
     </div>

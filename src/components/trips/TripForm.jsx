@@ -705,12 +705,14 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   const openHotelBooking = (sectorIndex) => {
     const cid = form.clientId || clientIdProp || '';
     const params = new URLSearchParams({
-      tripId:      trip?.id || '',
-      sectorIndex: String(sectorIndex),
-      tripType:    form.tripType || '',
-      clientId:    cid,
-      checkin:     form.sectors[sectorIndex]?.checkIn  || form.startDate || '',
-      checkout:    form.sectors[sectorIndex]?.checkOut || form.endDate   || '',
+      tripId:          trip?.id || '',
+      sectorIndex:     String(sectorIndex),
+      tripType:        form.tripType || '',
+      clientId:        cid,
+      checkin:         form.sectors[sectorIndex]?.checkIn  || form.startDate || '',
+      checkout:        form.sectors[sectorIndex]?.checkOut || form.endDate   || '',
+      travellerName:   form.travellerName || '',
+      destinationCity: form.destinationCity || '',
     });
     const url = `/hotel-booking?${params.toString()}`;
     if (hotelWindowRef.current && !hotelWindowRef.current.closed) {

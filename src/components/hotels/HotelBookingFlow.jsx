@@ -13,10 +13,6 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const NUITEE_BASE = 'https://api.liteapi.travel/v3.0';
 
-const NUITEE_FEEDS = [
-  { value: 'vivatravelholdingscug', label: 'Viva Travel CUG (Best Rates)' },
-  { value: 'vivatravelholdingsb2b', label: 'Viva Travel B2B' },
-];
 
 const COUNTRY_OPTIONS = [
   { code: 'AU', name: 'Australia' },     { code: 'NZ', name: 'New Zealand' },
@@ -103,7 +99,7 @@ function pickBestRates(ratesData, currency) {
             offerId:       roomType?.offerId,
             ssp:           sspAmt,
             roomName:      rate?.name?.trim() || roomType?.name?.trim() || 'Room',
-            roomImages:    roomType?.mappedRoom?.images || [],
+            mappedRoomId:  rate?.mappedRoomId || roomType?.mappedRoom?.id || null,
             amenities:     roomType?.mappedRoom?.amenities || roomType?.mappedRoom?.features || [],
             boardType:     rate?.boardType,
             boardName:     rate?.boardName || rate?.boardType || 'Room Only',
@@ -233,7 +229,7 @@ function ProgressBar({ step }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function HotelBookingFlow({ tripId, sectorIndex, tripType, clientId, checkinPre, checkoutPre, onBooked }) {
+export default function HotelBookingFlow({ tripId, sectorIndex, tripType, clientId, checkinPre, checkoutPre, travellerName, destinationCity, onBooked }) {
   const { userProfile } = useAuth();
   const isSTX = userProfile?.role === 'stx' || userProfile?.role === 'stx_admin' || userProfile?.role === 'stx_ops';
   const isSelfManaged = (tripType || '').toLowerCase().includes('self');
@@ -244,25 +240,28 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
 
   // Client config
   const [markupPercent, setMarkupPercent] = useState(0);
+  const [feed,          setFeed]          = useState('vivatravelholdingscug');
 
   useEffect(() => {
-    if (!clientId || !isSTX) return;
+    if (!clientId) return;
     getDoc(doc(db, 'clients', clientId, 'config', 'settings')).then(snap => {
-      if (snap.exists()) {
-        const pct = snap.data()?.hotelBooking?.markupPercent;
-        if (typeof pct === 'number') setMarkupPercent(pct);
-      }
+      if (!snap.exists()) return;
+      const hb = snap.data()?.hotelBooking || {};
+      if (typeof hb.markupPercent === 'number') setMarkupPercent(hb.markupPercent);
+      if (hb.nuiteeFeed) setFeed(hb.nuiteeFeed);
     }).catch(() => {});
-  }, [clientId, isSTX]);
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step
   const [step, setStep] = useState('search');
 
-  // Search fields
-  const [searchQuery,    setSearchQuery]    = useState('');
+  // Search fields — pre-populate from trip props
+  const [searchQuery,    setSearchQuery]    = useState(destinationCity || '');
   const [searchSugs,     setSearchSugs]     = useState({ regions: [], hotels: [] });
   const [showSugs,       setShowSugs]       = useState(false);
-  const [selectedSearch, setSelectedSearch] = useState(null);
+  const [selectedSearch, setSelectedSearch] = useState(
+    destinationCity ? { kind: 'place', displayName: destinationCity, nominatimName: destinationCity, address: '' } : null
+  );
   const [countryCode,    setCountryCode]    = useState('AU');
   const [checkin,  setCheckin]  = useState(checkinPre  || '');
   const [checkout, setCheckout] = useState(checkoutPre || '');
@@ -270,7 +269,6 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
   const [children, setChildren] = useState(0);
   const [currency, setCurrency] = useState('AUD');
   const [nationality, setNationality] = useState('AU');
-  const [feed, setFeed] = useState('vivatravelholdingscug');
   const [filterStars, setFilterStars] = useState([]);
   const [filterMealType, setFilterMealType] = useState('');
   const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -299,9 +297,17 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
   const [selectedHotel,          setSelectedHotel]          = useState(null);
   const [selectedRoom,           setSelectedRoom]           = useState(null);
 
-  // Guest
-  const [guestFirst,      setGuestFirst]      = useState('');
-  const [guestLast,       setGuestLast]       = useState('');
+  // Guest — pre-populate from travellerName prop
+  const [guestFirst,      setGuestFirst]      = useState(() => {
+    if (!travellerName) return '';
+    const parts = travellerName.trim().split(' ');
+    return parts[0] || '';
+  });
+  const [guestLast,       setGuestLast]       = useState(() => {
+    if (!travellerName) return '';
+    const parts = travellerName.trim().split(' ');
+    return parts.slice(1).join(' ') || '';
+  });
   const [guestEmail,      setGuestEmail]      = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
 
@@ -698,17 +704,6 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             </select>
           </div>
 
-          {/* Feed — STX only */}
-          {isSTX && (
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Rate Feed</label>
-              <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                value={feed} onChange={e => setFeed(e.target.value)}>
-                {NUITEE_FEEDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-            </div>
-          )}
-
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -872,27 +867,27 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
         )}
 
         {filteredHotels.map(hotel => {
-          const detail   = hotelDetailsMap[hotel.id];
-          const images   = detail?.images || [];
-          // eslint-disable-next-line no-unused-vars
-          const facilities = detail?.facilities || detail?.facilityIds || [];
+          const detail     = hotelDetailsMap[hotel.id];
+          const hotelImgs  = detail?.hotelImages || [];
+          const mainPhoto  = hotel.main_photo || hotel.thumbnail || (hotelImgs.length ? (hotelImgs[0].urlHd || hotelImgs[0].url) : '');
           const ratingMeta = getRatingMeta(hotel.guestScore || hotel.reviewScore);
-          const stars    = Math.round(hotel.starRating || hotel.stars || 0);
-          const address  = [hotel.address?.addressLine1, hotel.address?.city].filter(Boolean).join(', ');
+          const stars      = Math.round(hotel.starRating || hotel.stars || 0);
+          const address    = [hotel.address?.addressLine1, hotel.address?.city].filter(Boolean).join(', ');
+          const hotelFacilities = detail?.hotel_facilities || detail?.facilities || [];
 
           return (
             <div key={hotel.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="flex flex-col md:flex-row">
                 {/* Image */}
                 <div className="md:w-56 w-full h-40 md:h-auto bg-slate-100 flex-shrink-0 relative overflow-hidden cursor-pointer"
-                  onClick={() => { if (images.length) { setLightboxPhotos(images); setLightboxIndex(0); } }}>
-                  {images.length > 0
-                    ? <img src={images[0]?.url} alt={hotel.name} className="w-full h-full object-cover" />
+                  onClick={() => { if (hotelImgs.length) { setLightboxPhotos(hotelImgs); setLightboxIndex(0); } }}>
+                  {mainPhoto
+                    ? <img src={mainPhoto} alt={hotel.name} className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
                     : <div className="w-full h-full flex items-center justify-center"><Hotel size={32} className="text-slate-300" /></div>
                   }
-                  {images.length > 1 && (
+                  {hotelImgs.length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
-                      +{images.length - 1} photos
+                      +{hotelImgs.length - 1} photos
                     </div>
                   )}
                 </div>
@@ -913,11 +908,14 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                     )}
                   </div>
 
-                  {/* Facility icons */}
-                  {detail && (
+                  {/* Facility icons — match against hotel_facilities name strings */}
+                  {hotelFacilities.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {FACILITY_ICON_MAP.filter(({ match }) =>
-                        (detail.facilities || []).some(f => match.some(rx => rx.test(typeof f === 'string' ? f : (f?.name || ''))))
+                        hotelFacilities.some(f => {
+                          const name = typeof f === 'string' ? f : (f?.name || f?.facilityName || '');
+                          return match.some(rx => rx.test(name));
+                        })
                       ).slice(0, 5).map(({ Icon, label }) => (
                         <span key={label} className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded px-1.5 py-0.5">
                           <Icon size={10} />{label}
@@ -961,12 +959,16 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
   const renderHotelDetail = () => {
     const hotel  = selectedHotelForDetail;
     if (!hotel) return null;
-    const detail = hotelDetailsMap[hotel.id];
-    const images = detail?.images || [];
-    const rateData = ratesMap[hotel.id];
-    const allRates = rateData ? pickBestRates(rateData, currency) : [];
+    const detail    = hotelDetailsMap[hotel.id];
+    const hotelImgs = detail?.hotelImages || [];
+    const roomsData = detail?.rooms || [];     // rooms[].id, .roomName, .description, .photos[]
+    const rateData  = ratesMap[hotel.id];
+    const allRates  = rateData ? pickBestRates(rateData, currency) : [];
     const displayRates = allRates.filter(r => isSelfManaged ? true : r.paymentType !== 'PROPERTY_PAY');
     const stars = Math.round(hotel.starRating || hotel.stars || 0);
+
+    // Helper: get room content for a rate via mappedRoomId
+    const getRoomContent = (rate) => roomsData.find(r => r.id === rate.mappedRoomId) || null;
 
     return (
       <div className="flex-1 overflow-y-auto">
@@ -975,35 +977,60 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             <ArrowLeft size={14} /> Back to results
           </button>
 
-          {/* Gallery */}
-          {images.length > 0 && (
-            <div className="relative rounded-xl overflow-hidden bg-slate-100 h-56">
-              <img src={images[galleryIndex]?.url} alt={hotel.name} className="w-full h-full object-cover cursor-pointer"
-                onClick={() => { setLightboxPhotos(images); setLightboxIndex(galleryIndex); }} />
-              {images.length > 1 && (
+          {/* Gallery — use hotelImages[] with urlHd preference */}
+          {hotelImgs.length > 0 && (
+            <div className="relative rounded-xl overflow-hidden bg-slate-100 h-64">
+              <img
+                src={hotelImgs[galleryIndex]?.urlHd || hotelImgs[galleryIndex]?.url}
+                alt={hotel.name}
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => { setLightboxPhotos(hotelImgs); setLightboxIndex(galleryIndex); }}
+                onError={e => { e.target.style.display = 'none'; }}
+              />
+              {hotelImgs.length > 1 && (
                 <>
-                  <button onClick={() => setGalleryIndex(i => (i - 1 + images.length) % images.length)}
+                  <button onClick={() => setGalleryIndex(i => (i - 1 + hotelImgs.length) % hotelImgs.length)}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70">
                     <ChevronLeft size={16} />
                   </button>
-                  <button onClick={() => setGalleryIndex(i => (i + 1) % images.length)}
+                  <button onClick={() => setGalleryIndex(i => (i + 1) % hotelImgs.length)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70">
                     <ChevronRight size={16} />
                   </button>
                   <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
-                    {galleryIndex + 1} / {images.length}
+                    {galleryIndex + 1} / {hotelImgs.length}
                   </div>
                 </>
               )}
             </div>
           )}
 
-          {/* Hotel header */}
+          {/* Thumbnail strip */}
+          {hotelImgs.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {hotelImgs.slice(0, 10).map((img, i) => (
+                <button key={i} type="button" onClick={() => setGalleryIndex(i)}
+                  className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === galleryIndex ? 'border-teal-500' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+                  <img src={img.url || img.urlHd} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Hotel header + description */}
           <div>
             <h2 className="text-xl font-bold text-slate-900">{hotel.name}</h2>
             {stars > 0 && <p className="text-amber-400 mt-0.5">{'★'.repeat(stars)}</p>}
             {hotel.address?.city && <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><MapPin size={12} />{hotel.address.city}</p>}
-            {detail?.description && <p className="text-sm text-slate-600 mt-3 leading-relaxed">{detail.description}</p>}
+            {detail?.hotelDescription && (
+              <p className="text-sm text-slate-600 mt-3 leading-relaxed">{detail.hotelDescription}</p>
+            )}
+            {detail?.hotelImportantInformation && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                <p className="text-[10px] font-bold text-amber-700 uppercase mb-1">Good to know</p>
+                <p className="text-xs text-amber-800 leading-relaxed">{detail.hotelImportantInformation}</p>
+              </div>
+            )}
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
@@ -1014,41 +1041,72 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             {displayRates.length === 0 && (
               <p className="text-slate-400 text-sm">No rooms match your search criteria.</p>
             )}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {displayRates.map(rate => {
-                const displayPrice = applyMarkup(rate.price, markupPercent);
+                const displayPrice  = applyMarkup(rate.price, markupPercent);
                 const isPropertyPay = rate.paymentType === 'PROPERTY_PAY';
+                const roomContent   = getRoomContent(rate);
+                const roomPhotos    = roomContent?.photos || [];
+                const roomPhoto     = roomPhotos.find(p => p.mainPhoto) || roomPhotos[0];
+
                 return (
-                  <div key={rate.key} className="border border-slate-200 rounded-lg p-4 hover:border-teal-400 transition-colors">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-slate-800 text-sm">{rate.roomName}</h4>
-                        <div className="flex flex-wrap gap-2 mt-1.5">
-                          <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{rate.boardName}</span>
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${rate.isRefundable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                            {rate.isRefundable ? '✓ Refundable' : '✕ Non-refundable'}
-                          </span>
-                          {isPropertyPay && (
-                            <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded">🏨 Pay at hotel</span>
-                          )}
-                        </div>
-                        {rate.amenities?.length > 0 && (
-                          <p className="text-[11px] text-slate-400 mt-1.5">
-                            {(rate.amenities || []).slice(0, 4).map(a => typeof a === 'string' ? a : (a?.name || '')).filter(Boolean).join(' · ')}
-                          </p>
+                  <div key={rate.key} className="border border-slate-200 rounded-xl overflow-hidden hover:border-teal-400 transition-colors">
+                    {/* Room photo (if available via room mapping) */}
+                    {roomPhoto && (
+                      <div className="h-36 bg-slate-100 overflow-hidden cursor-pointer"
+                        onClick={() => { if (roomPhotos.length) { setLightboxPhotos(roomPhotos); setLightboxIndex(0); } }}>
+                        <img
+                          src={roomPhoto.hd_url || roomPhoto.url || roomPhoto.failoverPhoto}
+                          alt={rate.roomName}
+                          className="w-full h-full object-cover"
+                          onError={e => { e.target.style.display='none'; }}
+                        />
+                        {roomPhotos.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
+                            +{roomPhotos.length - 1} photos
+                          </div>
                         )}
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xl font-bold text-slate-900">{currency} {displayPrice.toFixed(2)}</p>
-                        <p className="text-[10px] text-slate-400">total stay · {totalNights} night{totalNights !== 1 ? 's' : ''}</p>
-                        {isSTX && markupPercent > 0 && (
-                          <p className="text-[10px] text-amber-600">net {currency} {rate.price.toFixed(2)}</p>
-                        )}
-                        <button
-                          onClick={() => { setSelectedHotel({ ...hotel, address: hotel.address }); setSelectedRoom(rate); setError(''); setStep('guest'); }}
-                          className="mt-2 px-4 py-2 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors">
-                          Select Room
-                        </button>
+                    )}
+
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-slate-800 text-sm">{rate.roomName}</h4>
+                          {/* Room description from hotel content */}
+                          {roomContent?.description && (
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{roomContent.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{rate.boardName}</span>
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${rate.isRefundable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                              {rate.isRefundable ? '✓ Refundable' : '✕ Non-refundable'}
+                            </span>
+                            {isPropertyPay && (
+                              <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded">🏨 Pay at hotel</span>
+                            )}
+                          </div>
+                          {rate.amenities?.length > 0 && (
+                            <p className="text-[11px] text-slate-400 mt-1.5">
+                              {(rate.amenities || []).slice(0, 4).map(a => typeof a === 'string' ? a : (a?.name || '')).filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-bold text-slate-900">{currency} {displayPrice.toFixed(2)}</p>
+                          <p className="text-[10px] text-slate-400">total stay · {totalNights} night{totalNights !== 1 ? 's' : ''}</p>
+                          {totalNights > 0 && (
+                            <p className="text-[10px] text-slate-400">≈ {currency} {(displayPrice / totalNights).toFixed(2)}/night</p>
+                          )}
+                          {isSTX && markupPercent > 0 && (
+                            <p className="text-[10px] text-amber-600">net {currency} {rate.price.toFixed(2)}</p>
+                          )}
+                          <button
+                            onClick={() => { setSelectedHotel({ ...hotel, address: hotel.address }); setSelectedRoom(rate); setError(''); setStep('guest'); }}
+                            className="mt-2 px-4 py-2 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors">
+                            Select Room
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1278,7 +1336,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           {lightboxIndex + 1} / {lightboxPhotos.length}
         </div>
         <img
-          src={lightboxPhotos[lightboxIndex]?.hd_url || lightboxPhotos[lightboxIndex]?.url}
+          src={lightboxPhotos[lightboxIndex]?.hd_url || lightboxPhotos[lightboxIndex]?.urlHd || lightboxPhotos[lightboxIndex]?.url}
           alt=""
           className="max-w-[90vw] max-h-[75vh] object-contain rounded-lg shadow-2xl"
           onClick={e => e.stopPropagation()}
