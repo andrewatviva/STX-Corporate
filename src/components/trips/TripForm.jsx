@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle,
-  Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
+  Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal, ExternalLink,
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -83,7 +83,7 @@ function FlightFields({ s, upd }) {
   );
 }
 
-function AccommodationFields({ s, upd, tripDestinationCity }) {
+function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking }) {
   const nights = s.checkIn && s.checkOut
     ? Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000))
     : null;
@@ -114,6 +114,22 @@ function AccommodationFields({ s, upd, tripDestinationCity }) {
       <F label="Notes / special requirements" span2>
         <textarea className={inp} rows={2} value={s.notes || ''} onChange={e => upd('notes', e.target.value)} placeholder="e.g. roll-in shower, ground floor, carer room required" />
       </F>
+
+      {/* Nuitee hotel booking launcher */}
+      {onOpenHotelBooking && (
+        <div className="col-span-2">
+          <button
+            type="button"
+            onClick={onOpenHotelBooking}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            <Hotel size={13} />
+            Search &amp; Book via Nuitee
+            <ExternalLink size={11} className="opacity-70" />
+          </button>
+          <p className="text-[10px] text-gray-400 mt-1">Opens hotel search in a new tab — booking details will auto-fill here.</p>
+        </div>
+      )}
 
       {/* Reporting city — defaults to trip destination, override per-sector for multi-city trips */}
       <div className="col-span-2">
@@ -318,7 +334,7 @@ function sectorSummary(s) {
 
 // ── Sector card ───────────────────────────────────────────────────────────────
 
-function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity }) {
+function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, onOpenHotelBooking }) {
   const [expanded, setExpanded] = useState(!sector.type);
   const cfg = SECTOR_TYPES[sector.type];
   const Icon = cfg?.Icon;
@@ -327,7 +343,7 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity }) 
 
   const fields = {
     flight:        <FlightFields s={sector} upd={upd} />,
-    accommodation: <AccommodationFields s={sector} upd={upd} tripDestinationCity={tripDestinationCity} />,
+    accommodation: <AccommodationFields s={sector} upd={upd} tripDestinationCity={tripDestinationCity} onOpenHotelBooking={onOpenHotelBooking} />,
     'car-hire':    <CarHireFields s={sector} upd={upd} />,
     parking:       <ParkingFields s={sector} upd={upd} />,
     transfers:     <TransfersFields s={sector} upd={upd} />,
@@ -652,6 +668,57 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
   const addSector = () =>
     setForm(p => ({ ...p, sectors: [...p.sectors, { _key: Math.random().toString(36).slice(2), type: '' }] }));
+
+  // ── Hotel booking via Nuitee (new tab + postMessage) ──────────────────────
+  const hotelWindowRef = useRef(null);
+
+  useEffect(() => {
+    const handleMessage = (e) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type !== 'HOTEL_BOOKED') return;
+      const { sectorIndex, bookingData } = e.data;
+      if (typeof sectorIndex !== 'number' || !bookingData) return;
+      setForm(prev => {
+        const sectors = [...prev.sectors];
+        const sector = sectors[sectorIndex];
+        if (!sector) return prev;
+        sectors[sectorIndex] = {
+          ...sector,
+          propertyName: bookingData.propertyName || sector.propertyName || '',
+          bookingRef:   bookingData.bookingRef   || sector.bookingRef   || '',
+          checkIn:      bookingData.checkIn      || sector.checkIn      || '',
+          checkOut:     bookingData.checkOut     || sector.checkOut     || '',
+          cost:         bookingData.cost         || sector.cost         || '',
+          roomType:     bookingData.roomType     || sector.roomType     || '',
+          inclusions:   bookingData.inclusions   || sector.inclusions   || '',
+          notes:        bookingData.notes        || sector.notes        || '',
+          international: bookingData.international ?? sector.international ?? false,
+          reportingCity: bookingData.hotelCity   || sector.reportingCity || '',
+        };
+        return { ...prev, sectors };
+      });
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const openHotelBooking = (sectorIndex) => {
+    const cid = form.clientId || clientIdProp || '';
+    const params = new URLSearchParams({
+      tripId:      trip?.id || '',
+      sectorIndex: String(sectorIndex),
+      tripType:    form.tripType || '',
+      clientId:    cid,
+      checkin:     form.sectors[sectorIndex]?.checkIn  || form.startDate || '',
+      checkout:    form.sectors[sectorIndex]?.checkOut || form.endDate   || '',
+    });
+    const url = `/hotel-booking?${params.toString()}`;
+    if (hotelWindowRef.current && !hotelWindowRef.current.closed) {
+      hotelWindowRef.current.focus();
+    } else {
+      hotelWindowRef.current = window.open(url, '_blank', 'width=1200,height=800');
+    }
+  };
 
   const totalCost = form.sectors.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
 
@@ -982,6 +1049,11 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               onChange={updated => updateSector(i, updated)}
               onRemove={() => removeSector(i)}
               tripDestinationCity={form.destinationCity}
+              onOpenHotelBooking={
+                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false
+                  ? () => openHotelBooking(i)
+                  : undefined
+              }
             />
           ))}
         </div>

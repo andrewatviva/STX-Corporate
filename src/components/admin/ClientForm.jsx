@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
   fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false },
-  hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false },
+  hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0 },
   contact: { email: '' },
 };
 
@@ -448,6 +448,19 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           </select>
         </Field>
         <Toggle checked={cfg.hotelBooking.bookingPasswordEnabled} onChange={v => set('hotelBooking','bookingPasswordEnabled',v)} label="Require booking password" description="Adds an extra confirmation password before completing a hotel booking" />
+        <Field label="Markup % (STX staff only — applied to all displayed hotel rates)">
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            className={inp}
+            value={cfg.hotelBooking.markupPercent ?? 0}
+            onChange={e => set('hotelBooking', 'markupPercent', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+          />
+        </Field>
+        <p className="text-xs text-gray-400">Markup is only visible to STX staff when searching hotels. Clients see the final marked-up price.</p>
       </Section>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}

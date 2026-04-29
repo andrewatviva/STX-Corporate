@@ -16,6 +16,7 @@ import Reports          from './pages/Reports';
 import Team             from './pages/Team';
 import AdminPanel       from './pages/AdminPanel';
 import Contact          from './pages/Contact';
+import HotelBookingPage from './pages/HotelBookingPage';
 
 function AuthGate({ children }) {
   const { currentUser, authLoading } = useAuth();
@@ -49,6 +50,14 @@ export default function App() {
                 <Route path="/admin"     element={<AdminPanel />} />
                 <Route path="/contact"   element={<Contact />} />
               </Route>
+              <Route
+                path="/hotel-booking"
+                element={
+                  <AuthGate>
+                    <HotelBookingPage />
+                  </AuthGate>
+                }
+              />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </BrowserRouter>

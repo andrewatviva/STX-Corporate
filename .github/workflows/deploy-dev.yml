@@ -29,6 +29,8 @@ jobs:
           REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.DEV_FIREBASE_MESSAGING_SENDER_ID }}
           REACT_APP_FIREBASE_APP_ID:             ${{ secrets.DEV_FIREBASE_APP_ID }}
           REACT_APP_FIREBASE_MEASUREMENT_ID:     ${{ secrets.DEV_FIREBASE_MEASUREMENT_ID }}
+          REACT_APP_NUITEE_API_KEY_SANDBOX:      ${{ secrets.NUITEE_API_DEV }}
+          REACT_APP_NUITEE_API_KEY_PROD:         ${{ secrets.NUITEE_API_PROD }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
