@@ -96,6 +96,13 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.ratedBy == request.auth.uid;
     }
 
+    // Portal feedback / fault reports — any authenticated user can submit; only STX can read
+    match /portalFeedback/{docId} {
+      allow create: if isAuthenticated();
+      allow read:   if isSTX();
+      allow update: if isSTXAdmin();
+    }
+
     // Email queue — authenticated users can enqueue; only STX can read/delete
     match /emailQueue/{docId} {
       allow create: if isAuthenticated();

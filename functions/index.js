@@ -282,6 +282,29 @@ function buildEmailMessage(type, data, recipientEmails, trip) {
       ctaUrl:  travelUrl,
     },
 
+    portal_feedback: {
+      subject:   `[${data.feedbackType === 'fault' ? 'Fault report' : 'Feedback'}] ${data.subject}`,
+      preheader: `Portal ${data.feedbackType === 'fault' ? 'fault report' : 'feedback'} from ${data.userName || data.userEmail || 'a user'}.`,
+      heading:   data.feedbackType === 'fault' ? '🔧 Fault report submitted' : '💬 Portal feedback received',
+      body: `
+        <p style="font-size:14px;color:#374151;margin:0 0 4px;line-height:1.6;">
+          ${data.feedbackType === 'fault' ? 'A user has reported a fault with the portal.' : 'A user has submitted feedback about the portal.'}
+        </p>
+        <table cellpadding="0" cellspacing="0"
+          style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;width:100%;margin:16px 0;">
+          ${infoRow('From', [data.userName, data.userEmail].filter(Boolean).join(' — '))}
+          ${data.clientId ? infoRow('Client', data.clientId) : ''}
+          ${infoRow('Type', data.feedbackType === 'fault' ? 'Fault report' : 'Feedback')}
+          ${infoRow('Subject', data.subject)}
+        </table>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin:8px 0;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Details</p>
+          <p style="margin:0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.6;">${data.description}</p>
+        </div>`,
+      ctaText: 'View in Admin Panel →',
+      ctaUrl:  `${portalUrl()}/admin`,
+    },
+
     trip_rating_request: {
       subject:   `How was your trip? — ${data.tripTitle}`,
       preheader: 'Take a minute to rate the providers from your recent trip.',
@@ -328,7 +351,17 @@ async function dispatchQueuedEmail(docRef, data) {
   // Mandatory types always send regardless of preferences
   const mandatory = new Set(['trip_approved', 'trip_declined']);
 
-  if (data.type === 'trip_submitted') {
+  if (data.type === 'portal_feedback') {
+    // Send to all active STX admins
+    const snap = await db.collection('users')
+      .where('role', 'in', ['stx_admin', 'stx_ops'])
+      .get();
+    for (const d of snap.docs) {
+      const u = d.data();
+      if (u.active === false || !u.email) continue;
+      recipientEmails.push(u.email);
+    }
+  } else if (data.type === 'trip_submitted') {
     // Find all active client_approver users who cover this traveller
     const snap = await db.collection('users')
       .where('clientId', '==', data.clientId)
