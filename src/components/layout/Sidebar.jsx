@@ -20,11 +20,14 @@ const NAV = [
   { to: '/contact',    label: 'Contact',            icon: Phone,           permission: null },
 ];
 
-function Badge({ count }) {
+function Badge({ count, tooltip }) {
   if (!count) return null;
   return (
-    <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white
-                     text-[10px] font-bold flex items-center justify-center leading-none">
+    <span
+      className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white
+                 text-[10px] font-bold flex items-center justify-center leading-none cursor-default"
+      title={tooltip || undefined}
+    >
       {count > 99 ? '99+' : count}
     </span>
   );
@@ -33,7 +36,7 @@ function Badge({ count }) {
 export default function Sidebar() {
   const { hasPermission } = usePermissions();
   const { clientConfig, isSTX } = useTenant();
-  const attentionCount = useAttentionCount();
+  const { count: attentionCount, tooltip: attentionTooltip } = useAttentionCount();
 
   const visibleNav = NAV.filter(item => {
     if (item.permission && !hasPermission(item.permission)) return false;
@@ -58,7 +61,7 @@ export default function Sidebar() {
           >
             <Icon size={16} />
             {label}
-            {badge && <Badge count={attentionCount} />}
+            {badge && <Badge count={attentionCount} tooltip={attentionTooltip} />}
           </NavLink>
         ))}
       </div>

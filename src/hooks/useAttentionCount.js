@@ -51,23 +51,32 @@ export function useAttentionCount() {
   }, [role, uid, isSTX, clientId, activeClientId]);
 
   return useMemo(() => {
-    if (!role || !uid) return 0;
+    if (!role || !uid) return { count: 0, tooltip: null };
 
     if (role === 'client_approver') {
       const approveFor = userProfile?.approveFor || [];
-      return trips.filter(t => {
+      const count = trips.filter(t => {
         if (t.status !== 'pending_approval') return false;
         if (approveFor.length === 0) return true;
         return t.travellerId && approveFor.includes(t.travellerId);
       }).length;
+      return { count, tooltip: count > 0 ? `${count} pending your approval` : null };
     }
 
     if (role === 'client_traveller') {
-      return trips.filter(t =>
+      const count = trips.filter(t =>
         t.travellerId === uid || t.createdBy === uid
       ).length;
+      return { count, tooltip: count > 0 ? `${count} trip${count !== 1 ? 's' : ''} declined` : null };
     }
 
-    return trips.length;
+    // stx_admin, stx_ops, client_ops — trips include pending_approval + approved
+    const pendingCount  = trips.filter(t => t.status === 'pending_approval').length;
+    const approvedCount = trips.filter(t => t.status === 'approved').length;
+    const count = pendingCount + approvedCount;
+    const parts = [];
+    if (pendingCount  > 0) parts.push(`${pendingCount} pending approval`);
+    if (approvedCount > 0) parts.push(`${approvedCount} to book`);
+    return { count, tooltip: parts.length > 0 ? parts.join(' · ') : null };
   }, [trips, role, uid, userProfile]);
 }
