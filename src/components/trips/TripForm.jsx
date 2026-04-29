@@ -3,7 +3,7 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal, ExternalLink,
 } from 'lucide-react';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, getDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -571,7 +571,11 @@ const MANAGER_ROLES = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver'];
 
 export default function TripForm({ trip, clientId: clientIdProp, onSave, onCancel }) {
   const { userProfile } = useAuth();
-  const { clientConfig, isSTX } = useTenant();
+  const { clientConfig: tenantClientConfig, isSTX } = useTenant();
+
+  // STX users have no own tenant config — load whichever client is selected in the form
+  const [stxClientConfig, setStxClientConfig] = useState(null);
+  const clientConfig = isSTX ? stxClientConfig : tenantClientConfig;
   const originalCostCentre = trip?.costCentre || '';
   const [clients, setClients]         = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -585,6 +589,14 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     });
     return unsub;
   }, [isSTX]);
+
+  // Load selected client's config for STX users (clientConfig from useTenant is always null for STX)
+  useEffect(() => {
+    if (!isSTX || !form.clientId) { setStxClientConfig(null); return; }
+    getDoc(doc(db, 'clients', form.clientId, 'config', 'settings')).then(snap => {
+      setStxClientConfig(snap.exists() ? snap.data() : {});
+    }).catch(() => setStxClientConfig({}));
+  }, [isSTX, form.clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [form, setForm] = useState(() => {
     // Auto-fill travellerName + travellerId + costCentre for non-manager users creating their own trip
