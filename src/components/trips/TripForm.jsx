@@ -590,14 +590,6 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     return unsub;
   }, [isSTX]);
 
-  // Load selected client's config for STX users (clientConfig from useTenant is always null for STX)
-  useEffect(() => {
-    if (!isSTX || !form.clientId) { setStxClientConfig(null); return; }
-    getDoc(doc(db, 'clients', form.clientId, 'config', 'settings')).then(snap => {
-      setStxClientConfig(snap.exists() ? snap.data() : {});
-    }).catch(() => setStxClientConfig({}));
-  }, [isSTX, form.clientId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const [form, setForm] = useState(() => {
     // Auto-fill travellerName + travellerId + costCentre for non-manager users creating their own trip
     let autoName = '';
@@ -635,6 +627,14 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       primaryAllocatedCostOverride: trip.primaryAllocatedCost != null,
     };
   });
+
+  // Load selected client's config for STX users (clientConfig from useTenant is always null for STX)
+  useEffect(() => {
+    if (!isSTX || !form.clientId) { setStxClientConfig(null); return; }
+    getDoc(doc(db, 'clients', form.clientId, 'config', 'settings')).then(snap => {
+      setStxClientConfig(snap.exists() ? snap.data() : {});
+    }).catch(() => setStxClientConfig({}));
+  }, [isSTX, form.clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load team members and passenger profiles for traveller autocomplete
   useEffect(() => {
