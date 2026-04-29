@@ -9,9 +9,11 @@ const sgMail                                    = require('@sendgrid/mail');
 
 initializeApp();
 
-const SENDGRID_KEY = defineSecret('SENDGRID_API_KEY');
-const FROM_EMAIL   = 'notifications@supportedtravelx.com.au';
-const FROM_NAME    = 'STX Corporate';
+const SENDGRID_KEY    = defineSecret('SENDGRID_API_KEY');
+const FROM_EMAIL      = 'notifications@supportedtravelx.com.au';
+const FROM_NAME       = 'STX Corporate';
+// Always receives portal_feedback and trip_cancelled_by_client regardless of registered users
+const STX_ADMIN_EMAIL = 'bookings@supportedtravelx.com.au';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -378,14 +380,16 @@ async function dispatchQueuedEmail(docRef, data) {
   const mandatory = new Set(['trip_approved', 'trip_declined']);
 
   if (data.type === 'portal_feedback' || data.type === 'trip_cancelled_by_client') {
-    // Send to all active STX staff
+    // Always notify the STX admin inbox
+    recipientEmails.push(STX_ADMIN_EMAIL);
+    // Also notify any registered STX staff users
     const snap = await db.collection('users')
       .where('role', 'in', ['stx_admin', 'stx_ops', 'stx'])
       .get();
     for (const d of snap.docs) {
       const u = d.data();
       if (u.active === false || !u.email) continue;
-      recipientEmails.push(u.email);
+      if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email);
     }
   } else if (data.type === 'trip_submitted') {
     // Find all active client_approver users who cover this traveller
