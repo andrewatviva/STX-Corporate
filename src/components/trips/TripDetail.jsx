@@ -8,7 +8,7 @@ import { doc, getDoc, arrayRemove, arrayUnion, collection, addDoc } from 'fireba
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { StatusBadge, getDisplayStatus } from './TripList';
+import { StatusBadge, getDisplayStatus, leadTimeDays, LeadTimeBadge } from './TripList';
 import Attachments from './Attachments';
 import TripRatingModal from './TripRatingModal';
 
@@ -649,6 +649,17 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               </p>
             </div>
           )}
+          {(() => {
+            const days = leadTimeDays(trip);
+            if (days === null) return null;
+            return (
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Lead time</p>
+                <LeadTimeBadge days={days} />
+                <p className="text-xs text-gray-400 mt-1">{days} day{days !== 1 ? 's' : ''} before travel</p>
+              </div>
+            );
+          })()}
           {totalCost > 0 && (
             <div>
               <p className="text-xs text-gray-400 mb-0.5">Estimated total (incl. GST)</p>

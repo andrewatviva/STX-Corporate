@@ -48,6 +48,31 @@ export function StatusBadge({ status }) {
   );
 }
 
+export function leadTimeDays(trip) {
+  if (!trip.startDate || !trip.createdAt) return null;
+  const created = trip.createdAt?.toDate ? trip.createdAt.toDate() : new Date(trip.createdAt);
+  const start = new Date(trip.startDate + 'T00:00:00');
+  const days = Math.round((start - created) / 86400000);
+  return days < 0 ? 0 : days;
+}
+
+export function LeadTimeBadge({ days, showDays = false }) {
+  if (days === null || days === undefined) return <span className="text-gray-300">—</span>;
+  let label, cls;
+  if (days <= 3)       { label = '0–3 days';   cls = 'bg-red-100 text-red-700'; }
+  else if (days <= 10) { label = '4–10 days';  cls = 'bg-amber-100 text-amber-700'; }
+  else if (days <= 20) { label = '11–20 days'; cls = 'bg-yellow-100 text-yellow-700'; }
+  else                 { label = '21+ days';   cls = 'bg-green-100 text-green-700'; }
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}
+      title={`${days} day${days !== 1 ? 's' : ''} between booking and travel`}
+    >
+      {showDays ? `${days}d` : label}
+    </span>
+  );
+}
+
 // ── Passengers cell ───────────────────────────────────────────────────────────
 
 function PassengersCell({ trip }) {
@@ -324,6 +349,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Destination</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Dates</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell" title="Days between booking and travel date">Lead Time</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Ex-GST</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3" />
@@ -363,6 +389,9 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                     {trip.startDate
                       ? `${fmtDate(trip.startDate)}${trip.endDate && trip.endDate !== trip.startDate ? ` → ${fmtDate(trip.endDate)}` : ''}`
                       : '—'}
+                  </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    <LeadTimeBadge days={leadTimeDays(trip)} />
                   </td>
                   <td className="px-4 py-3 text-right text-gray-600 text-xs tabular-nums whitespace-nowrap">
                     {(() => { const v = calcTripExGST(trip); return v > 0 ? `A$${v.toFixed(2)}` : '—'; })()}
