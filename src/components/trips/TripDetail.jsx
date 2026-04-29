@@ -275,26 +275,24 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       }
 
       if (newStatus === 'approved') {
-        // Notify whoever submitted the trip
-        if (trip.createdBy) {
-          await queue({
-            type:        'trip_approved',
-            recipientId: trip.createdBy,
-            scheduledFor: now,
-          });
-        }
+        // Notify creator (if not STX) + traveller
+        await queue({
+          type:          'trip_approved',
+          recipientId:   trip.createdBy   || '',
+          travellerId:   trip.travellerId || '',
+          scheduledFor:  now,
+        });
       }
 
       if (newStatus === 'declined') {
-        // Notify the trip creator with the reason
-        if (trip.createdBy) {
-          await queue({
-            type:          'trip_declined',
-            recipientId:   trip.createdBy,
-            declineReason: extra.declineReason || '',
-            scheduledFor:  now,
-          });
-        }
+        // Notify creator (if not STX) + traveller, with decline reason
+        await queue({
+          type:          'trip_declined',
+          recipientId:   trip.createdBy   || '',
+          travellerId:   trip.travellerId || '',
+          declineReason: extra.declineReason || '',
+          scheduledFor:  now,
+        });
       }
 
       if (newStatus === 'cancelled' && !isSTX) {
@@ -319,6 +317,18 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           travellerName: t.name,
           scheduledFor:  now,
         })));
+
+        // Also notify the trip creator if they're not one of the travellers
+        // (Cloud Function skips STX staff automatically)
+        const travellerUids = new Set(travellers.map(t => t.uid));
+        if (trip.createdBy && !travellerUids.has(trip.createdBy)) {
+          await queue({
+            type:          'trip_booked',
+            recipientId:   trip.createdBy,
+            travellerName: trip.travellerName || '',
+            scheduledFor:  now,
+          });
+        }
 
         // Pre-departure reminder 3 days before start date
         if (trip.startDate) {

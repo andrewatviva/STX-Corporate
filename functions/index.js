@@ -69,7 +69,8 @@ function emailHtml({ preheader = '', heading, body, ctaText, ctaUrl }) {
           <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.5;">
               This message was sent by STX Corporate on behalf of your organisation.
-              Please do not reply to this email — log in to the portal to respond.
+              Please do not reply to this email — log in to the portal to respond.<br>
+              To manage your email notification preferences, visit <strong style="color:#9ca3af;">Settings</strong> in the portal.
             </p>
           </td>
         </tr>
@@ -404,18 +405,20 @@ async function dispatchQueuedEmail(docRef, data) {
       recipientEmails.push(u.email);
     }
   } else {
-    const uid = data.recipientId || data.travellerId;
-    if (uid) {
+    // Resolve creator + traveller; skip STX staff; de-duplicate
+    const STX_ROLES = new Set(['stx_admin', 'stx_ops']);
+    const uids = [...new Set([data.recipientId, data.travellerId].filter(Boolean))];
+    for (const uid of uids) {
       const snap = await db.collection('users').doc(uid).get();
       const u = snap.data();
-      if (u?.email) {
-        // Check preference unless mandatory
-        const prefs = u.emailPreferences || {};
-        if (mandatory.has(data.type) || prefs[data.type] !== false) {
-          recipientEmails.push(u.email);
-        }
+      if (!u?.email || u.active === false) continue;
+      if (STX_ROLES.has(u.role)) continue;
+      const prefs = u.emailPreferences || {};
+      if (mandatory.has(data.type) || prefs[data.type] !== false) {
+        recipientEmails.push(u.email);
       }
     }
+    recipientEmails = [...new Set(recipientEmails)];
   }
 
   if (recipientEmails.length === 0) {
