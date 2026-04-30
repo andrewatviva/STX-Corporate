@@ -576,7 +576,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   // STX users have no own tenant config — load whichever client is selected in the form
   const [stxClientConfig, setStxClientConfig] = useState(null);
   const clientConfig = isSTX ? stxClientConfig : tenantClientConfig;
-  const originalCostCentre = trip?.costCentre || '';
+  // Baseline cost centre — saved value for existing trips, updated from traveller auto-fill for new trips
+  const [originalCostCentre, setOriginalCostCentre] = useState(trip?.costCentre || '');
   const [clients, setClients]         = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [passengers, setPassengers]   = useState([]);
@@ -791,7 +792,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
     if (isSTX && !form.clientId) return setError('Please select a client for this trip.');
     if (!form.title.trim())         return setError('Trip title is required.');
     if (!form.travellerName.trim()) return setError('Traveller name is required.');
-    if (trip && form.costCentre !== originalCostCentre && !form.costCentreChangeReason.trim()) {
+    if (canEditCostCentre && originalCostCentre !== '' && form.costCentre !== originalCostCentre && !form.costCentreChangeReason.trim()) {
       return setError('Please provide a reason for changing the cost centre.');
     }
 
@@ -857,8 +858,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   // Hotel booking unlocked when: already approved/booked, OR no approval required (even before first save)
   const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval;
 
-  // Cost centre editable by STX or client approvers/ops only on existing trips
-  const canEditCostCentre = !trip || isSTX || ['client_approver', 'client_ops'].includes(userProfile?.role);
+  // Cost centre editable by STX or client approvers/ops only — never by regular travellers
+  const canEditCostCentre = isSTX || ['client_approver', 'client_ops'].includes(userProfile?.role);
 
   // Hotel booking feature gate — respects per-trip-type self-managed override
   const selfManagedHotelEnabled = clientConfig?.hotelBooking?.selfManagedHotelBooking !== false;
@@ -920,21 +921,25 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               );
               if (paxMatch) {
                 const linkedUser = paxMatch.userId ? teamMembers.find(m => m.id === paxMatch.userId) : null;
+                const autoCC = linkedUser?.costCentre || '';
+                if (autoCC) setOriginalCostCentre(autoCC);
                 setForm(p => ({
                   ...p,
                   travellerName: name,
                   travellerId:   paxMatch.userId || '',
-                  ...(linkedUser?.costCentre ? { costCentre: linkedUser.costCentre } : {}),
+                  ...(autoCC ? { costCentre: autoCC } : {}),
                 }));
               } else {
                 const memberMatch = teamMembers.find(m =>
                   [m.firstName, m.lastName].filter(Boolean).join(' ').toLowerCase() === lower
                 );
+                const autoCC = memberMatch?.costCentre || '';
+                if (autoCC) setOriginalCostCentre(autoCC);
                 setForm(p => ({
                   ...p,
                   travellerName: name,
                   travellerId:   memberMatch ? memberMatch.id : '',
-                  ...(memberMatch?.costCentre ? { costCentre: memberMatch.costCentre } : {}),
+                  ...(autoCC ? { costCentre: autoCC } : {}),
                 }));
               }
             }}
@@ -1031,8 +1036,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           </div>
         )}
 
-        {/* Reason required when STX/approver changes cost centre on an existing trip */}
-        {trip && canEditCostCentre && form.costCentre !== originalCostCentre && (
+        {/* Reason required when STX/approver changes cost centre away from the traveller's default */}
+        {canEditCostCentre && originalCostCentre !== '' && form.costCentre !== originalCostCentre && (
           <div className="col-span-2">
             <label className={`${lbl} text-amber-600`}>Reason for cost centre change *</label>
             <textarea
