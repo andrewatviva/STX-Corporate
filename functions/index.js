@@ -330,7 +330,30 @@ function buildEmailMessage(type, data, recipientEmails, trip) {
           <p style="margin:0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.6;">${data.description}</p>
         </div>`,
       ctaText: 'View in Admin Panel →',
-      ctaUrl:  `${portalUrl()}/admin`,
+      ctaUrl:  data.feedbackId
+        ? `${portalUrl()}/admin?tab=feedback&id=${data.feedbackId}`
+        : `${portalUrl()}/admin?tab=feedback`,
+    },
+
+    feedback_response: {
+      subject:   `Re: ${data.subject}`,
+      preheader: `STX has responded to your ${data.feedbackType === 'fault' ? 'fault report' : 'feedback'}.`,
+      heading:   `We've responded to your ${data.feedbackType === 'fault' ? 'fault report' : 'feedback'}`,
+      body: `
+        <p style="font-size:14px;color:#374151;margin:0 0 4px;line-height:1.6;">
+          ${data.respondedByName || 'The STX team'} has replied to your
+          ${data.feedbackType === 'fault' ? 'fault report' : 'feedback'}:
+          <strong>${data.subject}</strong>
+        </p>
+        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin:16px 0;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Response</p>
+          <p style="margin:0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.6;">${data.responseText}</p>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin:12px 0 0;line-height:1.5;">
+          If you have further questions, please don't hesitate to contact us through the portal.
+        </p>`,
+      ctaText: 'Visit the portal →',
+      ctaUrl:  portalUrl(),
     },
 
     trip_rating_request: {

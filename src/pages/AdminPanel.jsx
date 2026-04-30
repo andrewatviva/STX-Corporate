@@ -1,19 +1,28 @@
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Building2, Users } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { Building2, Users, MessageSquare } from 'lucide-react';
 import { usePermissions } from '../contexts/PermissionsContext';
 import { PERMISSIONS } from '../utils/permissions';
 import ClientManager from '../components/admin/ClientManager';
 import UserManager from '../components/admin/UserManager';
+import FeedbackManager from '../components/admin/FeedbackManager';
 
 const TABS = [
-  { id: 'clients', label: 'Clients',  icon: Building2 },
-  { id: 'users',   label: 'Users',    icon: Users },
+  { id: 'clients',  label: 'Clients',           icon: Building2 },
+  { id: 'users',    label: 'Users',              icon: Users },
+  { id: 'feedback', label: 'Feedback & Faults',  icon: MessageSquare },
 ];
 
 export default function AdminPanel() {
   const { hasPermission } = usePermissions();
-  const [tab, setTab] = useState('clients');
+  const [searchParams] = useSearchParams();
+
+  const initialTab = TABS.some(t => t.id === searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'clients';
+  const initialId = searchParams.get('id') || null;
+
+  const [tab, setTab] = useState(initialTab);
 
   if (!hasPermission(PERMISSIONS.CLIENT_MANAGE)) return <Navigate to="/dashboard" replace />;
 
@@ -39,8 +48,9 @@ export default function AdminPanel() {
         ))}
       </div>
 
-      {tab === 'clients' && <ClientManager />}
-      {tab === 'users'   && <UserManager />}
+      {tab === 'clients'  && <ClientManager />}
+      {tab === 'users'    && <UserManager />}
+      {tab === 'feedback' && <FeedbackManager initialId={initialId} />}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default function Contact() {
     try {
       const now = new Date().toISOString();
       const userName = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || currentUser?.email || '';
-      await addDoc(collection(db, 'portalFeedback'), {
+      const feedbackRef = await addDoc(collection(db, 'portalFeedback'), {
         type,
         subject:     subject.trim(),
         description: description.trim(),
@@ -54,6 +54,7 @@ export default function Contact() {
         userName,
         userEmail:     currentUser?.email || '',
         clientId:      clientId || null,
+        feedbackId:    feedbackRef.id,
       });
       setSubmitted(true);
       setSubject('');
