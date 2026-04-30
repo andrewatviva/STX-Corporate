@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { usePassengers } from '../hooks/usePassengers';
 
-const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 
 function Field({ label, children, hint }) {
   return (
@@ -443,7 +443,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
                 <select
                   value={form.approveReportsDepth}
                   onChange={e => set('approveReportsDepth', Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                 >
                   <option value={1}>Direct reports only</option>
                   <option value={2}>Direct reports + once removed</option>

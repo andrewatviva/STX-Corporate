@@ -722,7 +722,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             {showCCEdit ? (
               <div className="space-y-2 mt-1 col-span-2">
                 <select
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                   value={newCC}
                   onChange={e => setNewCC(e.target.value)}
                 >

@@ -10,7 +10,7 @@ import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES, ROLE_PERMISSIONS } from '../../ut
 import { useAuth } from '../../contexts/AuthContext';
 
 const ALL_ROLES = [...STX_ROLES, ...CLIENT_ROLES];
-const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 
 function Field({ label, children }) {
   return (
@@ -339,7 +339,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
               <label className="block text-xs font-medium text-gray-600">Hierarchy depth</label>
               <select value={form.approveReportsDepth}
                 onChange={e => set('approveReportsDepth', Number(e.target.value))}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500">
                 <option value={1}>Direct reports only</option>
                 <option value={2}>Direct reports + once removed</option>
                 <option value={3}>Direct reports + twice removed</option>

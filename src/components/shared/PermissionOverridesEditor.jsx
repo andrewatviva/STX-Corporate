@@ -39,7 +39,7 @@ export default function PermissionOverridesEditor({ role, overrides = {}, onChan
               <select
                 value={val}
                 onChange={e => setOverride(key, e.target.value)}
-                className={`border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 ${
                   val === 'grant' ? 'border-green-300 bg-green-50 text-green-700' :
                   val === 'deny'  ? 'border-red-300 bg-red-50 text-red-700' :
                                     'border-gray-200 bg-white text-gray-600'

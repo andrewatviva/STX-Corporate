@@ -111,7 +111,7 @@ function ClientSelector({ clientsList, activeClientId, setActiveClientId }) {
               aria-label="Search clients"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full text-sm px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
             />
           </div>
           <ul

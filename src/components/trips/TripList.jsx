@@ -172,7 +172,7 @@ const QUICK_OPTIONS = [
   { key: 'lastFY',       label: 'Last FY' },
 ];
 
-const sel = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+const sel = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 bg-white';
 
 export default function TripList({ trips, loading, onNew, onView, onEdit, onDelete, canCreate, initialStatusFilter = '' }) {
   const { userProfile } = useAuth();
@@ -249,7 +249,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search trips…"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
           />
         </div>
         {canCreate && (
@@ -323,14 +323,14 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
             type="date"
             value={dateFrom}
             onChange={e => { setDateFrom(e.target.value); setQuickDate(''); }}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
           />
           <span className="text-gray-600 text-xs" aria-hidden="true">→</span>
           <input
             type="date"
             value={dateTo}
             onChange={e => { setDateTo(e.target.value); setQuickDate(''); }}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
           />
           {(dateFrom || dateTo) && (
             <button onClick={clearDateFilters} aria-label="Clear date filter" className="text-gray-600 hover:text-gray-900 p-0.5 rounded">

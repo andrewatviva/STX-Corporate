@@ -178,7 +178,7 @@ function SendModal({ onClose, onSent }) {
     setSaving(false);
   };
 
-  const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 
   return (
     <Modal title="Send Onboarding Form" onClose={onClose}>
@@ -461,7 +461,7 @@ function ReviewModal({ form, onClose, onApplied }) {
                   Management fees, contact emails, and hotel booking settings are not touched.
                 </p>
                 <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                   value={clientId}
                   onChange={e => setClientId(e.target.value)}
                 >
@@ -480,7 +480,7 @@ function ReviewModal({ form, onClose, onApplied }) {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Client name</label>
                   <input
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                     value={newName}
                     onChange={e => { setNewName(e.target.value); setNewCid(slugify(e.target.value)); }}
                     placeholder="e.g. Disability Australia Network"
@@ -489,7 +489,7 @@ function ReviewModal({ form, onClose, onApplied }) {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Client ID (URL-safe, cannot be changed later)</label>
                   <input
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                     value={newCid}
                     onChange={e => setNewCid(slugify(e.target.value))}
                     placeholder="e.g. disability-australia-network"

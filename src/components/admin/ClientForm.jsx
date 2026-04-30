@@ -46,7 +46,7 @@ function Field({ label, children }) {
   );
 }
 
-const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 
 function FeeAppliesTo({ value, onChange, tripTypes }) {
   const types = tripTypes?.length ? tripTypes : ['Self-Managed', 'STX-Managed', 'Group Event'];
@@ -137,7 +137,7 @@ function RateTable({ rates, setRates, rateUnit, blanketLabel }) {
 
       <div className="flex items-center gap-3 flex-wrap">
         <input type="text" placeholder="Search city…" value={cityFilter} onChange={e => setCityFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" />
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 w-48" />
         <span className="text-xs text-gray-600">{filtered.length} cities</span>
       </div>
 

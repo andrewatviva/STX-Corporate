@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 
-const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 const lbl = 'block text-xs font-medium text-gray-700 mb-1';
 
 const DISABILITY_TYPES = [

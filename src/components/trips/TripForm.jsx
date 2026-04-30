@@ -24,7 +24,7 @@ const CABIN_CLASSES  = ['Economy', 'Premium Economy', 'Business', 'First'];
 const TRANSFER_TYPES = ['Taxi', 'Ride Share', 'Private Car', 'Shuttle', 'Accessible Vehicle', 'Other'];
 const MEAL_TYPES     = ['Breakfast', 'Morning Tea', 'Lunch', 'Afternoon Tea', 'Dinner', 'Event Catering'];
 
-const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 const lbl = 'block text-xs font-medium text-gray-700 mb-1';
 
 function F({ label, children, span2 }) {
@@ -367,7 +367,7 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
 
         {!sector.type ? (
           <select
-            className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
             value=""
             onChange={e => { onChange({ ...sector, type: e.target.value }); setExpanded(true); }}
           >

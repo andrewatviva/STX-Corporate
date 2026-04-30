@@ -209,7 +209,7 @@ export default function FeedbackManager({ initialId }) {
                 onChange={e => setResponseText(e.target.value)}
                 rows={4}
                 placeholder="Type your response to the user…"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 resize-none mb-3"
               />
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ export default function FeedbackManager({ initialId }) {
                   <select
                     value={newStatus}
                     onChange={e => setNewStatus(e.target.value)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                   >
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>

@@ -174,7 +174,7 @@ export default function LoginPage() {
                   aria-required="true"
                   aria-invalid={!!error}
                   aria-describedby={error ? 'login-error' : undefined}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 focus:border-transparent"
                   placeholder="you@organisation.com.au"
                 />
               </div>
@@ -193,7 +193,7 @@ export default function LoginPage() {
                     aria-required="true"
                     aria-invalid={!!error}
                     aria-describedby={error ? 'login-error' : undefined}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 focus:border-transparent"
                     placeholder="••••••••"
                   />
                 </div>

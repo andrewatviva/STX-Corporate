@@ -188,7 +188,7 @@ export default function DocumentVault({ passengerId, clientId, documents = [], o
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Document type</label>
             <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
               value={docType}
               onChange={e => setDocType(e.target.value)}
             >
@@ -199,7 +199,7 @@ export default function DocumentVault({ passengerId, clientId, documents = [], o
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Display name</label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
               value={docLabel}
               onChange={e => setDocLabel(e.target.value)}
               placeholder="e.g. Medical clearance — March 2025"

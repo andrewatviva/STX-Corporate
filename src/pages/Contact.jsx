@@ -159,7 +159,7 @@ export default function Contact() {
                   onChange={e => setSubject(e.target.value)}
                   placeholder={type === 'fault' ? 'e.g. Filter not working on trip list' : 'e.g. Suggestion for the dashboard'}
                   required
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
                 />
               </div>
 
@@ -174,7 +174,7 @@ export default function Contact() {
                   rows={4}
                   required
                   placeholder={type === 'fault' ? 'Describe what you were doing and what went wrong…' : 'Share your idea or feedback…'}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 resize-none"
                 />
               </div>
 

@@ -430,7 +430,7 @@ export default function InvoiceBuilder({
           value={invoiceName}
           onChange={e => setInvoiceName(e.target.value)}
           placeholder="e.g. April 2026"
-          className="w-full max-w-sm border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full max-w-sm border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
         />
       </div>
 
@@ -459,7 +459,7 @@ export default function InvoiceBuilder({
               type="date"
               value={periodFrom}
               onChange={e => { setPeriodFrom(e.target.value); setQuickPeriod(null); setScanned(false); }}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
             />
           </div>
           <div>
@@ -468,7 +468,7 @@ export default function InvoiceBuilder({
               type="date"
               value={periodTo}
               onChange={e => { setPeriodTo(e.target.value); setQuickPeriod(null); setScanned(false); }}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500"
             />
           </div>
           <button
@@ -646,7 +646,7 @@ export default function InvoiceBuilder({
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-medium text-gray-700 mb-3">Notes</h3>
           <textarea
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500 disabled:bg-gray-50"
             rows={4}
             placeholder="Billing notes or internal comments…"
             value={notes}

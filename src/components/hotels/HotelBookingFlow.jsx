@@ -644,7 +644,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
               <input
                 type="text" required
                 placeholder="City, suburb, airport or hotel name…"
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={searchQuery}
                 onChange={e => { setSearchQuery(e.target.value); setSelectedSearch(null); }}
                 onFocus={() => !selectedSearch && (searchSugs.regions.length || searchSugs.hotels.length) && setShowSugs(true)}
@@ -702,7 +702,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           {/* Country for API */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Country</label>
-            <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+            <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none bg-white"
               value={countryCode} onChange={e => setCountryCode(e.target.value)}>
               {COUNTRY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
@@ -713,13 +713,13 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Check-in *</label>
               <input type="date" required min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={checkin} onChange={e => setCheckin(e.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Check-out *</label>
               <input type="date" required min={checkin || new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={checkout} onChange={e => setCheckout(e.target.value)} />
             </div>
           </div>
@@ -729,18 +729,18 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Adults</label>
               <input type="number" min={1} max={6}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={adults} onChange={e => setAdults(Math.max(1, parseInt(e.target.value) || 1))} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Children</label>
               <input type="number" min={0} max={4}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={children} onChange={e => setChildren(Math.max(0, parseInt(e.target.value) || 0))} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Currency</label>
-              <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+              <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none bg-white"
                 value={currency} onChange={e => setCurrency(e.target.value)}>
                 {['AUD','USD','NZD','GBP','EUR','SGD','JPY'].map(c => <option key={c}>{c}</option>)}
               </select>
@@ -750,7 +750,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           {/* Nationality */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Guest Nationality</label>
-            <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+            <select className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none bg-white"
               value={nationality} onChange={e => setNationality(e.target.value)}>
               {COUNTRY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
             </select>
@@ -787,9 +787,9 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Price Range ({currency} total)</label>
                 <div className="flex items-center gap-2">
-                  <input type="number" min="0" placeholder="Min" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500" value={filterMinPrice} onChange={e => setFilterMinPrice(e.target.value)} />
+                  <input type="number" min="0" placeholder="Min" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500" value={filterMinPrice} onChange={e => setFilterMinPrice(e.target.value)} />
                   <span className="text-slate-400">—</span>
-                  <input type="number" min="0" placeholder="Max" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500" value={filterMaxPrice} onChange={e => setFilterMaxPrice(e.target.value)} />
+                  <input type="number" min="0" placeholder="Max" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500" value={filterMaxPrice} onChange={e => setFilterMaxPrice(e.target.value)} />
                 </div>
               </div>
             </div>
@@ -829,7 +829,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
         <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-100">
           <input
             type="text" placeholder="Filter by hotel name…"
-            className="flex-1 min-w-[200px] px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+            className="flex-1 min-w-[200px] px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
             value={hotelFilter} onChange={e => setHotelFilter(e.target.value)}
           />
           <select className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none bg-white"
@@ -1206,23 +1206,23 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">First Name *</label>
-              <input type="text" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+              <input type="text" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={guestFirst} onChange={e => setGuestFirst(e.target.value)} placeholder="John" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Last Name *</label>
-              <input type="text" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+              <input type="text" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
                 value={guestLast} onChange={e => setGuestLast(e.target.value)} placeholder="Smith" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email Address *</label>
-            <input type="email" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+            <input type="email" required className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none"
               value={guestEmail} onChange={e => setGuestEmail(e.target.value)} placeholder="guest@example.com" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Special Requests</label>
-            <textarea rows={3} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none"
+            <textarea rows={3} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 placeholder:text-gray-500 outline-none resize-none"
               value={specialRequests} onChange={e => setSpecialRequests(e.target.value)}
               placeholder="e.g. wheelchair accessible room, roll-in shower, ground floor, early check-in…" />
           </div>
