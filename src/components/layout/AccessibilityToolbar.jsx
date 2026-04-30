@@ -1,36 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Accessibility, X, RotateCcw,
-  Type, Contrast, ScanEye,
-  BookOpen, Focus, ZapOff, AlignJustify,
-} from 'lucide-react';
+import { Accessibility, X, RotateCcw, Type, Contrast, BookOpen, Focus, Minus, Plus } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 
-// ── CSS injected once into <head> ─────────────────────────────────────────────
+// ── Global CSS injected once ──────────────────────────────────────────────────
 const A11Y_CSS = `
-/* Text size */
-html.a11y-text-lg  { font-size: 112.5%; }
-html.a11y-text-xl  { font-size: 125%; }
-
-/* High contrast — applied to body so the fixed toolbar is unaffected */
-html.a11y-contrast body { filter: contrast(1.5); }
-html.a11y-grayscale body { filter: grayscale(1); }
-html.a11y-contrast.a11y-grayscale body { filter: contrast(1.5) grayscale(1); }
-
 /* Dyslexia-friendly font */
 html.a11y-dyslexia * { font-family: 'Lexend', 'Arial', sans-serif !important; }
 
-/* Highlight links */
+/* Underline links */
 html.a11y-links a {
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
   text-decoration-thickness: 2px !important;
-  outline: 2px dashed currentColor !important;
-  outline-offset: 2px !important;
-  border-radius: 2px !important;
 }
 
-/* Reduce motion */
+/* Increased line / letter spacing */
+html.a11y-spacing p,
+html.a11y-spacing li,
+html.a11y-spacing td,
+html.a11y-spacing th,
+html.a11y-spacing label {
+  line-height: 1.9 !important;
+  letter-spacing: 0.03em !important;
+  word-spacing: 0.1em !important;
+}
+
+/* Enhanced focus rings for keyboard navigation */
+html.a11y-focus *:focus-visible {
+  outline: 4px solid #2563eb !important;
+  outline-offset: 3px !important;
+  border-radius: 3px !important;
+}
+
+/* Stop all animations / transitions */
 html.a11y-no-motion *,
 html.a11y-no-motion *::before,
 html.a11y-no-motion *::after {
@@ -40,68 +42,76 @@ html.a11y-no-motion *::after {
   scroll-behavior: auto !important;
 }
 
-/* Enhanced focus indicators */
-html.a11y-focus *:focus-visible {
-  outline: 4px solid #2563eb !important;
-  outline-offset: 3px !important;
-  border-radius: 3px !important;
-}
+/* Light background — whitens main content area */
+html.a11y-light main { background-color: #ffffff !important; }
 
-/* Increased line spacing */
-html.a11y-spacing p,
-html.a11y-spacing li,
-html.a11y-spacing td,
-html.a11y-spacing th,
-html.a11y-spacing label,
-html.a11y-spacing span:not(.lucide):not([class*="icon"]) {
-  line-height: 1.9 !important;
-  letter-spacing: 0.02em !important;
-}
+/* Image corrections when body filter inverts colours */
+html.a11y-invert-imgs body img,
+html.a11y-invert-imgs body video,
+html.a11y-invert-imgs body canvas { filter: invert(1); }
+
+html.a11y-smart-imgs body img,
+html.a11y-smart-imgs body video,
+html.a11y-smart-imgs body canvas { filter: invert(1) hue-rotate(180deg); }
 `;
 
+// ── Prefs & persistence ───────────────────────────────────────────────────────
 const STORAGE_KEY = 'stx_a11y_prefs';
 
-const DEFAULT_PREFS = {
-  textSize: 0,       // 0=normal, 1=large, 2=x-large
+const DEFAULT = {
+  textSize: 100,       // percent (80–160)
   highContrast: false,
+  darkMode: false,     // smart-invert → dark-bg look
+  lightBg: false,
   grayscale: false,
+  invertColours: false,
   dyslexiaFont: false,
-  highlightLinks: false,
-  reduceMotion: false,
-  enhancedFocus: false,
+  underlineLinks: false,
   lineSpacing: false,
+  enhancedFocus: false,
+  reduceMotion: false,
 };
 
 function loadPrefs() {
-  try {
-    return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
+  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; }
+  catch { return { ...DEFAULT }; }
 }
 
 function applyPrefs(prefs) {
-  const cl = document.documentElement.classList;
-  cl.toggle('a11y-text-lg',   prefs.textSize === 1);
-  cl.toggle('a11y-text-xl',   prefs.textSize === 2);
-  cl.toggle('a11y-contrast',  prefs.highContrast);
-  cl.toggle('a11y-grayscale', prefs.grayscale);
-  cl.toggle('a11y-dyslexia',  prefs.dyslexiaFont);
-  cl.toggle('a11y-links',     prefs.highlightLinks);
-  cl.toggle('a11y-no-motion', prefs.reduceMotion);
-  cl.toggle('a11y-focus',     prefs.enhancedFocus);
-  cl.toggle('a11y-spacing',   prefs.lineSpacing);
+  const html = document.documentElement;
+  const cl   = html.classList;
+
+  // Text size — scales all rem units
+  html.style.fontSize = prefs.textSize === 100 ? '' : `${prefs.textSize}%`;
+
+  // Body filter — stack multiple filter functions
+  const filters = [];
+  if (prefs.highContrast)  filters.push('contrast(1.5)');
+  if (prefs.grayscale)     filters.push('grayscale(1)');
+  if (prefs.invertColours) filters.push('invert(1)');
+  if (prefs.darkMode)      filters.push('invert(1)', 'hue-rotate(180deg)');
+  document.body.style.filter = filters.length ? filters.join(' ') : '';
+
+  // Image corrections (CSS classes on html)
+  cl.toggle('a11y-invert-imgs', prefs.invertColours && !prefs.darkMode);
+  cl.toggle('a11y-smart-imgs',  prefs.darkMode && !prefs.invertColours);
+
+  // Class-based features
+  cl.toggle('a11y-light',    prefs.lightBg);
+  cl.toggle('a11y-dyslexia', prefs.dyslexiaFont);
+  cl.toggle('a11y-links',    prefs.underlineLinks);
+  cl.toggle('a11y-spacing',  prefs.lineSpacing);
+  cl.toggle('a11y-focus',    prefs.enhancedFocus);
+  cl.toggle('a11y-no-motion',prefs.reduceMotion);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AccessibilityToolbar() {
   const { clientConfig, isSTX } = useTenant();
-
-  // Feature flag — STX always sees it; clients need it enabled (default true)
   const enabled = isSTX || clientConfig?.features?.accessibilityToolbar !== false;
 
-  const [open, setOpen]   = useState(false);
+  const [open,  setOpen]  = useState(false);
   const [prefs, setPrefs] = useState(loadPrefs);
 
   // Inject CSS once
@@ -113,45 +123,46 @@ export default function AccessibilityToolbar() {
     document.head.appendChild(style);
   }, []);
 
-  // Lazily load Lexend from Google Fonts when needed
+  // Lazily load Lexend font
   useEffect(() => {
-    if (!prefs.dyslexiaFont) return;
-    if (document.getElementById('a11y-lexend')) return;
+    if (!prefs.dyslexiaFont || document.getElementById('a11y-lexend')) return;
     const link = document.createElement('link');
-    link.id = 'a11y-lexend';
-    link.rel = 'stylesheet';
+    link.id   = 'a11y-lexend';
+    link.rel  = 'stylesheet';
     link.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap';
     document.head.appendChild(link);
   }, [prefs.dyslexiaFont]);
 
-  // Apply classes + persist whenever prefs change
+  // Apply + persist whenever prefs change
   useEffect(() => {
     applyPrefs(prefs);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
   }, [prefs]);
 
-  // Restore on mount
+  // Re-apply on mount (restore persisted state)
   useEffect(() => { applyPrefs(prefs); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = useCallback((key) => setPrefs(p => ({ ...p, [key]: !p[key] })), []);
-  const setTextSize = useCallback((n) => setPrefs(p => ({ ...p, textSize: n })), []);
-  const reset = useCallback(() => setPrefs({ ...DEFAULT_PREFS }), []);
+  const toggle   = useCallback((key) => setPrefs(p => ({ ...p, [key]: !p[key] })), []);
+  const bumpSize = useCallback((delta) =>
+    setPrefs(p => ({ ...p, textSize: Math.min(160, Math.max(80, p.textSize + delta)) })), []);
+  const reset    = useCallback(() => setPrefs({ ...DEFAULT }), []);
 
   if (!enabled) return null;
 
   const activeCount = [
-    prefs.textSize > 0, prefs.highContrast, prefs.grayscale, prefs.dyslexiaFont,
-    prefs.highlightLinks, prefs.reduceMotion, prefs.enhancedFocus, prefs.lineSpacing,
+    prefs.textSize !== 100, prefs.highContrast, prefs.darkMode, prefs.lightBg,
+    prefs.grayscale, prefs.invertColours, prefs.dyslexiaFont,
+    prefs.underlineLinks, prefs.lineSpacing, prefs.enhancedFocus, prefs.reduceMotion,
   ].filter(Boolean).length;
 
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Floating trigger */}
       <button
         onClick={() => setOpen(v => !v)}
         aria-label="Accessibility options"
         aria-expanded={open}
-        className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${
+        className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
           open ? 'bg-blue-700 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
         }`}
       >
@@ -176,135 +187,150 @@ export default function AccessibilityToolbar() {
               <Accessibility size={18} />
               <span className="font-semibold text-sm">Accessibility</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {activeCount > 0 && (
                 <button
                   onClick={reset}
-                  title="Reset all settings"
-                  className="text-blue-200 hover:text-white p-1 rounded transition-colors flex items-center gap-1 text-xs"
+                  className="text-blue-200 hover:text-white flex items-center gap-1 text-xs rounded px-1.5 py-0.5 hover:bg-blue-700 transition-colors"
                 >
-                  <RotateCcw size={13} /> Reset
+                  <RotateCcw size={11} /> Reset all
                 </button>
               )}
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close accessibility panel"
-                className="text-blue-200 hover:text-white p-1 rounded transition-colors ml-1"
+                className="text-blue-200 hover:text-white p-0.5 rounded"
               >
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+          <div className="p-4 space-y-5 max-h-[72vh] overflow-y-auto">
 
-            {/* Text Size */}
-            <Section icon={<Type size={15} />} label="Text size">
-              <div className="flex gap-2 mt-2">
-                {[
-                  { size: 0, label: 'A',   cls: 'text-sm' },
-                  { size: 1, label: 'A',   cls: 'text-base' },
-                  { size: 2, label: 'A',   cls: 'text-lg' },
-                ].map(({ size, label, cls }) => (
-                  <button
-                    key={size}
-                    onClick={() => setTextSize(size)}
-                    aria-pressed={prefs.textSize === size}
-                    className={`flex-1 py-1.5 rounded-lg border text-center font-medium transition-colors ${cls} ${
-                      prefs.textSize === size
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'border-gray-300 text-gray-700 hover:border-blue-400'
-                    }`}
-                  >
-                    {label}
-                    <span className="block text-[10px] font-normal opacity-75 leading-none mt-0.5">
-                      {size === 0 ? 'Normal' : size === 1 ? 'Large' : 'X-Large'}
-                    </span>
-                  </button>
-                ))}
+            {/* ── Text size ── */}
+            <div>
+              <SectionLabel icon={<Type size={14} />} label="Text size" />
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={() => bumpSize(-10)}
+                  disabled={prefs.textSize <= 80}
+                  aria-label="Decrease text size"
+                  className="w-9 h-9 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Minus size={16} />
+                </button>
+                <div className="flex-1 text-center">
+                  <span className={`font-semibold ${prefs.textSize !== 100 ? 'text-blue-600' : 'text-gray-700'}`}>
+                    {prefs.textSize}%
+                  </span>
+                  {prefs.textSize !== 100 && (
+                    <button onClick={() => bumpSize(100 - prefs.textSize)} className="ml-2 text-xs text-gray-400 hover:text-gray-600 underline">
+                      reset
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => bumpSize(10)}
+                  disabled={prefs.textSize >= 160}
+                  aria-label="Increase text size"
+                  className="w-9 h-9 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus size={16} />
+                </button>
               </div>
-            </Section>
+            </div>
 
-            {/* Visual */}
-            <Section icon={<Contrast size={15} />} label="Visual">
+            {/* ── Colour ── */}
+            <div>
+              <SectionLabel icon={<Contrast size={14} />} label="Colour" />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <ChipToggle label="High Contrast"    active={prefs.highContrast}   onToggle={() => toggle('highContrast')} />
+                <ChipToggle label="Dark Contrast"    active={prefs.darkMode}        onToggle={() => toggle('darkMode')} />
+                <ChipToggle label="Light Background" active={prefs.lightBg}         onToggle={() => toggle('lightBg')} />
+                <ChipToggle label="Grayscale"        active={prefs.grayscale}       onToggle={() => toggle('grayscale')} />
+                <ChipToggle label="Invert Colours"   active={prefs.invertColours}   onToggle={() => toggle('invertColours')} />
+              </div>
+            </div>
+
+            {/* ── Reading ── */}
+            <div>
+              <SectionLabel icon={<BookOpen size={14} />} label="Reading" />
               <div className="space-y-2 mt-2">
                 <ToggleRow
-                  label="High contrast"
-                  desc="Increases colour contrast for easier reading"
-                  active={prefs.highContrast}
-                  onToggle={() => toggle('highContrast')}
-                />
-                <ToggleRow
-                  label="Grayscale"
-                  desc="Removes colour, reducing visual noise"
-                  active={prefs.grayscale}
-                  onToggle={() => toggle('grayscale')}
-                />
-              </div>
-            </Section>
-
-            {/* Reading */}
-            <Section icon={<BookOpen size={15} />} label="Reading">
-              <div className="space-y-2 mt-2">
-                <ToggleRow
-                  label="Dyslexia-friendly font"
-                  desc="Switches to Lexend, designed for reading ease"
+                  label="Readable font"
+                  desc="Switches to Lexend, designed to reduce reading difficulty"
                   active={prefs.dyslexiaFont}
                   onToggle={() => toggle('dyslexiaFont')}
                 />
                 <ToggleRow
-                  label="Highlight links"
+                  label="Underline links"
                   desc="Makes all clickable links clearly visible"
-                  active={prefs.highlightLinks}
-                  onToggle={() => toggle('highlightLinks')}
+                  active={prefs.underlineLinks}
+                  onToggle={() => toggle('underlineLinks')}
                 />
                 <ToggleRow
                   label="Increase line spacing"
-                  desc="More space between lines for easier reading"
+                  desc="More space between lines and letters"
                   active={prefs.lineSpacing}
                   onToggle={() => toggle('lineSpacing')}
                 />
               </div>
-            </Section>
+            </div>
 
-            {/* Navigation */}
-            <Section icon={<Focus size={15} />} label="Navigation">
+            {/* ── Navigation ── */}
+            <div>
+              <SectionLabel icon={<Focus size={14} />} label="Navigation" />
               <div className="space-y-2 mt-2">
                 <ToggleRow
                   label="Enhanced focus indicators"
-                  desc="Bold blue outlines on keyboard-focused elements"
+                  desc="Bold outlines on keyboard-focused elements"
                   active={prefs.enhancedFocus}
                   onToggle={() => toggle('enhancedFocus')}
                 />
                 <ToggleRow
                   label="Reduce motion"
-                  desc="Stops animations and transitions"
+                  desc="Stops all animations and transitions"
                   active={prefs.reduceMotion}
                   onToggle={() => toggle('reduceMotion')}
                 />
               </div>
-            </Section>
+            </div>
 
           </div>
 
-          <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 text-center">
+          <p className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 text-center">
             Settings saved automatically for this browser
-          </div>
+          </p>
         </div>
       )}
     </>
   );
 }
 
-function Section({ icon, label, children }) {
+function SectionLabel({ icon, label }) {
   return (
-    <div>
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-        <span className="text-gray-400">{icon}</span>
-        {label}
-      </div>
-      {children}
+    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+      <span className="text-gray-400">{icon}</span>
+      {label}
     </div>
+  );
+}
+
+function ChipToggle({ label, active, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      className={`px-3 py-2 rounded-lg border text-sm font-medium text-center transition-colors ${
+        active
+          ? 'bg-blue-600 border-blue-600 text-white'
+          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -315,16 +341,13 @@ function ToggleRow({ label, desc, active, onToggle }) {
       onClick={onToggle}
       aria-pressed={active}
       className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
-        active
-          ? 'bg-blue-50 border-blue-300'
-          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+        active ? 'bg-blue-50 border-blue-300' : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
       }`}
     >
       <div className="min-w-0">
         <p className={`text-sm font-medium ${active ? 'text-blue-800' : 'text-gray-700'}`}>{label}</p>
         <p className="text-xs text-gray-400 leading-snug mt-0.5">{desc}</p>
       </div>
-      {/* Pill toggle */}
       <div className={`shrink-0 w-10 h-5 rounded-full transition-colors relative ${active ? 'bg-blue-600' : 'bg-gray-300'}`}>
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${active ? 'left-5' : 'left-0.5'}`} />
       </div>
