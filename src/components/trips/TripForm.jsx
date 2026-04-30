@@ -855,9 +855,8 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       : clientConfig?.workflow?.requiresApproval !== false;
   })();
 
-  // Hotel booking unlocked when: already approved/booked, OR no approval required, OR STX creating a new trip
-  // (STX staff bypass the client approval gate on unsaved trips — config may not have loaded yet anyway)
-  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval || (isSTX && !trip);
+  // Hotel booking unlocked when: already approved/booked, OR no approval required
+  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval;
 
   // Cost centre editable by STX or client approvers/ops only — never by regular travellers
   const canEditCostCentre = isSTX || ['client_approver', 'client_ops'].includes(userProfile?.role);
@@ -1121,12 +1120,12 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               onRemove={() => removeSector(i)}
               tripDestinationCity={form.destinationCity}
               onOpenHotelBooking={
-                s.type === 'accommodation' && hotelBookingAllowedForTripType && tripIsBookable
+                s.type === 'accommodation' && (isSTX || (hotelBookingAllowedForTripType && tripIsBookable))
                   ? () => openHotelBooking(i)
                   : undefined
               }
               hotelBookingLocked={
-                s.type === 'accommodation' && hotelBookingAllowedForTripType && !!trip && !tripIsBookable
+                s.type === 'accommodation' && !isSTX && hotelBookingAllowedForTripType && !!trip && !tripIsBookable
               }
             />
           ))}
