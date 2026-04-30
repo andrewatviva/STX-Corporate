@@ -424,18 +424,62 @@ async function dispatchQueuedEmail(docRef, data) {
       if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email);
     }
   } else if (data.type === 'trip_submitted') {
-    // Find all active client_approver users who cover this traveller
-    const snap = await db.collection('users')
+    // Notify all active client users who have effective trip:approve permission
+    // and whose approval scope covers this traveller.
+    const APPROVE_DEFAULT_ROLES = new Set(['client_approver', 'client_ops']);
+
+    const allClientSnap = await db.collection('users')
       .where('clientId', '==', data.clientId)
-      .where('role', '==', 'client_approver')
       .get();
 
-    for (const d of snap.docs) {
+    // Build id→data map for hierarchy traversal (reports scope)
+    const userMap = {};
+    allClientSnap.forEach(d => { userMap[d.id] = d.data(); });
+
+    function reachableReports(managerUid, depth) {
+      const reachable = new Set();
+      let frontier = Object.keys(userMap).filter(id => userMap[id].managerId === managerUid);
+      let lvl = 0;
+      while (frontier.length > 0 && lvl < depth) {
+        const cur = frontier;
+        cur.forEach(uid => reachable.add(uid));
+        lvl += 1;
+        if (lvl < depth) {
+          frontier = Object.keys(userMap)
+            .filter(id => cur.includes(userMap[id].managerId) && !reachable.has(id));
+        } else {
+          frontier = [];
+        }
+      }
+      return reachable;
+    }
+
+    for (const d of allClientSnap.docs) {
       const u = d.data();
       if (u.active === false || !u.email) continue;
+
+      // Effective trip:approve permission (role default overridable per user)
+      const overrides = u.permissionOverrides || {};
+      const roleHasApprove = APPROVE_DEFAULT_ROLES.has(u.role);
+      const hasApprove = 'trip:approve' in overrides
+        ? overrides['trip:approve'] === true
+        : roleHasApprove;
+      if (!hasApprove) continue;
+
+      // Check approval scope
       const af = u.approveFor || [];
-      if (af.length > 0 && (!data.travellerId || !af.includes(data.travellerId))) continue;
-      // Respect approver's preference (default on)
+      const scope = u.approveScope ?? (af.length > 0 ? 'select' : 'all');
+
+      if (scope === 'select') {
+        if (af.length > 0 && (!data.travellerId || !af.includes(data.travellerId))) continue;
+      } else if (scope === 'reports') {
+        if (!data.travellerId) continue;
+        const reachable = reachableReports(d.id, u.approveReportsDepth || 1);
+        if (!reachable.has(data.travellerId)) continue;
+      }
+      // scope === 'all' falls through
+
+      // Respect email preference (default on)
       const prefs = u.emailPreferences || {};
       if (prefs.trip_submitted === false) continue;
       recipientEmails.push(u.email);

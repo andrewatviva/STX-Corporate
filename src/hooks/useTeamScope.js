@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { STX_ROLES } from '../utils/permissions';
+import { STX_ROLES, ROLE_PERMISSIONS } from '../utils/permissions';
 
 /**
  * Returns the set of user UIDs whose trips the current user is allowed to see.
@@ -21,8 +21,20 @@ export function useTeamScope(userProfile, clientId) {
     const role   = userProfile.role;
     const myUid  = userProfile.uid;
 
-    // STX staff and client_ops see everything in the client
-    if (STX_ROLES.includes(role) || role === 'client_ops') {
+    // STX staff always see everything
+    if (STX_ROLES.includes(role)) {
+      setScope({ type: 'all' });
+      return;
+    }
+
+    // Client roles: check effective trip:view_all permission (role default + overrides)
+    const overrides = userProfile?.permissionOverrides || {};
+    const roleHasViewAll = !!(ROLE_PERMISSIONS[role]?.includes('trip:view_all'));
+    const hasViewAll = 'trip:view_all' in overrides
+      ? overrides['trip:view_all'] === true
+      : roleHasViewAll;
+
+    if (hasViewAll) {
       setScope({ type: 'all' });
       return;
     }

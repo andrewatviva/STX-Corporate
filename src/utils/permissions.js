@@ -33,7 +33,7 @@ export const ROLE_PERMISSIONS = {
   ],
 
   client_ops: [
-    'trip:view', 'trip:create', 'trip:edit', 'trip:approve',
+    'trip:view', 'trip:create', 'trip:edit', 'trip:approve', 'trip:view_all',
     'passenger:view', 'passenger:edit',
     'invoice:view',
     'report:view',
