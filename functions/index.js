@@ -10,7 +10,7 @@ const sgMail                                    = require('@sendgrid/mail');
 initializeApp();
 
 const SENDGRID_KEY    = defineSecret('SENDGRID_API_KEY');
-const FROM_EMAIL      = 'notifications@supportedtravelx.com.au';
+const FROM_EMAIL      = 'noreply@supportedtravelx.com.au';
 const FROM_NAME       = 'STX Corporate';
 // Always receives portal_feedback and trip_cancelled_by_client regardless of registered users
 const STX_DEFAULT_NOTIFY_EMAIL = 'enquiries@supportedtravelx.com.au';
