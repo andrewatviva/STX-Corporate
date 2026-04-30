@@ -41,7 +41,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEV }}
 
       - name: Show authenticated service account
-        run: gcloud auth list --format="value(account)"
+        run: cat "$GOOGLE_APPLICATION_CREDENTIALS" | python3 -c "import sys,json; print(json.load(sys.stdin)['client_email'])"
 
       - name: Deploy to Firebase Hosting (Dev)
         uses: FirebaseExtended/action-hosting-deploy@v0
