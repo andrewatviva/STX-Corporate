@@ -288,7 +288,7 @@ export default function AllTravelReport({ trips }) {
                     ['totalInc',       'Inc GST'],
                     ['totalEx',        'Ex GST'],
                   ].map(([f, label]) => (
-                    <th key={f} onClick={() => handleSort(f)}
+                    <th scope="col" key={f} onClick={() => handleSort(f)}
                       style={{ padding:'10px 12px', textAlign: ['totalInc','totalEx','window'].includes(f) ? 'right' : 'left', fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em', cursor:'pointer', whiteSpace:'nowrap', userSelect:'none' }}>
                       {label}{sortArrow(f)}
                     </th>

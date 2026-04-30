@@ -20,7 +20,7 @@ function StarInput({ value, onChange }) {
           <Star
             size={20}
             fill={(hover || value) >= n ? 'currentColor' : 'none'}
-            className={(hover || value) >= n ? 'text-amber-400' : 'text-gray-300'}
+            className={(hover || value) >= n ? 'text-amber-400' : 'text-gray-500'}
           />
         </button>
       ))}
@@ -116,11 +116,11 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-xl">
           <div>
             <h2 className="text-base font-semibold text-gray-900">Rate your trip</h2>
-            {trip.title && <p className="text-xs text-gray-400 mt-0.5">{trip.title}</p>}
+            {trip.title && <p className="text-xs text-gray-600 mt-0.5">{trip.title}</p>}
           </div>
           <button
             onClick={() => onClose(false)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+            className="p-1.5 text-gray-600 hover:text-gray-600 rounded-lg transition-colors"
           >
             <X size={16} />
           </button>
@@ -137,7 +137,7 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{p.name}</p>
-                        <p className="text-xs text-gray-400">{PROVIDER_LABEL[p.type] || p.type}</p>
+                        <p className="text-xs text-gray-600">{PROVIDER_LABEL[p.type] || p.type}</p>
                       </div>
                       <StarInput
                         value={ratings[p.name]?.stars || 0}
@@ -160,7 +160,7 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
           {/* STX service rating */}
           <div className="border border-gray-200 rounded-lg p-3.5">
             <p className="text-sm font-medium text-gray-800 mb-2">Overall STX service</p>
-            <p className="text-xs text-gray-400 mb-2">How would you rate the booking process and support from STX?</p>
+            <p className="text-xs text-gray-600 mb-2">How would you rate the booking process and support from STX?</p>
             <StarInput value={processRating} onChange={setProcessRating} />
           </div>
 
@@ -178,7 +178,7 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
         </div>
 
         <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-between">
-          <p className="text-xs text-gray-400">Your identity is not shown in aggregated reports.</p>
+          <p className="text-xs text-gray-600">Your identity is not shown in aggregated reports.</p>
           <div className="flex gap-2">
             <button
               onClick={() => onClose(false)}

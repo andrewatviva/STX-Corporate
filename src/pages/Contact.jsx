@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MessageSquare, Send, CheckCircle } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -11,6 +11,10 @@ const STX_SMS_HREF  = 'sms:+61482071108';
 const DEFAULT_EMAIL = 'enquiries@supportedtravelx.com.au';
 
 export default function Contact() {
+  useEffect(() => {
+    document.title = 'Contact — STX Connect';
+  }, []);
+
   const { clientConfig, isSTX, activeClientConfig, clientId } = useTenant();
   const { userProfile, currentUser } = useAuth();
   const effectiveConfig = isSTX ? activeClientConfig : clientConfig;
@@ -94,7 +98,7 @@ export default function Contact() {
               <MessageSquare size={16} className="text-blue-500 shrink-0" />
               <div>
                 <a href={STX_SMS_HREF} className="hover:text-blue-600">{STX_SMS}</a>
-                <p className="text-xs text-gray-400 mt-0.5">Text message (SMS)</p>
+                <p className="text-xs text-gray-600 mt-0.5">Text message (SMS)</p>
               </div>
             </div>
           </div>
@@ -103,7 +107,7 @@ export default function Contact() {
         {/* Feedback / fault form */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-1">Send feedback or report a fault</h2>
-          <p className="text-sm text-gray-500 mb-5">
+          <p className="text-sm text-gray-700 mb-5">
             Let us know how we can improve the portal, or flag a technical issue and our team will follow up.
           </p>
 
@@ -125,7 +129,7 @@ export default function Contact() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Type toggle */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Type</label>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Type</label>
                 <div className="flex gap-2">
                   {[['feedback', 'Feedback'], ['fault', 'Report a fault']].map(([val, label]) => (
                     <button
@@ -146,7 +150,7 @@ export default function Contact() {
 
               {/* Subject */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                   Subject
                 </label>
                 <input
@@ -161,7 +165,7 @@ export default function Contact() {
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                   {type === 'fault' ? 'What happened? (steps to reproduce if known)' : 'Details'}
                 </label>
                 <textarea

@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import HotelBookingFlow from '../components/hotels/HotelBookingFlow';
 
 export default function HotelBookingPage() {
+  useEffect(() => {
+    document.title = 'Hotel Booking — STX Connect';
+  }, []);
+
   const params = new URLSearchParams(window.location.search);
   const tripId       = params.get('tripId') || '';
   const sectorIndex  = params.get('sectorIndex') !== null ? Number(params.get('sectorIndex')) : null;

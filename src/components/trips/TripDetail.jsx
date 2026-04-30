@@ -45,7 +45,7 @@ function Row({ label, value }) {
   if (!value) return null;
   return (
     <div className="flex gap-2">
-      <span className="text-xs text-gray-400 w-32 shrink-0">{label}</span>
+      <span className="text-xs text-gray-600 w-32 shrink-0">{label}</span>
       <span className="text-xs text-gray-700">{value}</span>
     </div>
   );
@@ -128,21 +128,21 @@ function SectorCard({ sector, index }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-        <span className="text-xs text-gray-400 w-5">{index + 1}</span>
-        <Icon size={14} className="text-gray-400" />
+        <span className="text-xs text-gray-600 w-5">{index + 1}</span>
+        <Icon size={14} aria-hidden="true" className="text-gray-600" />
         <span className="text-xs font-semibold text-gray-700">{label}</span>
         {sector.international && (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-sky-100 text-sky-700">
             International · GST-free
           </span>
         )}
-        {cost && <span className="ml-auto text-xs text-gray-500">{cost}</span>}
+        {cost && <span className="ml-auto text-xs text-gray-700">{cost}</span>}
       </div>
       <div className="px-4 py-3 space-y-1.5">
         {rows.filter(Boolean)}
         {sector.notes && (
           <div className="flex gap-2 pt-1">
-            <span className="text-xs text-gray-400 w-32 shrink-0">Notes</span>
+            <span className="text-xs text-gray-600 w-32 shrink-0">Notes</span>
             <span className="text-xs text-gray-600 italic">{sector.notes}</span>
           </div>
         )}
@@ -212,6 +212,11 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [existingRating, setExistingRating]   = useState(null);
   const [ratingLoaded, setRatingLoaded]       = useState(false);
+
+  useEffect(() => {
+    if (trip?.title) document.title = `${trip.title} — STX Connect`;
+    return () => { document.title = 'Travel Management — STX Connect'; };
+  }, [trip?.title]);
 
   useEffect(() => {
     if (!userProfile?.uid || !trip?.id) return;
@@ -387,9 +392,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
         >
-          <ArrowLeft size={15} /> Back to trips
+          <ArrowLeft size={15} aria-hidden="true" /> Back to trips
         </button>
         <div className="ml-auto flex items-center gap-2">
           {/* Rate providers — booked trips, any traveller */}
@@ -641,15 +646,15 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                       />
                       <span className="text-sm text-gray-700">
                         <span className="font-medium">{label}</span>
-                        {summary && <span className="text-gray-500"> — {summary}</span>}
-                        <span className="text-gray-500 ml-1">A${cost.toFixed(2)}</span>
+                        {summary && <span className="text-gray-700"> — {summary}</span>}
+                        <span className="text-gray-700 ml-1">A${cost.toFixed(2)}</span>
                       </span>
                     </label>
                   );
                 }).filter(Boolean)}
               </div>
               {cancelBillableSectors.size > 0 && (
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-700 mt-2">
                   {cancelBillableSectors.size} item{cancelBillableSectors.size !== 1 ? 's' : ''} will be flagged for invoicing.
                 </p>
               )}
@@ -691,7 +696,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               <p className="text-sm text-red-600 mt-1">Declined: {trip.declineReason}</p>
             )}
             {trip.cancellationReason && trip.status === 'cancelled' && (
-              <p className="text-sm text-gray-500 mt-1">Cancelled: {trip.cancellationReason}</p>
+              <p className="text-sm text-gray-700 mt-1">Cancelled: {trip.cancellationReason}</p>
             )}
           </div>
           <StatusBadge status={getDisplayStatus(trip)} />
@@ -700,20 +705,20 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
           {trip.tripRef && (
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Reference</p>
+              <p className="text-xs text-gray-600 mb-0.5">Reference</p>
               <p className="text-gray-800 font-mono text-sm">{trip.tripRef}</p>
             </div>
           )}
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Traveller</p>
+            <p className="text-xs text-gray-600 mb-0.5">Traveller</p>
             <p className="text-gray-800">{fmt(trip.travellerName)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Trip type</p>
+            <p className="text-xs text-gray-600 mb-0.5">Trip type</p>
             <p className="text-gray-800">{fmt(trip.tripType)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Cost centre</p>
+            <p className="text-xs text-gray-600 mb-0.5">Cost centre</p>
             {showCCEdit ? (
               <div className="space-y-2 mt-1 col-span-2">
                 <select
@@ -741,7 +746,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                   </button>
                   <button
                     onClick={() => { setShowCCEdit(false); setCCReason(''); }}
-                    className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                    className="px-3 py-1 text-xs text-gray-700 hover:text-gray-900"
                   >
                     Cancel
                   </button>
@@ -750,13 +755,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             ) : (
               <div className="flex items-center gap-2">
                 <p className="text-gray-800">
-                  {trip.costCentre || <span className="text-gray-400 italic">Not set</span>}
+                  {trip.costCentre || <span className="text-gray-600 italic">Not set</span>}
                 </p>
                 {canEditCostCentre && costCentres.length > 0 && trip.status !== 'cancelled' && (
                   <button
                     onClick={() => { setNewCC(trip.costCentre || ''); setShowCCEdit(true); }}
-                    className="p-0.5 text-gray-400 hover:text-blue-600 rounded"
-                    title="Change cost centre"
+                    className="p-0.5 text-gray-600 hover:text-blue-600 rounded"
+                    aria-label="Change cost centre"
                   >
                     <Edit2 size={11} />
                   </button>
@@ -766,7 +771,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           </div>
           {(trip.originCity || trip.destinationCity) && (
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Route</p>
+              <p className="text-xs text-gray-600 mb-0.5">Route</p>
               <p className="text-gray-800">
                 {trip.originCity && trip.destinationCity
                   ? `${trip.originCity} → ${trip.destinationCity}`
@@ -776,7 +781,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           )}
           {trip.startDate && (
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Dates</p>
+              <p className="text-xs text-gray-600 mb-0.5">Dates</p>
               <p className="text-gray-800">
                 {trip.startDate}
                 {trip.endDate && trip.endDate !== trip.startDate ? ` → ${trip.endDate}` : ''}
@@ -788,17 +793,17 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             if (days === null) return null;
             return (
               <div>
-                <p className="text-xs text-gray-400 mb-1">Lead time</p>
+                <p className="text-xs text-gray-600 mb-1">Lead time</p>
                 <LeadTimeBadge days={days} />
-                <p className="text-xs text-gray-400 mt-1">{days} day{days !== 1 ? 's' : ''} before travel</p>
+                <p className="text-xs text-gray-600 mt-1">{days} day{days !== 1 ? 's' : ''} before travel</p>
               </div>
             );
           })()}
           {totalCost > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Estimated total (incl. GST)</p>
+              <p className="text-xs text-gray-600 mb-0.5">Estimated total (incl. GST)</p>
               <p className="text-gray-800 font-medium">A${totalCost.toFixed(2)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">A${totalExGST.toFixed(2)} ex-GST</p>
+              <p className="text-xs text-gray-600 mt-0.5">A${totalExGST.toFixed(2)} ex-GST</p>
             </div>
           )}
         </div>
@@ -810,13 +815,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             : (totalCost / numPax);
           return (
             <div className="mt-4 pt-4 border-t border-gray-100 col-span-3">
-              <p className="text-xs text-gray-400 mb-2">All passengers</p>
+              <p className="text-xs text-gray-600 mb-2">All passengers</p>
               <div className="space-y-2">
                 {/* Primary traveller */}
                 <div className="flex items-center gap-3 text-sm p-2 bg-blue-50 rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{trip.travellerName}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-700 mt-0.5">
                       Primary traveller{trip.costCentre ? ` · ${trip.costCentre}` : ''}
                     </p>
                   </div>
@@ -831,7 +836,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                     <div key={i} className="flex items-center gap-3 text-sm p-2 bg-gray-50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{p.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-gray-700 mt-0.5">
                           {p.costCentre && <span>{p.costCentre} · </span>}
                           {sectorLabels.length > 0 ? sectorLabels.join(', ') : 'All sectors'}
                         </p>
@@ -849,14 +854,14 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
 
         {trip.purpose && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">Purpose / notes</p>
+            <p className="text-xs text-gray-600 mb-1">Purpose / notes</p>
             <p className="text-sm text-gray-700 whitespace-pre-line">{trip.purpose}</p>
           </div>
         )}
 
         {isSTX && trip.internalNotes && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
               <Lock size={11} /> STX internal notes
             </p>
             <p className="text-sm text-gray-700 whitespace-pre-line">{trip.internalNotes}</p>
@@ -865,7 +870,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
 
         {isSTX && trip.status === 'cancelled' && (trip.billableSectorIndices?.length > 0) && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
               <Receipt size={11} /> Non-refundable items flagged for invoicing
             </p>
             <ul className="space-y-0.5">
@@ -885,7 +890,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
 
         {isSTX && trip.vtoTripId && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
               <Lock size={11} /> VTO Trip ID
             </p>
             <p className="text-sm text-gray-700 font-mono">{trip.vtoTripId}</p>
@@ -894,7 +899,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
 
         {trip.tripType !== 'Self-Managed' && trip.digitalItineraryLink && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">Digital Itinerary</p>
+            <p className="text-xs text-gray-600 mb-1">Digital Itinerary</p>
             <a
               href={/^https?:\/\//i.test(trip.digitalItineraryLink) ? trip.digitalItineraryLink : `https://${trip.digitalItineraryLink}`}
               target="_blank"
@@ -925,7 +930,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       {(trip.fees || []).length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
-            <Receipt size={13} className="text-gray-400" />
+            <Receipt size={13} className="text-gray-600" />
             Fees
           </h3>
           <div className="space-y-2">
@@ -936,7 +941,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                 <div key={i} className="flex items-center gap-3 px-3 py-2.5 border border-gray-200 rounded-lg bg-gray-50">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-800 font-medium">{fee.label || label}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       A${fee.amount?.toFixed(2)} ex-GST · A${incGST.toFixed(2)} inc. GST
                       {fee.appliedByName && ` · ${fee.appliedByName}`}
                       {fee.appliedAt && ` · ${new Date(fee.appliedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })}`}
@@ -946,10 +951,10 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                     <button
                       type="button"
                       onClick={() => handleDeleteFee(fee)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
-                      title="Remove fee"
+                      aria-label={`Remove fee: ${fee.label || label}`}
+                      className="p-1.5 text-gray-600 hover:text-red-600 rounded transition-colors"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -973,13 +978,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       {(trip.amendments || []).length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
-            <Clock size={13} className="text-gray-400" />
+            <Clock size={13} className="text-gray-600" />
             History
           </h3>
           <div className="space-y-3">
             {[...(trip.amendments || [])].reverse().map((a, i) => (
               <div key={i} className="flex gap-3 text-xs">
-                <span className="text-gray-400 shrink-0 w-20 pt-0.5">
+                <span className="text-gray-600 shrink-0 w-20 pt-0.5">
                   {a.at ? new Date(a.at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -989,16 +994,16 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                     ) : (
                       a.note || 'Updated'
                     )}
-                    {a.byName && <span className="text-gray-400"> · {a.byName}</span>}
+                    {a.byName && <span className="text-gray-600"> · {a.byName}</span>}
                   </p>
                   {(a.changes || []).length > 0 && (
-                    <ul className="mt-1.5 space-y-1 text-gray-500">
+                    <ul className="mt-1.5 space-y-1 text-gray-700">
                       {a.changes.map((c, j) => {
                         const label = typeof c === 'string' ? c
                           : c?.field ? `${c.field}: "${c.from}" → "${c.to}"` : JSON.stringify(c);
                         return (
                         <li key={j} className="flex gap-1.5">
-                          <span className="text-gray-300 shrink-0 select-none">·</span>
+                          <span className="text-gray-500 shrink-0 select-none" aria-hidden="true">·</span>
                           <span>{label}</span>
                         </li>
                         );
@@ -1013,7 +1018,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       )}
 
       {/* Meta */}
-      <div className="text-xs text-gray-400 space-y-0.5">
+      <div className="text-xs text-gray-600 space-y-0.5">
         {trip.createdAt?.toDate && (
           <p>Created {trip.createdAt.toDate().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
         )}

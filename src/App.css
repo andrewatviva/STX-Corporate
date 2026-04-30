@@ -1,3 +1,29 @@
+/* ── Global accessibility styles ─────────────────────────────────────────── */
+
+/* Strong keyboard focus indicator — shown only for keyboard navigation */
+:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default outline for pointer users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Respect OS-level reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .App {
   text-align: center;
 }

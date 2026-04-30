@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, FileText, Eye, Edit2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
@@ -22,6 +22,10 @@ function StatusBadge({ status }) {
 }
 
 export default function Invoices() {
+  useEffect(() => {
+    document.title = 'Invoices — STX Connect';
+  }, []);
+
   const { userProfile } = useAuth();
   const { clientId: tenantClientId, activeClientId, activeClientConfig, clientConfig, isSTX, clientName, activeClientName } = useTenant();
   const isAdmin = userProfile?.role === 'stx_admin';
@@ -73,7 +77,7 @@ export default function Invoices() {
     return (
       <div>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Invoices</h1>
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-600">
           <FileText size={36} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">Select a client from the top bar to view their invoices.</p>
         </div>
@@ -103,9 +107,9 @@ export default function Invoices() {
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {invLoading ? (
-                <div className="p-8 text-center text-sm text-gray-400">Loading invoices…</div>
+                <div className="p-8 text-center text-sm text-gray-600">Loading invoices…</div>
               ) : invoices.length === 0 ? (
-                <div className="p-12 text-center text-gray-400">
+                <div className="p-12 text-center text-gray-600">
                   <FileText size={36} className="mx-auto mb-3 opacity-30" />
                   <p className="text-sm">No invoices yet.</p>
                   {isAdmin && clientId && (
@@ -121,13 +125,13 @@ export default function Invoices() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Invoice #</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Name</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Period</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Status</th>
-                      <th className="px-5 py-3 text-right text-xs font-medium text-gray-500">Items</th>
-                      <th className="px-5 py-3 text-right text-xs font-medium text-gray-500">Total (incl. GST)</th>
-                      <th className="px-5 py-3 w-20" />
+                      <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-700">Invoice #</th>
+                      <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-700">Name</th>
+                      <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-700">Period</th>
+                      <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-700">Status</th>
+                      <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-gray-700">Items</th>
+                      <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-gray-700">Total (incl. GST)</th>
+                      <th scope="col" className="px-5 py-3 w-20" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -141,7 +145,7 @@ export default function Invoices() {
                           {inv.invoiceNumber}
                         </td>
                         <td className="px-5 py-3 text-gray-700">
-                          {inv.name || <span className="text-gray-300">—</span>}
+                          {inv.name || <span className="text-gray-500">—</span>}
                         </td>
                         <td className="px-5 py-3 text-gray-600">
                           {formatDateDisplay(inv.periodFrom)} – {formatDateDisplay(inv.periodTo)}
@@ -159,7 +163,7 @@ export default function Invoices() {
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => openDetail(inv.id)}
-                              className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-700"
                               title="View"
                             >
                               <Eye size={14} />
@@ -167,7 +171,7 @@ export default function Invoices() {
                             {isAdmin && inv.status === 'draft' && (
                               <button
                                 onClick={() => openEdit(inv)}
-                                className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                                className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-700"
                                 title="Edit"
                               >
                                 <Edit2 size={14} />

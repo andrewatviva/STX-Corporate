@@ -182,8 +182,8 @@ export default function InvoiceDetail({
     <div><strong>Period:</strong> ${formatDateDisplay(invoice.periodFrom)} – ${formatDateDisplay(invoice.periodTo)}</div>
   </div>
   <table><thead><tr>
-    <th>Ref</th><th>Traveller</th><th>Cost Centre</th><th>Description</th>
-    <th class="num">Ex-GST</th><th class="num">GST</th><th class="num">Incl. GST</th>
+    <th scope="col">Ref</th><th scope="col">Traveller</th><th scope="col">Cost Centre</th><th scope="col">Description</th>
+    <th scope="col" class="num">Ex-GST</th><th scope="col" class="num">GST</th><th scope="col" class="num">Incl. GST</th>
   </tr></thead><tbody>${lineRows}</tbody></table>
   <div class="tw"><table class="tt">
     <tr><td>Subtotal (ex-GST)</td><td class="num">$${(invoice.subtotalExGST||0).toFixed(2)}</td></tr>
@@ -209,7 +209,7 @@ export default function InvoiceDetail({
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-2">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-700 mb-2">
             <ArrowLeft size={14} /> Back to invoices
           </button>
           <div className="flex items-center gap-3 flex-wrap">
@@ -219,7 +219,7 @@ export default function InvoiceDetail({
             )}
             <StatusBadge status={invoice.status} />
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-gray-700 mt-0.5">
             Period: {formatDateDisplay(invoice.periodFrom)} – {formatDateDisplay(invoice.periodTo)}
           </p>
         </div>
@@ -278,26 +278,26 @@ export default function InvoiceDetail({
       {/* Line items grouped by cost centre */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {Object.keys(grouped).length === 0 ? (
-          <div className="py-10 text-center text-sm text-gray-400">No line items.</div>
+          <div className="py-10 text-center text-sm text-gray-600">No line items.</div>
         ) : (
           Object.entries(grouped).map(([cc, items]) => {
             const ccTotal = items.reduce((s, i) => s + (parseFloat(i.inclGST) || 0), 0);
             return (
               <div key={cc} className="border-b border-gray-100 last:border-0">
                 <div className="flex items-center justify-between px-5 py-3 bg-gray-50">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{cc}</span>
-                  <span className="text-xs text-gray-500">{formatCurrency(ccTotal)} incl. GST</span>
+                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{cc}</span>
+                  <span className="text-xs text-gray-700">{formatCurrency(ccTotal)} incl. GST</span>
                 </div>
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-100">
                     <tr>
-                      <th className="px-5 py-2 text-left text-xs font-medium text-gray-400 w-24">Ref</th>
-                      <th className="px-5 py-2 text-left text-xs font-medium text-gray-400 w-36">Traveller</th>
-                      <th className="px-5 py-2 text-left text-xs font-medium text-gray-400">Description</th>
-                      <th className="px-5 py-2 text-right text-xs font-medium text-gray-400 w-28">Ex-GST</th>
-                      <th className="px-5 py-2 text-right text-xs font-medium text-gray-400 w-24">GST</th>
-                      <th className="px-5 py-2 text-right text-xs font-medium text-gray-400 w-28">Incl. GST</th>
-                      {canEdit && <th className="px-5 py-2 w-20" />}
+                      <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-700 w-24">Ref</th>
+                      <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-700 w-36">Traveller</th>
+                      <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-700">Description</th>
+                      <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-700 w-28">Ex-GST</th>
+                      <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-700 w-24">GST</th>
+                      <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-700 w-28">Incl. GST</th>
+                      {canEdit && <th scope="col" className="px-5 py-2 w-20" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -311,7 +311,7 @@ export default function InvoiceDetail({
 
                       return isEditing ? (
                         <tr key={item.dedupKey || item._origIdx} className="bg-blue-50/40">
-                          <td className="px-5 py-2 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                          <td className="px-5 py-2 font-mono text-xs text-gray-700">{item.tripRef || '—'}</td>
                           <td className="px-5 py-2 text-xs text-gray-600">{item.travellerName || '—'}</td>
                           <td className="px-5 py-2">
                             <input
@@ -330,7 +330,7 @@ export default function InvoiceDetail({
                               onChange={e => setEditDraft(d => ({ ...d, amount: e.target.value }))}
                             />
                           </td>
-                          <td className="px-5 py-2 text-right text-xs text-gray-500">
+                          <td className="px-5 py-2 text-right text-xs text-gray-700">
                             {isTripLine ? (
                               /* trip items: let user set gross (inclGST) directly */
                               <input
@@ -343,7 +343,7 @@ export default function InvoiceDetail({
                               />
                             ) : (
                               /* fee items: GST auto-calculated */
-                              <span className="text-gray-400">
+                              <span className="text-gray-600">
                                 {formatCurrency(draftInclGST - (parseFloat(editDraft.amount) || 0))}
                               </span>
                             )}
@@ -366,7 +366,7 @@ export default function InvoiceDetail({
                                 </button>
                                 <button
                                   onClick={() => setEditingIdx(null)}
-                                  className="p-1 rounded text-gray-400 hover:text-gray-600"
+                                  className="p-1 rounded text-gray-600 hover:text-gray-600"
                                   title="Cancel"
                                 >
                                   <X size={14} />
@@ -377,11 +377,11 @@ export default function InvoiceDetail({
                         </tr>
                       ) : (
                         <tr key={item.dedupKey || item._origIdx} className="hover:bg-gray-50/50">
-                          <td className="px-5 py-3 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                          <td className="px-5 py-3 font-mono text-xs text-gray-700">{item.tripRef || '—'}</td>
                           <td className="px-5 py-3 text-gray-700">{item.travellerName || '—'}</td>
                           <td className="px-5 py-3 text-gray-700">{item.description}</td>
                           <td className="px-5 py-3 text-right text-gray-700">{formatCurrency(item.amount)}</td>
-                          <td className="px-5 py-3 text-right text-gray-500">
+                          <td className="px-5 py-3 text-right text-gray-700">
                             {formatCurrency((parseFloat(item.inclGST) || 0) - (parseFloat(item.amount) || 0))}
                           </td>
                           <td className="px-5 py-3 text-right font-medium text-gray-800">{formatCurrency(item.inclGST)}</td>
@@ -389,7 +389,7 @@ export default function InvoiceDetail({
                             <td className="px-5 py-3 text-right">
                               <button
                                 onClick={() => startEdit(item)}
-                                className="p-1 rounded text-gray-400 hover:text-blue-600 transition-colors"
+                                className="p-1 rounded text-gray-600 hover:text-blue-600 transition-colors"
                                 title="Edit this item"
                               >
                                 <Edit2 size={13} />
@@ -435,7 +435,7 @@ export default function InvoiceDetail({
         </div>
       )}
 
-      <div className="text-xs text-gray-400 pb-2">
+      <div className="text-xs text-gray-600 pb-2">
         {invoice.createdAt && `Created ${formatDateTime(invoice.createdAt)}`}
         {invoice.updatedAt && ` · Updated ${formatDateTime(invoice.updatedAt)}`}
       </div>

@@ -12,13 +12,13 @@ function Section({ id, title, badge, description, children }) {
         <div className="flex items-center gap-2 mb-1">
           <h2 className="text-base font-semibold text-gray-800">{title}</h2>
           {badge && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
               {badge}
             </span>
           )}
         </div>
         {description && (
-          <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+          <p className="text-sm text-gray-700 leading-relaxed">{description}</p>
         )}
       </div>
       {children}
@@ -38,7 +38,7 @@ function Label({ children, optional }) {
   return (
     <label className="block text-sm font-medium text-gray-700 mb-1.5">
       {children}
-      {optional && <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>}
+      {optional && <span className="ml-1 text-xs font-normal text-gray-600">(optional)</span>}
     </label>
   );
 }
@@ -93,7 +93,7 @@ function Toggle({ checked, onChange, label, description }) {
       </div>
       <div>
         <p className="text-sm font-medium text-gray-700">{label}</p>
-        {description && <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{description}</p>}
+        {description && <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{description}</p>}
       </div>
     </label>
   );
@@ -295,7 +295,7 @@ export default function OnboardingForm() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <p className="text-gray-600 text-sm">Loading…</p>
       </div>
     );
   }
@@ -305,7 +305,7 @@ export default function OnboardingForm() {
       <Shell>
         <div className="text-center py-12">
           <p className="text-gray-700 font-medium mb-2">Form not found</p>
-          <p className="text-sm text-gray-400">This link may be invalid. Please contact STX Corporate for assistance.</p>
+          <p className="text-sm text-gray-600">This link may be invalid. Please contact STX Corporate for assistance.</p>
         </div>
       </Shell>
     );
@@ -316,7 +316,7 @@ export default function OnboardingForm() {
       <Shell>
         <div className="text-center py-12">
           <p className="text-gray-700 font-medium mb-2">This link has expired</p>
-          <p className="text-sm text-gray-400">Please contact STX Corporate to receive a new onboarding link.</p>
+          <p className="text-sm text-gray-600">Please contact STX Corporate to receive a new onboarding link.</p>
         </div>
       </Shell>
     );
@@ -328,7 +328,7 @@ export default function OnboardingForm() {
         <div className="text-center py-12">
           <div className="text-4xl mb-4">✓</div>
           <p className="text-gray-700 font-medium mb-2">Your preferences have been submitted</p>
-          <p className="text-sm text-gray-500">The STX team will review your responses and be in touch to finalise your portal setup.</p>
+          <p className="text-sm text-gray-700">The STX team will review your responses and be in touch to finalise your portal setup.</p>
         </div>
       </Shell>
     );
@@ -344,7 +344,7 @@ export default function OnboardingForm() {
             </svg>
           </div>
           <p className="text-gray-800 font-semibold text-lg mb-2">Thank you, we've received your preferences!</p>
-          <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+          <p className="text-sm text-gray-700 max-w-md mx-auto leading-relaxed">
             The STX Corporate team will review your responses and be in touch shortly to finalise your portal setup.
             If you have any questions in the meantime, don't hesitate to reach out.
           </p>
@@ -408,7 +408,7 @@ export default function OnboardingForm() {
               onChange={e => setLogo(e.target.value)}
               placeholder="https://yourwebsite.com/logo.png"
             />
-            <p className="text-xs text-gray-400 mt-1">A direct link to your logo image (PNG or SVG). We can also set this up for you later.</p>
+            <p className="text-xs text-gray-600 mt-1">A direct link to your logo image (PNG or SVG). We can also set this up for you later.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -469,7 +469,7 @@ export default function OnboardingForm() {
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-800">{type.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{type.description}</p>
+                  <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">{type.description}</p>
                 </div>
               </label>
             ))}
@@ -477,14 +477,14 @@ export default function OnboardingForm() {
 
           <div>
             <Label optional>Other travel types</Label>
-            <p className="text-xs text-gray-400 mb-2">If you use other categories of travel not listed above, add them here.</p>
+            <p className="text-xs text-gray-600 mb-2">If you use other categories of travel not listed above, add them here.</p>
             <TagField values={customTripTypes} onChange={setCustomTripTypes} placeholder="e.g. Secondments, International Conferences" />
           </div>
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-0.5">Booking components</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-700 leading-relaxed">
                 These are the individual cost items that can be recorded within a trip — for example,
                 a single trip might include a flight, accommodation, and a car hire. Untick any that
                 your organisation never uses.
@@ -504,14 +504,14 @@ export default function OnboardingForm() {
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-800">{s.id}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>
+                    <p className="text-xs text-gray-700 mt-0.5">{s.description}</p>
                   </div>
                 </label>
               ))}
             </div>
             <div>
               <Label optional>Additional components</Label>
-              <p className="text-xs text-gray-400 mb-2">Add any custom cost categories your organisation tracks.</p>
+              <p className="text-xs text-gray-600 mb-2">Add any custom cost categories your organisation tracks.</p>
               <TagField values={customSectorTypes} onChange={setCustomSectorTypes} placeholder="e.g. Conference Fees, Equipment Hire" />
             </div>
           </div>
@@ -616,13 +616,13 @@ export default function OnboardingForm() {
           {/* Accommodation */}
           <div className="space-y-3">
             <p className="text-sm font-semibold text-gray-700">Accommodation — max per night by city</p>
-            <p className="text-xs text-gray-400">e.g. Sydney $220, Melbourne $195, Brisbane $180</p>
+            <p className="text-xs text-gray-600">e.g. Sydney $220, Melbourne $195, Brisbane $180</p>
 
             {accomRates.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_130px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">City</span>
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Max/night incl. GST</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">City</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Max/night incl. GST</span>
                   <span />
                 </div>
                 {accomRates.map(({ city, rate }) => (
@@ -630,7 +630,7 @@ export default function OnboardingForm() {
                     <span className="text-sm text-gray-700">{city}</span>
                     <span className="text-sm text-gray-700 text-right">${rate.toFixed(0)}</span>
                     <button type="button" onClick={() => removeAccomRate(city)}
-                      className="text-gray-300 hover:text-red-400 text-base text-center">×</button>
+                      className="text-gray-500 hover:text-red-400 text-base text-center">×</button>
                   </div>
                 ))}
               </div>
@@ -638,12 +638,12 @@ export default function OnboardingForm() {
 
             <div className="flex gap-2 items-end flex-wrap">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">City</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
                 <input className={inp + ' w-44'} value={newAccomCity} onChange={e => setNewAccomCity(e.target.value)}
                   placeholder="e.g. Sydney" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Max/night ($)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Max/night ($)</label>
                 <input type="number" min="0" step="5" className={inp + ' w-28'} value={newAccomRate}
                   onChange={e => setNewAccomRate(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAccomRate())}
@@ -659,13 +659,13 @@ export default function OnboardingForm() {
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <p className="text-sm font-semibold text-gray-700">Flights — max total cost per trip by destination</p>
-            <p className="text-xs text-gray-400">e.g. Sydney $350 return, Melbourne $280 return. This is the total flight cost for the trip, not per-leg.</p>
+            <p className="text-xs text-gray-600">e.g. Sydney $350 return, Melbourne $280 return. This is the total flight cost for the trip, not per-leg.</p>
 
             {flightRates.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_130px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Destination</span>
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Max/trip incl. GST</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Destination</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Max/trip incl. GST</span>
                   <span />
                 </div>
                 {flightRates.map(({ city, rate }) => (
@@ -673,7 +673,7 @@ export default function OnboardingForm() {
                     <span className="text-sm text-gray-700">{city}</span>
                     <span className="text-sm text-gray-700 text-right">${rate.toFixed(0)}</span>
                     <button type="button" onClick={() => removeFlightRate(city)}
-                      className="text-gray-300 hover:text-red-400 text-base text-center">×</button>
+                      className="text-gray-500 hover:text-red-400 text-base text-center">×</button>
                   </div>
                 ))}
               </div>
@@ -681,12 +681,12 @@ export default function OnboardingForm() {
 
             <div className="flex gap-2 items-end flex-wrap">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Destination city</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Destination city</label>
                 <input className={inp + ' w-44'} value={newFlightDest} onChange={e => setNewFlightDest(e.target.value)}
                   placeholder="e.g. Sydney" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Max/trip ($)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Max/trip ($)</label>
                 <input type="number" min="0" step="10" className={inp + ' w-28'} value={newFlightRate}
                   onChange={e => setNewFlightRate(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addFlightRate())}
@@ -741,7 +741,7 @@ export default function OnboardingForm() {
                       <option value="percent">% over the limit</option>
                       <option value="amount">$ over the limit</option>
                     </select>
-                    <p className="text-xs text-gray-400 w-full mt-1">
+                    <p className="text-xs text-gray-600 w-full mt-1">
                       e.g. "10% over" means a $220 limit allows up to $242 before triggering.
                       Set to 0 to trigger on any amount over the limit.
                     </p>
@@ -796,7 +796,7 @@ export default function OnboardingForm() {
                       <option value="percent">% over the limit</option>
                       <option value="amount">$ over the limit</option>
                     </select>
-                    <p className="text-xs text-gray-400 w-full mt-1">
+                    <p className="text-xs text-gray-600 w-full mt-1">
                       Set to 0 to trigger on any amount over the limit.
                     </p>
                   </div>
@@ -873,7 +873,7 @@ export default function OnboardingForm() {
         {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 text-center space-y-3">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-700">
             When you're ready, submit your preferences below. You can always leave sections
             blank — STX will follow up to fill in any gaps.
           </p>
@@ -905,7 +905,7 @@ function Shell({ clientName, children }) {
         {children}
       </main>
       <footer className="max-w-2xl mx-auto px-4 pb-8 text-center">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           STX Corporate Travel Management · Questions? Contact <a href="mailto:enquiries@supportedtravelx.com.au" className="underline">enquiries@supportedtravelx.com.au</a>
         </p>
       </footer>

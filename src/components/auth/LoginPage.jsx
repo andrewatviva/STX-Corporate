@@ -40,6 +40,10 @@ export default function LoginPage() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
+    document.title = 'Sign In — STX Connect';
+  }, []);
+
+  useEffect(() => {
     if (currentUser) navigate('/dashboard', { replace: true });
   }, [currentUser, navigate]);
 
@@ -137,7 +141,7 @@ export default function LoginPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-1">
             {showReset ? 'Reset password' : 'Sign in'}
           </h2>
-          <p className="text-sm text-gray-500 mb-8">STX Corporate Travel Portal</p>
+          <p className="text-sm text-gray-700 mb-8">STX Corporate Travel Portal</p>
 
           {resetSent ? (
             <div className="text-center py-8">
@@ -145,7 +149,7 @@ export default function LoginPage() {
                 ✓
               </div>
               <p className="text-gray-800 font-semibold mb-1">Reset email sent</p>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="text-sm text-gray-700 mb-6">
                 Check your inbox for a link to set a new password.
               </p>
               <button
@@ -156,13 +160,20 @@ export default function LoginPage() {
               </button>
             </div>
           ) : (
-            <form onSubmit={showReset ? handleReset : handleLogin} className="space-y-5">
+            <form onSubmit={showReset ? handleReset : handleLogin} className="space-y-5" noValidate>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Email address
                 </label>
                 <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  aria-required="true"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'login-error' : undefined}
                   className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="you@organisation.com.au"
                 />
@@ -170,22 +181,31 @@ export default function LoginPage() {
 
               {!showReset && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">
                     Password
                   </label>
                   <input
-                    type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                    id="login-password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    aria-required="true"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'login-error' : undefined}
                     className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="••••••••"
                   />
                 </div>
               )}
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                  <p className="text-red-600 text-sm">{error}</p>
-                </div>
-              )}
+              <div aria-live="polite" aria-atomic="true">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <p id="login-error" role="alert" className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
+              </div>
 
               <button
                 type="submit" disabled={loading}

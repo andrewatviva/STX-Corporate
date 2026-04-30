@@ -134,6 +134,9 @@ function diffTrip(oldTrip, newData) {
 const COMPLETED_STATUSES = new Set(['completed', 'cancelled']);
 
 export default function TravelManagement() {
+  useEffect(() => {
+    document.title = 'Travel Management — STX Connect';
+  }, []);
   const { userProfile } = useAuth();
   const { clientId, isSTX, clientConfig, activeClientId, activeClientConfig } = useTenant();
 

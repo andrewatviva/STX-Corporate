@@ -155,6 +155,9 @@ function diffPassenger(original, updated) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Profiles() {
+  useEffect(() => {
+    document.title = 'Passenger Profiles — STX Connect';
+  }, []);
   const { userProfile } = useAuth();
   const { clientId, isSTX, activeClientId } = useTenant();
   const { hasPermission } = usePermissions();
@@ -231,8 +234,8 @@ export default function Profiles() {
     return (
       <div>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Passenger Profiles</h1>
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
-          <User size={32} className="mx-auto mb-3 text-gray-300" />
+        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-600">
+          <User size={32} className="mx-auto mb-3 text-gray-500" />
           <p className="text-sm">Select a client from the top bar to view passenger profiles.</p>
         </div>
       </div>
@@ -332,7 +335,7 @@ export default function Profiles() {
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
         <input
           type="text"
           placeholder="Search by name or email…"
@@ -345,11 +348,11 @@ export default function Profiles() {
       {/* List */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-10 text-center text-gray-400 text-sm">Loading profiles…</div>
+          <div className="p-10 text-center text-gray-600 text-sm">Loading profiles…</div>
         ) : filtered.length === 0 ? (
           <div className="p-10 text-center">
-            <User size={28} className="mx-auto mb-3 text-gray-300" />
-            <p className="text-sm text-gray-500">
+            <User size={28} className="mx-auto mb-3 text-gray-500" />
+            <p className="text-sm text-gray-700">
               {search ? 'No profiles match your search.' : 'No passenger profiles yet.'}
             </p>
             {!search && canEdit && (
@@ -365,10 +368,10 @@ export default function Profiles() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Passenger</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide hidden sm:table-cell">Contact</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide hidden md:table-cell">Accessibility</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Profile</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase tracking-wide">Passenger</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase tracking-wide hidden sm:table-cell">Contact</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase tracking-wide hidden md:table-cell">Accessibility</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase tracking-wide">Profile</th>
                 {canEdit && <th className="px-4 py-3" />}
               </tr>
             </thead>
@@ -388,14 +391,14 @@ export default function Profiles() {
                         <div>
                           <p className="font-medium text-gray-900">{displayName}</p>
                           {p.preferredName && (
-                            <p className="text-xs text-gray-400">{p.firstName} {p.lastName}</p>
+                            <p className="text-xs text-gray-600">{p.firstName} {p.lastName}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">
-                      <p>{p.email || <span className="text-gray-300">—</span>}</p>
-                      <p className="text-xs text-gray-400">{p.phone}</p>
+                      <p>{p.email || <span className="text-gray-500">—</span>}</p>
+                      <p className="text-xs text-gray-600">{p.phone}</p>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <AccessTags passenger={p} />
@@ -404,7 +407,7 @@ export default function Profiles() {
                       <div className="flex flex-col gap-1">
                         <CompletenessBadge pct={completeness} />
                         <ReviewBadge passenger={p} />
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-600">
                           {p.lastReviewedAt
                             ? `Reviewed ${new Date(p.lastReviewedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
                             : 'Never reviewed'}
@@ -422,7 +425,7 @@ export default function Profiles() {
                           </button>
                           <button
                             onClick={() => setConfirmDelete(p)}
-                            className="p-1.5 text-gray-400 hover:text-red-500"
+                            className="p-1.5 text-gray-600 hover:text-red-500"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -439,7 +442,7 @@ export default function Profiles() {
 
       {/* Scope note for non-ops */}
       {scope?.type === 'self' && (
-        <p className="mt-3 text-xs text-gray-400 text-center">
+        <p className="mt-3 text-xs text-gray-600 text-center">
           Showing your own profile only. Contact your manager or operations team to view others.
         </p>
       )}

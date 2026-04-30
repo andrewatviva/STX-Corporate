@@ -20,19 +20,6 @@ const NAV = [
   { to: '/contact',    label: 'Contact',            icon: Phone,           permission: null },
 ];
 
-function Badge({ count, tooltip }) {
-  if (!count) return null;
-  return (
-    <span
-      className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white
-                 text-[10px] font-bold flex items-center justify-center leading-none cursor-default"
-      title={tooltip || undefined}
-    >
-      {count > 99 ? '99+' : count}
-    </span>
-  );
-}
-
 export default function Sidebar() {
   const { hasPermission } = usePermissions();
   const { clientConfig, isSTX } = useTenant();
@@ -45,29 +32,42 @@ export default function Sidebar() {
   });
 
   return (
-    <nav className="w-56 bg-gray-900 flex flex-col shrink-0">
+    <nav aria-label="Main navigation" className="w-56 bg-gray-900 flex flex-col shrink-0">
       <div className="flex-1 py-4">
-        {visibleNav.map(({ to, label, icon: Icon, badge }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`
-            }
-          >
-            <Icon size={16} />
-            {label}
-            {badge && <Badge count={attentionCount} tooltip={attentionTooltip} />}
-          </NavLink>
-        ))}
+        <ul className="list-none m-0 p-0">
+          {visibleNav.map(({ to, label, icon: Icon, badge }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                aria-label={badge && attentionCount ? `${label}, ${attentionCount} item${attentionCount !== 1 ? 's' : ''} need attention` : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`
+                }
+              >
+                <Icon size={16} aria-hidden="true" />
+                {label}
+                {badge && attentionCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white
+                               text-[10px] font-bold flex items-center justify-center leading-none cursor-default"
+                    title={attentionTooltip || undefined}
+                  >
+                    {attentionCount > 99 ? '99+' : attentionCount}
+                  </span>
+                )}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
       </div>
       <div className="p-4 border-t border-gray-800">
-        <p className="text-xs text-gray-600">STX Corporate Portal</p>
-        <p className="text-xs text-gray-700">v2.0</p>
+        <p className="text-xs text-gray-500">STX Corporate Portal</p>
+        <p className="text-xs text-gray-600">v2.0</p>
       </div>
     </nav>
   );

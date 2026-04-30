@@ -277,7 +277,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
       {needsClient && (
         <div className="border border-gray-200 rounded-lg p-4">
           <p className="text-sm font-semibold text-gray-700 mb-1">Permission overrides</p>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-gray-600 mb-3">
             Override individual permissions for this user. "Role default" means no override — the user's role determines access.
           </p>
           <PermissionOverridesEditor
@@ -292,7 +292,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         <div className="border border-gray-200 rounded-lg p-4 space-y-3">
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-0.5">Approval scope</p>
-            <p className="text-xs text-gray-400">Which team members' trips this person can approve or decline.</p>
+            <p className="text-xs text-gray-600">Which team members' trips this person can approve or decline.</p>
           </div>
           <div className="space-y-2">
             {[
@@ -306,7 +306,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
                   className="mt-0.5 text-blue-600 focus:ring-blue-500" />
                 <div>
                   <span className="text-sm text-gray-700">{label}</span>
-                  <p className="text-xs text-gray-400">{hint}</p>
+                  <p className="text-xs text-gray-600">{hint}</p>
                 </div>
               </label>
             ))}
@@ -314,7 +314,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
           {form.approveScope === 'select' && (
             <div className="ml-6 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1.5">
               {clientMembers.filter(m => m.id !== user.id).length === 0
-                ? <p className="text-xs text-gray-400">No other members in this client.</p>
+                ? <p className="text-xs text-gray-600">No other members in this client.</p>
                 : clientMembers.filter(m => m.id !== user.id).map(m => {
                     const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email;
                     const checked = (form.approveFor || []).includes(m.id);
@@ -327,7 +327,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
                           }}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                         <span className="text-gray-700">{name}</span>
-                        <span className="text-xs text-gray-400">{ROLE_LABELS[m.role] ?? m.role}</span>
+                        <span className="text-xs text-gray-600">{ROLE_LABELS[m.role] ?? m.role}</span>
                       </label>
                     );
                   })
@@ -434,25 +434,25 @@ export default function UserManager() {
     }
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading users…</p>;
+  if (loading) return <p className="text-sm text-gray-600">Loading users…</p>;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-700">
           {search
             ? `${visibleUsers.length} of ${users.length} user${users.length !== 1 ? 's' : ''}`
             : `${users.length} user${users.length !== 1 ? 's' : ''}`}
         </p>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
             <input
               type="text"
               placeholder="Search users…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+              className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600"
             />
           </div>
           <button onClick={() => setShowCreate(true)}
@@ -464,21 +464,21 @@ export default function UserManager() {
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {users.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No users yet.</div>
+          <div className="p-8 text-center text-gray-600 text-sm">No users yet.</div>
         ) : visibleUsers.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">
+          <div className="p-8 text-center text-gray-600 text-sm">
             No users match <strong className="text-gray-600">"{search}"</strong>.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Client</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3" />
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Client</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                <th scope="col" className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -487,9 +487,9 @@ export default function UserManager() {
                   <td className="px-4 py-3 font-medium text-gray-800">
                     {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.displayName || '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                  <td className="px-4 py-3 text-gray-700">{user.email}</td>
                   <td className="px-4 py-3 text-gray-600">{ROLE_LABELS[user.role] ?? user.role}</td>
-                  <td className="px-4 py-3 text-gray-500">{clientName(user.clientId)}</td>
+                  <td className="px-4 py-3 text-gray-700">{clientName(user.clientId)}</td>
                   <td className="px-4 py-3">
                     {user.active !== false
                       ? <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} /> Active</span>
@@ -504,7 +504,7 @@ export default function UserManager() {
                       {isSTXAdmin && (
                         <button
                           onClick={() => setDeleting(user.id)}
-                          className="text-gray-400 hover:text-red-600 p-1" title="Delete user"
+                          className="text-gray-600 hover:text-red-600 p-1" title="Delete user"
                           disabled={deleting === user.id}
                         >
                           <Trash2 size={14} />

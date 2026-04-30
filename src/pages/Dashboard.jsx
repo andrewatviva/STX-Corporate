@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -100,6 +100,10 @@ export default function Dashboard() {
     ? (activeClient ? `${activeClient.name} — Dashboard` : 'STX Global Dashboard')
     : clientConfig?.branding?.portalTitle ?? 'Dashboard';
 
+  useEffect(() => {
+    document.title = `Dashboard — STX Connect`;
+  }, []);
+
   // ── status counts ────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
     const c = Object.fromEntries(STAT_ORDER.map(k => [k, 0]));
@@ -192,12 +196,12 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-1">{title}</h1>
-      <p className="text-gray-500 text-sm mb-6">
+      <p className="text-gray-700 text-sm mb-6">
         Welcome back, {userProfile?.displayName || userProfile?.email}
       </p>
 
       {loading ? (
-        <div className="text-center text-gray-400 py-12 text-sm">Loading…</div>
+        <div className="text-center text-gray-600 py-12 text-sm">Loading…</div>
       ) : (
         <>
           {/* Status stat cards — all clickable, navigate to filtered trip list */}
@@ -231,12 +235,12 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-4">
               <h2 className="text-sm font-semibold text-gray-700 w-full sm:w-auto">Expenditure — {currentFYLabel}</h2>
               <div>
-                <p className="text-xs text-gray-400 leading-tight">Incl. GST</p>
+                <p className="text-xs text-gray-600 leading-tight">Incl. GST</p>
                 <span className="text-xl font-bold text-gray-900">{fmtAUD(currentFYTotal)}</span>
               </div>
               {exGSTTotal > 0 && (
                 <div>
-                  <p className="text-xs text-gray-400 leading-tight">Ex-GST (incl. fees)</p>
+                  <p className="text-xs text-gray-600 leading-tight">Ex-GST (incl. fees)</p>
                   <span className="text-xl font-bold text-indigo-700">{fmtAUD(exGSTTotal)}</span>
                 </div>
               )}
@@ -246,7 +250,7 @@ export default function Dashboard() {
                 </span>
               )}
               {hasPrevData && (
-                <span className="text-sm text-gray-400 self-center">
+                <span className="text-sm text-gray-600 self-center">
                   vs {fmtAUD(prevFYTotal)} ({prevFYLabel})
                   {fyChange !== null && (
                     <span className={`ml-1 font-medium ${fyChange >= 0 ? 'text-red-500' : 'text-green-600'}`}>
@@ -259,7 +263,7 @@ export default function Dashboard() {
 
             {/* Monthly bar chart */}
             {currentFYTotal === 0 && !hasPrevData ? (
-              <p className="text-xs text-gray-400 py-8 text-center">No approved spend recorded yet for this financial year.</p>
+              <p className="text-xs text-gray-600 py-8 text-center">No approved spend recorded yet for this financial year.</p>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={monthlyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -287,7 +291,7 @@ export default function Dashboard() {
                 Spend by cost centre — {currentFYLabel}
               </h2>
               {costCentreData.length === 0 ? (
-                <p className="text-xs text-gray-400">No cost centre data for this financial year.</p>
+                <p className="text-xs text-gray-600">No cost centre data for this financial year.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={Math.max(120, costCentreData.length * 36)}>
                   <BarChart
@@ -309,15 +313,15 @@ export default function Dashboard() {
             <div className="bg-white border border-gray-200 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Upcoming trips (next 60 days)</h2>
               {upcoming.length === 0 ? (
-                <p className="text-xs text-gray-400">No upcoming approved or booked trips.</p>
+                <p className="text-xs text-gray-600">No upcoming approved or booked trips.</p>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {upcoming.map(t => (
                     <div key={t.id} className="flex items-center gap-3 py-2">
-                      <span className="text-xs text-gray-400 w-20 shrink-0">{fmtDate(t.startDate)}</span>
+                      <span className="text-xs text-gray-600 w-20 shrink-0">{fmtDate(t.startDate)}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-800 truncate">{t.title || '—'}</p>
-                        {t.travellerName && <p className="text-xs text-gray-400 truncate">{t.travellerName}</p>}
+                        {t.travellerName && <p className="text-xs text-gray-600 truncate">{t.travellerName}</p>}
                       </div>
                       <StatusBadge status={getDisplayStatus(t)} />
                     </div>
@@ -331,14 +335,14 @@ export default function Dashboard() {
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Recent trips</h2>
             {recent.length === 0 ? (
-              <p className="text-xs text-gray-400">No trips yet.</p>
+              <p className="text-xs text-gray-600">No trips yet.</p>
             ) : (
               <div className="divide-y divide-gray-100">
                 {recent.map(t => (
                   <div key={t.id} className="flex items-center gap-3 py-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-800 truncate">{t.title || '—'}</p>
-                      <p className="text-xs text-gray-400 truncate">
+                      <p className="text-xs text-gray-600 truncate">
                         {t.travellerName || ''}
                         {isSTX && t.clientId ? ` · ${t.clientId}` : ''}
                         {t.startDate ? ` · ${fmtDate(t.startDate)}` : ''}

@@ -136,7 +136,7 @@ export default function FeedbackManager({ initialId }) {
     }
   };
 
-  if (loading) return <p className="text-sm text-gray-500 py-4">Loading…</p>;
+  if (loading) return <p className="text-sm text-gray-700 py-4">Loading…</p>;
 
   // ── Detail view ────────────────────────────────────────────────────────────
   if (selected) {
@@ -161,7 +161,7 @@ export default function FeedbackManager({ initialId }) {
                 <StatusBadge status={currentStatus} />
               </div>
               <h2 className="text-base font-semibold text-gray-900 mb-3">{selected.subject}</h2>
-              <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-4">
+              <div className="flex flex-wrap gap-4 text-xs text-gray-700 mb-4">
                 <span className="flex items-center gap-1">
                   <User size={11} /> {selected.userName || selected.userEmail || 'Unknown'}
                 </span>
@@ -190,7 +190,7 @@ export default function FeedbackManager({ initialId }) {
                     <div key={i} className="border-l-2 border-blue-200 pl-4">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-blue-700">{r.respondedByName}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-600">
                           {new Date(r.respondedAt).toLocaleString('en-AU')}
                         </span>
                       </div>
@@ -213,7 +213,7 @@ export default function FeedbackManager({ initialId }) {
               />
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 font-medium">Status:</label>
+                  <label className="text-xs text-gray-700 font-medium">Status:</label>
                   <select
                     value={newStatus}
                     onChange={e => setNewStatus(e.target.value)}
@@ -234,7 +234,7 @@ export default function FeedbackManager({ initialId }) {
                 </button>
               </div>
               {responseText.trim() && selected.userId && (
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-gray-600 mt-2">
                   An email will be sent to {selected.userEmail} notifying them of your response.
                 </p>
               )}
@@ -250,26 +250,26 @@ export default function FeedbackManager({ initialId }) {
           {/* Sidebar */}
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Details</h3>
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Details</h3>
               <dl className="space-y-3 text-sm">
                 <div>
-                  <dt className="text-xs text-gray-400 mb-0.5">From</dt>
+                  <dt className="text-xs text-gray-600 mb-0.5">From</dt>
                   <dd className="font-medium text-gray-800">{selected.userName || '—'}</dd>
-                  <dd className="text-gray-500 text-xs break-all">{selected.userEmail || '—'}</dd>
+                  <dd className="text-gray-700 text-xs break-all">{selected.userEmail || '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-gray-400 mb-0.5">Client</dt>
+                  <dt className="text-xs text-gray-600 mb-0.5">Client</dt>
                   <dd className="font-medium text-gray-800">{selected.clientId || '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-gray-400 mb-0.5">Submitted</dt>
+                  <dt className="text-xs text-gray-600 mb-0.5">Submitted</dt>
                   <dd className="font-medium text-gray-800">
                     {new Date(selected.createdAt).toLocaleString('en-AU')}
                   </dd>
                 </div>
                 {selected.updatedAt && (
                   <div>
-                    <dt className="text-xs text-gray-400 mb-0.5">Last updated</dt>
+                    <dt className="text-xs text-gray-600 mb-0.5">Last updated</dt>
                     <dd className="font-medium text-gray-800">
                       {new Date(selected.updatedAt).toLocaleString('en-AU')}
                     </dd>
@@ -277,7 +277,7 @@ export default function FeedbackManager({ initialId }) {
                 )}
                 {selected.resolvedAt && (
                   <div>
-                    <dt className="text-xs text-gray-400 mb-0.5">Resolved</dt>
+                    <dt className="text-xs text-gray-600 mb-0.5">Resolved</dt>
                     <dd className="font-medium text-gray-800">
                       {new Date(selected.resolvedAt).toLocaleString('en-AU')}
                     </dd>
@@ -307,7 +307,7 @@ export default function FeedbackManager({ initialId }) {
               }`}
             >
               <p className="text-2xl font-bold text-gray-900">{count}</p>
-              <p className="text-xs text-gray-500">{cfg.label}</p>
+              <p className="text-xs text-gray-700">{cfg.label}</p>
             </button>
           );
         })}
@@ -316,8 +316,8 @@ export default function FeedbackManager({ initialId }) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="flex items-center gap-2">
-          <Filter size={13} className="text-gray-400" />
-          <span className="text-xs text-gray-500 font-medium">Status:</span>
+          <Filter size={13} className="text-gray-600" />
+          <span className="text-xs text-gray-700 font-medium">Status:</span>
           {['all', 'open', 'in_progress', 'resolved'].map(s => (
             <button
               key={s}
@@ -333,7 +333,7 @@ export default function FeedbackManager({ initialId }) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 font-medium">Type:</span>
+          <span className="text-xs text-gray-700 font-medium">Type:</span>
           {['all', 'feedback', 'fault'].map(t => (
             <button
               key={t}
@@ -353,8 +353,8 @@ export default function FeedbackManager({ initialId }) {
       {/* List */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <MessageSquare size={32} className="text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No submissions match the current filters.</p>
+          <MessageSquare size={32} className="text-gray-500 mx-auto mb-2" />
+          <p className="text-sm text-gray-700">No submissions match the current filters.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -370,19 +370,19 @@ export default function FeedbackManager({ initialId }) {
                     <TypeBadge type={item.type} />
                     <StatusBadge status={item.status || 'open'} />
                     {(item.responses || []).length > 0 && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-600">
                         {item.responses.length} response{item.responses.length !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
                   <p className="text-sm font-medium text-gray-900 truncate">{item.subject}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-600 mt-0.5">
                     {item.userName || item.userEmail || 'Unknown'} ·{' '}
                     {item.clientId || 'No client'} ·{' '}
                     {new Date(item.createdAt).toLocaleDateString('en-AU')}
                   </p>
                 </div>
-                <ChevronRight size={16} className="text-gray-300 shrink-0 mt-1" />
+                <ChevronRight size={16} className="text-gray-500 shrink-0 mt-1" />
               </div>
             </button>
           ))}

@@ -22,7 +22,7 @@ function Field({ label, children, hint }) {
     <div>
       <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-gray-600 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -78,12 +78,12 @@ function TreeNode({ member, members, depth = 0 }) {
     <div>
       <div className="flex items-start gap-2 py-1.5 group" style={{ paddingLeft: depth * 24 }}>
         {depth > 0 && (
-          <span className="text-gray-300 mt-0.5 shrink-0">
+          <span className="text-gray-500 mt-0.5 shrink-0">
             <ChevronRight size={14} />
           </span>
         )}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className={`font-medium text-sm ${member.active === false ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+          <span className={`font-medium text-sm ${member.active === false ? 'text-gray-600 line-through' : 'text-gray-800'}`}>
             {memberName(member)}
           </span>
           <RoleBadge role={member.role} />
@@ -105,7 +105,7 @@ function HierarchyView({ members }) {
 
   if (roots.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400 text-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-600 text-sm">
         No team members yet.
       </div>
     );
@@ -113,7 +113,7 @@ function HierarchyView({ members }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-xs text-gray-400 mb-4">
+      <p className="text-xs text-gray-600 mb-4">
         Reporting structure — edit members to assign managers and approver delegations.
       </p>
       {roots.map(m => (
@@ -387,7 +387,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium text-gray-700 mb-0.5">Approval scope</p>
-              <p className="text-xs text-gray-400">Which team members' trips this person can approve or decline.</p>
+              <p className="text-xs text-gray-600">Which team members' trips this person can approve or decline.</p>
             </div>
 
             {/* Scope selector */}
@@ -406,7 +406,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
                   />
                   <div>
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
-                    <p className="text-xs text-gray-400">{hint}</p>
+                    <p className="text-xs text-gray-600">{hint}</p>
                   </div>
                 </label>
               ))}
@@ -416,7 +416,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
             {form.approveScope === 'select' && (
               <div className="ml-6 space-y-1.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
                 {otherMembers.length === 0 && (
-                  <p className="text-xs text-gray-400">No other members in this client.</p>
+                  <p className="text-xs text-gray-600">No other members in this client.</p>
                 )}
                 {otherMembers.map(m => {
                   const checked = (form.approveFor || []).includes(m.id);
@@ -449,7 +449,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
                   <option value={2}>Direct reports + once removed</option>
                   <option value={3}>Direct reports + twice removed</option>
                 </select>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-600">
                   Staff must have this user set as their manager (or report to someone who does) for this to apply.
                 </p>
               </div>
@@ -465,7 +465,7 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
       {showPermissions && (
         <div className="border border-gray-200 rounded-lg p-4">
           <p className="text-sm font-semibold text-gray-700 mb-1">Permission overrides</p>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-gray-600 mb-3">
             Override individual permissions for this user. "Role default" means the user's role determines access.
           </p>
           <PermissionOverridesEditor
@@ -524,6 +524,9 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Team() {
+  useEffect(() => {
+    document.title = 'Team — STX Connect';
+  }, []);
   const { userProfile } = useAuth();
   const { isSTX, clientId, activeClientId, clientsList, clientConfig, activeClientConfig } = useTenant();
   const effectiveConfig = isSTX ? activeClientConfig : clientConfig;
@@ -564,9 +567,9 @@ export default function Team() {
     return (
       <div>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Team</h1>
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
+        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-600">
           <Users size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium text-gray-500">No client selected</p>
+          <p className="text-sm font-medium text-gray-700">No client selected</p>
           <p className="text-xs mt-1">Select a client from the header to manage their team.</p>
         </div>
       </div>
@@ -578,7 +581,7 @@ export default function Team() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-1">{heading}</h1>
-      <p className="text-gray-500 text-sm mb-5">
+      <p className="text-gray-700 text-sm mb-5">
         {isSTX
           ? 'Manage team members, reporting structure, and approver delegations.'
           : 'Manage your team, who reports to whom, and who approves travel requests.'}
@@ -590,15 +593,15 @@ export default function Team() {
           <button
             onClick={() => setTab('members')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
-              ${tab === 'members' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              ${tab === 'members' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-700 hover:text-gray-700'}`}
           >
             <Users size={14} /> Members
-            <span className="text-xs text-gray-400 font-normal">({members.length})</span>
+            <span className="text-xs text-gray-600 font-normal">({members.length})</span>
           </button>
           <button
             onClick={() => setTab('hierarchy')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
-              ${tab === 'hierarchy' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              ${tab === 'hierarchy' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-700 hover:text-gray-700'}`}
           >
             <GitBranch size={14} /> Hierarchy
           </button>
@@ -606,13 +609,13 @@ export default function Team() {
         <div className="flex items-center gap-2">
           {tab === 'members' && (
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search members…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+                className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600"
               />
             </div>
           )}
@@ -626,7 +629,7 @@ export default function Team() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>
+        <p className="text-sm text-gray-600 py-8 text-center">Loading…</p>
       ) : tab === 'hierarchy' ? (
         <HierarchyView members={members} />
       ) : (
@@ -644,25 +647,25 @@ export default function Team() {
           return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {members.length === 0 ? (
-            <div className="p-10 text-center text-gray-400 text-sm">
+            <div className="p-10 text-center text-gray-600 text-sm">
               No team members yet. Click "Add member" to get started.
             </div>
           ) : visible.length === 0 ? (
-            <div className="p-10 text-center text-gray-400 text-sm">
+            <div className="p-10 text-center text-gray-600 text-sm">
               No members match <strong className="text-gray-600">"{search}"</strong>.
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Reports to</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Cost centre</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Profile</th>
-                  <th className="px-4 py-3" />
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Reports to</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Cost centre</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Profile</th>
+                  <th scope="col" className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
@@ -675,13 +678,13 @@ export default function Team() {
                       className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${m.active === false ? 'opacity-60' : ''}`}
                     >
                       <td className="px-4 py-3 font-medium text-gray-800">{memberName(m)}</td>
-                      <td className="px-4 py-3 text-gray-500">{m.email}</td>
+                      <td className="px-4 py-3 text-gray-700">{m.email}</td>
                       <td className="px-4 py-3"><RoleBadge role={m.role} /></td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
-                        {manager ? memberName(manager) : <span className="text-gray-300">—</span>}
+                      <td className="px-4 py-3 text-gray-700 text-xs">
+                        {manager ? memberName(manager) : <span className="text-gray-500">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
-                        {m.costCentre || <span className="text-gray-300">—</span>}
+                      <td className="px-4 py-3 text-gray-700 text-xs hidden lg:table-cell">
+                        {m.costCentre || <span className="text-gray-500">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         {m.active === false
@@ -694,7 +697,7 @@ export default function Team() {
                           className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border ${
                             hasProfile
                               ? 'border-blue-200 text-blue-600 hover:bg-blue-50'
-                              : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-600'
                           }`}
                           title={hasProfile ? 'Edit passenger profile' : 'Create passenger profile'}
                         >

@@ -415,9 +415,9 @@ export default function InvoiceBuilder({
           <h2 className="text-xl font-semibold text-gray-800">
             {editInvoice ? `Edit ${editInvoice.invoiceNumber}` : 'New Invoice'}
           </h2>
-          <p className="text-sm text-gray-500 mt-0.5">Scan for unbilled fees, then add any manual items</p>
+          <p className="text-sm text-gray-700 mt-0.5">Scan for unbilled fees, then add any manual items</p>
         </div>
-        <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700">
+        <button onClick={onCancel} className="text-sm text-gray-700 hover:text-gray-700">
           Cancel
         </button>
       </div>
@@ -454,7 +454,7 @@ export default function InvoiceBuilder({
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">From</label>
+            <label className="text-xs text-gray-700 block mb-1">From</label>
             <input
               type="date"
               value={periodFrom}
@@ -463,7 +463,7 @@ export default function InvoiceBuilder({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">To</label>
+            <label className="text-xs text-gray-700 block mb-1">To</label>
             <input
               type="date"
               value={periodTo}
@@ -487,7 +487,7 @@ export default function InvoiceBuilder({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="text-sm font-medium text-gray-700">
             Line items{lineItems.length > 0 && (
-              <span className="ml-1.5 text-gray-400 font-normal">({lineItems.length})</span>
+              <span className="ml-1.5 text-gray-600 font-normal">({lineItems.length})</span>
             )}
           </h3>
           {!isReadOnly && (
@@ -501,7 +501,7 @@ export default function InvoiceBuilder({
         </div>
 
         {lineItems.length === 0 ? (
-          <div className="py-12 text-center text-gray-400 text-sm">
+          <div className="py-12 text-center text-gray-600 text-sm">
             {scanned
               ? 'No unbilled trips or fees found for this period.'
               : 'Click "Scan for unbilled items" to find trips booked and fees applied in this period, or add a manual item.'}
@@ -511,14 +511,14 @@ export default function InvoiceBuilder({
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Ref</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Traveller</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Cost centre</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Description</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Ex-GST</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">GST</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Incl. GST</th>
-                  {!isReadOnly && <th className="px-4 py-3 w-8" />}
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-700">Ref</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-700">Traveller</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-700">Cost centre</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-700">Description</th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-700">Ex-GST</th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-700">GST</th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-700">Incl. GST</th>
+                  {!isReadOnly && <th scope="col" className="px-4 py-3 w-8" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -533,7 +533,7 @@ export default function InvoiceBuilder({
                   if (isEditing) {
                     return (
                       <tr key={item.dedupKey || idx} className="bg-blue-50/50">
-                        <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-700">{item.tripRef || '—'}</td>
                         <td className="px-4 py-2 text-xs text-gray-600">{item.travellerName || '—'}</td>
                         <td className="px-4 py-2 text-xs text-gray-600">{item.costCentre || '—'}</td>
                         <td className="px-4 py-2">
@@ -561,7 +561,7 @@ export default function InvoiceBuilder({
                               onChange={e => setEditDraft(d => ({ ...d, inclGST: e.target.value }))}
                             />
                           ) : (
-                            <span className="text-gray-400">{formatCurrency(draftInclGST - draftAmt)}</span>
+                            <span className="text-gray-600">{formatCurrency(draftInclGST - draftAmt)}</span>
                           )}
                         </td>
                         <td className="px-4 py-2 text-right text-xs font-medium text-gray-700">
@@ -570,8 +570,8 @@ export default function InvoiceBuilder({
                         <td className="px-4 py-2 text-right">
                           <div className="flex items-center justify-end gap-0.5">
                             <button onClick={() => saveItemEdit(idx)} className="p-1 text-blue-600 hover:text-blue-800" title="Save"><Check size={13} /></button>
-                            <button onClick={() => setEditingIdx(null)} className="p-1 text-gray-400 hover:text-gray-600" title="Cancel"><X size={13} /></button>
-                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500" title="Remove"><Trash2 size={13} /></button>
+                            <button onClick={() => setEditingIdx(null)} className="p-1 text-gray-600 hover:text-gray-600" title="Cancel"><X size={13} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-700 hover:text-red-600" aria-label="Remove line item"><Trash2 size={13} aria-hidden="true" /></button>
                           </div>
                         </td>
                       </tr>
@@ -581,7 +581,7 @@ export default function InvoiceBuilder({
                   if (item.isManual) {
                     return (
                       <tr key={item.dedupKey || idx} className="bg-blue-50/40">
-                        <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-700">
                           <input className="border border-gray-300 rounded px-2 py-1 text-xs w-20 font-mono" value={item.tripRef} placeholder="Ref" onChange={e => updateItem(idx, 'tripRef', e.target.value)} />
                         </td>
                         <td className="px-4 py-3 text-gray-700">
@@ -596,7 +596,7 @@ export default function InvoiceBuilder({
                         <td className="px-4 py-3 text-right">
                           <input type="number" className="border border-gray-300 rounded px-2 py-1 text-xs w-20 text-right" value={item.amount} step="0.01" min="0" onChange={e => updateItem(idx, 'amount', parseFloat(e.target.value) || 0)} />
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-500">
+                        <td className="px-4 py-3 text-right text-gray-700">
                           <select className="border border-gray-300 rounded px-1 py-1 text-xs" value={item.gstRate} onChange={e => updateItem(idx, 'gstRate', parseFloat(e.target.value))}>
                             <option value={0.1}>10%</option>
                             <option value={0}>GST-free</option>
@@ -605,7 +605,7 @@ export default function InvoiceBuilder({
                         <td className="px-4 py-3 text-right font-medium text-gray-800">{formatCurrency(item.inclGST)}</td>
                         {!isReadOnly && (
                           <td className="px-4 py-3 text-right">
-                            <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-500 transition-colors" title="Remove"><Trash2 size={14} /></button>
+                            <button onClick={() => removeItem(idx)} className="text-gray-700 hover:text-red-600 transition-colors" aria-label="Remove line item"><Trash2 size={14} aria-hidden="true" /></button>
                           </td>
                         )}
                       </tr>
@@ -615,20 +615,20 @@ export default function InvoiceBuilder({
                   // Scanned item — view mode
                   return (
                     <tr key={item.dedupKey || idx}>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.tripRef || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-700">{item.tripRef || '—'}</td>
                       <td className="px-4 py-3 text-gray-700">{item.travellerName || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{item.costCentre || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-4 py-3 text-gray-600">{item.costCentre || <span className="text-gray-600">—</span>}</td>
                       <td className="px-4 py-3 text-gray-700">{item.description}</td>
                       <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(item.amount)}</td>
-                      <td className="px-4 py-3 text-right text-gray-500">
+                      <td className="px-4 py-3 text-right text-gray-700">
                         {formatCurrency((parseFloat(item.inclGST) || 0) - (parseFloat(item.amount) || 0))}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-800">{formatCurrency(item.inclGST)}</td>
                       {!isReadOnly && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-0.5">
-                            <button onClick={() => startItemEdit(idx, item)} className="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={13} /></button>
-                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-300 hover:text-red-500 transition-colors" title="Remove"><Trash2 size={13} /></button>
+                            <button onClick={() => startItemEdit(idx, item)} className="p-1 text-gray-600 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={13} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-1 text-gray-700 hover:text-red-600 transition-colors" aria-label="Remove line item"><Trash2 size={13} aria-hidden="true" /></button>
                           </div>
                         </td>
                       )}

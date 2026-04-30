@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
@@ -31,6 +31,10 @@ const BLURBS = {
 };
 
 export default function Reports() {
+  useEffect(() => {
+    document.title = 'Reports — STX Connect';
+  }, []);
+
   const { userProfile } = useAuth();
   const { clientId: tenantClientId, activeClientId, isSTX, clientConfig, activeClientConfig } = useTenant();
   const [activeTab, setActiveTab] = useState('all_travel');
@@ -65,7 +69,7 @@ export default function Reports() {
               className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px whitespace-nowrap transition-colors ${
                 activeTab === tab.key
                   ? 'border-teal-600 text-teal-600 bg-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-gray-700 hover:text-gray-700'
               }`}
             >
               {tab.label}
@@ -73,7 +77,7 @@ export default function Reports() {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-600">
           <p className="text-sm">Select a client from the top bar to view this report.</p>
         </div>
       </div>
@@ -93,7 +97,7 @@ export default function Reports() {
               className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px whitespace-nowrap transition-colors ${
                 activeTab === tab.key
                   ? 'border-teal-600 text-teal-600 bg-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-gray-700 hover:text-gray-700'
               }`}
             >
               {tab.label}
@@ -102,13 +106,13 @@ export default function Reports() {
         </div>
 
         {BLURBS[activeTab] && (
-          <p className="text-sm text-gray-500 mb-5 max-w-3xl leading-relaxed">{BLURBS[activeTab]}</p>
+          <p className="text-sm text-gray-700 mb-5 max-w-3xl leading-relaxed">{BLURBS[activeTab]}</p>
         )}
 
         {activeTab === 'provider_ratings' ? (
           <ProviderRatings />
         ) : loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm">Loading trips…</div>
+          <div className="text-center py-12 text-gray-600 text-sm">Loading trips…</div>
         ) : (
           <>
             {activeTab === 'all_travel' && <AllTravelReport  trips={scopedTrips} userProfile={userProfile} />}

@@ -54,7 +54,7 @@ function FeeAppliesTo({ value, onChange, tripTypes }) {
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-medium text-gray-500">Applies to</label>
+      <label className="block text-xs font-medium text-gray-700">Applies to</label>
       <div className="flex gap-4 text-sm">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="radio" checked={appliesAll} onChange={() => onChange([])} className="text-blue-600" />
@@ -130,7 +130,7 @@ function RateTable({ rates, setRates, rateUnit, blanketLabel }) {
               onChange={e => change('All Cities', e.target.value)}
               className="border border-gray-300 rounded-lg px-2 py-1 text-sm w-24 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
-            <span className="text-xs text-gray-500">{blanketLabel}</span>
+            <span className="text-xs text-gray-700">{blanketLabel}</span>
           </>
         )}
       </div>
@@ -138,17 +138,17 @@ function RateTable({ rates, setRates, rateUnit, blanketLabel }) {
       <div className="flex items-center gap-3 flex-wrap">
         <input type="text" placeholder="Search city…" value={cityFilter} onChange={e => setCityFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" />
-        <span className="text-xs text-gray-400">{filtered.length} cities</span>
+        <span className="text-xs text-gray-600">{filtered.length} cities</span>
       </div>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
         <div className="grid grid-cols-[1fr_130px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200 sticky top-0">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">City</span>
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide text-right">{rateUnit} incl. GST</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">City</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide text-right">{rateUnit} incl. GST</span>
           <span />
         </div>
         {filtered.length === 0 && (
-          <p className="text-xs text-gray-400 px-3 py-3 text-center">No cities added yet.</p>
+          <p className="text-xs text-gray-600 px-3 py-3 text-center">No cities added yet.</p>
         )}
         {filtered.map((city, idx) => (
           <div key={city} className={`grid grid-cols-[1fr_130px_36px] px-3 py-1.5 items-center border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
@@ -159,7 +159,7 @@ function RateTable({ rates, setRates, rateUnit, blanketLabel }) {
                 className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div className="flex justify-center">
-              <button type="button" onClick={() => del(city)} className="text-gray-300 hover:text-red-400 text-base leading-none px-1">×</button>
+              <button type="button" onClick={() => del(city)} className="text-gray-500 hover:text-red-400 text-base leading-none px-1">×</button>
             </div>
           </div>
         ))}
@@ -167,12 +167,12 @@ function RateTable({ rates, setRates, rateUnit, blanketLabel }) {
 
       <div className="flex gap-2 items-end flex-wrap">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Add city</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Add city</label>
           <input type="text" placeholder="City name" value={newCity} onChange={e => setNewCity(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-44" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">{rateUnit} ($)</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{rateUnit} ($)</label>
           <input type="number" min="0" step="1" placeholder="e.g. 195" value={newRate}
             onChange={e => setNewRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28" />
@@ -219,7 +219,7 @@ function PolicyRatesEditor({ clientId }) {
     setSaving(false);
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading policy rates…</p>;
+  if (loading) return <p className="text-sm text-gray-600">Loading policy rates…</p>;
 
   return (
     <div className="space-y-3">
@@ -243,12 +243,12 @@ function PolicyRatesEditor({ clientId }) {
 
       {activeTab === 'accommodation' ? (
         <>
-          <p className="text-xs text-gray-400">Max allowable nightly accommodation spend per city (incl. GST). Used in the Travel Policy report.</p>
+          <p className="text-xs text-gray-600">Max allowable nightly accommodation spend per city (incl. GST). Used in the Travel Policy report.</p>
           <RateTable rates={accomRates} setRates={setAccomRates} rateUnit="Max/Night" blanketLabel="/night incl. GST — applies to destinations not listed below" />
         </>
       ) : (
         <>
-          <p className="text-xs text-gray-400">Max allowable total flight cost per trip by destination city (incl. GST). Used in the Travel Policy report.</p>
+          <p className="text-xs text-gray-600">Max allowable total flight cost per trip by destination city (incl. GST). Used in the Travel Policy report.</p>
           <RateTable rates={flightRates} setRates={setFlightRates} rateUnit="Max/Trip" blanketLabel="/trip incl. GST — applies to destinations not listed below" />
         </>
       )}
@@ -408,7 +408,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       </Section>
 
       <Section title="Approval Workflow">
-        <p className="text-xs text-gray-500 -mt-2">Set whether each trip type requires approval before a booking can proceed.</p>
+        <p className="text-xs text-gray-700 -mt-2">Set whether each trip type requires approval before a booking can proceed.</p>
         {(cfg.dropdowns.tripTypes?.length ? cfg.dropdowns.tripTypes : DEFAULT_CONFIG.dropdowns.tripTypes).map(type => (
           <Toggle
             key={type}
@@ -447,7 +447,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
             placeholder="enquiries@supportedtravelx.com.au"
           />
         </Field>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           Shown on the Contact page for client users. Leave blank to use the default STX enquiries address.
         </p>
         <Field label="STX notifications email">
@@ -459,7 +459,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
             placeholder="enquiries@supportedtravelx.com.au"
           />
         </Field>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           STX inbox that receives portal feedback, fault reports, cancellation alerts, and hotel booking confirmations for this client. Leave blank to use the default STX enquiries address.
         </p>
       </Section>
@@ -491,11 +491,11 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
             placeholder="0"
           />
         </Field>
-        <p className="text-xs text-gray-400">Markup is only visible to STX staff when searching hotels. Clients see the final marked-up price.</p>
+        <p className="text-xs text-gray-600">Markup is only visible to STX staff when searching hotels. Clients see the final marked-up price.</p>
       </Section>
 
       <Section title="Policy Variance">
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-gray-700 mb-4">
           Allow bookings above the travel policy rate up to a defined threshold. When the threshold is exceeded,
           the system can either warn the user or require explicit approval before the trip can proceed.
         </p>
@@ -528,7 +528,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
                     onChange={e => setVariance('accommodation', 'value', parseFloat(e.target.value) || 0)}
                     placeholder={cfg.policyVariance.accommodation.type === 'percent' ? '10' : '50'}
                   />
-                  <span className="text-sm text-gray-500 shrink-0">
+                  <span className="text-sm text-gray-700 shrink-0">
                     {cfg.policyVariance.accommodation.type === 'percent' ? '%' : 'AUD'}
                   </span>
                 </div>
@@ -575,7 +575,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
                     onChange={e => setVariance('flight', 'value', parseFloat(e.target.value) || 0)}
                     placeholder={cfg.policyVariance.flight.type === 'percent' ? '10' : '50'}
                   />
-                  <span className="text-sm text-gray-500 shrink-0">
+                  <span className="text-sm text-gray-700 shrink-0">
                     {cfg.policyVariance.flight.type === 'percent' ? '%' : 'AUD'}
                   </span>
                 </div>
