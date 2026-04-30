@@ -109,5 +109,15 @@ service cloud.firestore {
       allow read:   if isSTX();
       allow delete: if isSTX();
     }
+
+    // Client onboarding forms — token serves as access control (32-char random hex)
+    // Anyone with the URL can read and submit; only STX can create/delete/manage
+    match /onboarding/{token} {
+      allow read:   if true;
+      allow create: if isSTX();
+      allow update: if (resource.data.status == 'pending' && request.resource.data.status == 'submitted') ||
+                       isSTX();
+      allow delete: if isSTXAdmin();
+    }
   }
 }

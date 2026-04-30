@@ -17,6 +17,7 @@ import Team             from './pages/Team';
 import AdminPanel       from './pages/AdminPanel';
 import Contact          from './pages/Contact';
 import HotelBookingPage from './pages/HotelBookingPage';
+import OnboardingForm from './pages/OnboardingForm';
 
 function AuthGate({ children }) {
   const { currentUser, authLoading } = useAuth();
@@ -58,6 +59,7 @@ export default function App() {
                   </AuthGate>
                 }
               />
+              <Route path="/onboarding/:token" element={<OnboardingForm />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </BrowserRouter>

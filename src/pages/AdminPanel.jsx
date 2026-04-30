@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { Building2, Users, MessageSquare } from 'lucide-react';
+import { Building2, Users, MessageSquare, ClipboardList } from 'lucide-react';
 import { usePermissions } from '../contexts/PermissionsContext';
 import { PERMISSIONS } from '../utils/permissions';
 import ClientManager from '../components/admin/ClientManager';
 import UserManager from '../components/admin/UserManager';
 import FeedbackManager from '../components/admin/FeedbackManager';
+import OnboardingManager from '../components/admin/OnboardingManager';
 
 const TABS = [
-  { id: 'clients',  label: 'Clients',           icon: Building2 },
-  { id: 'users',    label: 'Users',              icon: Users },
-  { id: 'feedback', label: 'Feedback & Faults',  icon: MessageSquare },
+  { id: 'clients',    label: 'Clients',           icon: Building2 },
+  { id: 'users',      label: 'Users',              icon: Users },
+  { id: 'onboarding', label: 'Onboarding',         icon: ClipboardList },
+  { id: 'feedback',   label: 'Feedback & Faults',  icon: MessageSquare },
 ];
 
 export default function AdminPanel() {
@@ -48,9 +50,10 @@ export default function AdminPanel() {
         ))}
       </div>
 
-      {tab === 'clients'  && <ClientManager />}
-      {tab === 'users'    && <UserManager />}
-      {tab === 'feedback' && <FeedbackManager initialId={initialId} />}
+      {tab === 'clients'    && <ClientManager />}
+      {tab === 'users'      && <UserManager />}
+      {tab === 'onboarding' && <OnboardingManager />}
+      {tab === 'feedback'   && <FeedbackManager initialId={initialId} />}
     </div>
   );
 }

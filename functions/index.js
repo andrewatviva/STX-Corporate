@@ -6,6 +6,7 @@ const { initializeApp }                         = require('firebase-admin/app');
 const { getAuth }                               = require('firebase-admin/auth');
 const { getFirestore, FieldValue }              = require('firebase-admin/firestore');
 const sgMail                                    = require('@sendgrid/mail');
+const crypto                                    = require('crypto');
 
 initializeApp();
 
@@ -665,6 +666,147 @@ exports.onEmailQueued = onDocumentCreated(
         });
       } catch {}
     }
+  }
+);
+
+// Send an onboarding form link to a new client contact (STX admin/ops only)
+exports.sendOnboardingForm = onCall({ enforceAppCheck: false, secrets: [SENDGRID_KEY] }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const db = getFirestore();
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  const callerRole = callerSnap.data()?.role;
+  if (!['stx_admin', 'stx_ops'].includes(callerRole)) {
+    throw new HttpsError('permission-denied', 'Only STX staff can send onboarding forms.');
+  }
+
+  const { clientName, recipientEmail, recipientName, note } = request.data;
+  if (!clientName?.trim())    throw new HttpsError('invalid-argument', 'clientName is required.');
+  if (!recipientEmail?.trim()) throw new HttpsError('invalid-argument', 'recipientEmail is required.');
+
+  const token = crypto.randomBytes(16).toString('hex');
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30);
+
+  await db.collection('onboarding').doc(token).set({
+    token,
+    clientName:     clientName.trim(),
+    recipientEmail: recipientEmail.trim().toLowerCase(),
+    recipientName:  recipientName?.trim() || '',
+    note:           note?.trim() || '',
+    status:         'pending',
+    createdBy:      callerUid,
+    createdByName:  callerSnap.data()?.displayName || '',
+    createdAt:      FieldValue.serverTimestamp(),
+    expiresAt:      expiresAt.toISOString(),
+    responses:      null,
+  });
+
+  const formUrl   = `${portalUrl()}/onboarding/${token}`;
+  const firstName = (recipientName?.trim() || '').split(' ')[0] || '';
+  const greeting  = firstName ? `, ${firstName}` : '';
+
+  const noteBlock = note?.trim()
+    ? `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin:16px 0;">
+         <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Note from the STX team</p>
+         <p style="margin:0;font-size:14px;color:#374151;font-style:italic;">"${note.trim()}"</p>
+       </div>`
+    : '';
+
+  sgMail.setApiKey(SENDGRID_KEY.value());
+  await sgMail.send({
+    to:      recipientEmail.trim(),
+    from:    { email: FROM_EMAIL, name: FROM_NAME },
+    subject: `Set up your ${clientName.trim()} travel portal — STX Corporate`,
+    html: emailHtml({
+      preheader: `Complete your portal setup preferences for ${clientName.trim()}.`,
+      heading:   `Welcome to STX Corporate Travel${greeting}!`,
+      body: `
+        <p style="font-size:14px;color:#374151;margin:0 0 12px;line-height:1.6;">
+          We're setting up the STX Corporate Travel Portal for <strong>${clientName.trim()}</strong> and
+          would love your input on how you'd like it configured.
+        </p>
+        <p style="font-size:14px;color:#374151;margin:0 0 12px;line-height:1.6;">
+          The form walks through your preferences — cost centres, approval workflows, features, and more.
+          There are no wrong answers, and <strong>anything you're unsure about can simply be left blank</strong>
+          for us to discuss with you when we finalise the setup.
+        </p>
+        ${noteBlock}
+        <p style="font-size:13px;color:#6b7280;margin:16px 0 0;line-height:1.5;">
+          This link is valid for <strong>30 days</strong>. Once you submit, the STX team will review
+          your responses and be in touch to complete the configuration.
+        </p>`,
+      ctaText: 'Complete your portal preferences →',
+      ctaUrl:  formUrl,
+    }),
+  });
+
+  return { token, formUrl };
+});
+
+// Notify STX when a client submits their onboarding form
+exports.onOnboardingSubmitted = onDocumentWritten(
+  { document: 'onboarding/{token}', secrets: [SENDGRID_KEY] },
+  async (event) => {
+    const after  = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    if (!after || after.status !== 'submitted' || before?.status === 'submitted') return;
+
+    const db = getFirestore();
+
+    // Notify the default STX inbox + any registered STX staff
+    let recipientEmails = [STX_DEFAULT_NOTIFY_EMAIL];
+    const snap = await db.collection('users')
+      .where('role', 'in', ['stx_admin', 'stx_ops'])
+      .get();
+    for (const d of snap.docs) {
+      const u = d.data();
+      if (u.active === false || !u.email || recipientEmails.includes(u.email)) continue;
+      recipientEmails.push(u.email);
+    }
+
+    const r = after.responses || {};
+
+    const summaryRows = [
+      after.clientName    && infoRow('Client',       after.clientName),
+      after.recipientName && infoRow('Contact',      `${after.recipientName} — ${after.recipientEmail}`),
+      !after.recipientName && after.recipientEmail && infoRow('Contact', after.recipientEmail),
+      r.costCentres?.length  && infoRow('Cost centres',  r.costCentres.join(', ')),
+      r.tripTypes?.length    && infoRow('Trip types',    r.tripTypes.join(', ')),
+      r.emailNotifications !== undefined && infoRow('Email notifications', r.emailNotifications ? 'Enabled' : 'Disabled'),
+      r.gstRate !== undefined && infoRow('GST rate', r.gstRate === 0.10 ? '10%' : r.gstRate === 0.15 ? '15%' : 'None'),
+      r.accomRates && Object.keys(r.accomRates).length && infoRow('Accom. rates', `${Object.keys(r.accomRates).length} cities configured`),
+      r.notes && infoRow('Client notes', r.notes.slice(0, 120) + (r.notes.length > 120 ? '…' : '')),
+    ].filter(Boolean).join('');
+
+    sgMail.setApiKey(SENDGRID_KEY.value());
+    await sgMail.send({
+      to:      recipientEmails,
+      from:    { email: FROM_EMAIL, name: FROM_NAME },
+      subject: `[Onboarding] ${after.clientName || 'New client'} has submitted their preferences`,
+      html: emailHtml({
+        preheader: `${after.clientName || 'A new client'} has completed their onboarding form. Review and apply in the Admin Panel.`,
+        heading:   `${after.clientName || 'New client'} — onboarding complete`,
+        body: `
+          <p style="font-size:14px;color:#374151;margin:0 0 12px;line-height:1.6;">
+            A client has submitted their portal setup preferences. Review the responses in the
+            Admin Panel and apply them to the client configuration.
+          </p>
+          <table cellpadding="0" cellspacing="0"
+            style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;
+                   padding:14px 16px;width:100%;margin:16px 0;">
+            ${summaryRows}
+          </table>
+          <p style="font-size:13px;color:#6b7280;margin:12px 0 0;line-height:1.5;">
+            STX-managed fields (fees, contact emails, hotel booking settings) are not included in
+            the client responses and will need to be configured separately.
+          </p>`,
+        ctaText: 'Review in Admin Panel →',
+        ctaUrl:  `${portalUrl()}/admin?tab=onboarding`,
+      }),
+    });
   }
 );
 
