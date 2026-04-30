@@ -117,6 +117,16 @@ const DEFAULT_TRIP_TYPES = [
   },
 ];
 
+const DEFAULT_SECTOR_TYPES = [
+  { id: 'Flight',        description: 'Airfares and any airport-related costs.' },
+  { id: 'Accommodation', description: 'Hotels, motels, serviced apartments, and other overnight stays.' },
+  { id: 'Car Hire',      description: 'Rental vehicles used during the trip.' },
+  { id: 'Parking',       description: 'Airport, hotel, or venue parking fees.' },
+  { id: 'Transfers',     description: 'Taxis, rideshare, shuttle, or other ground transfers.' },
+  { id: 'Meals',         description: 'Meal allowances and food expenses.' },
+  { id: 'Other',         description: 'Any other travel-related cost not covered above.' },
+];
+
 const FEATURES = [
   {
     key: 'hotelBooking',
@@ -183,6 +193,8 @@ export default function OnboardingForm() {
   const [features, setFeatures]                 = useState(() =>
     Object.fromEntries(FEATURES.map(f => [f.key, f.defaultOn]))
   );
+  const [sectorTypes, setSectorTypes]                         = useState(DEFAULT_SECTOR_TYPES.map(s => s.id));
+  const [customSectorTypes, setCustomSectorTypes]             = useState([]);
   const [selfManagedHotelBooking, setSelfManagedHotelBooking] = useState(true);
   const [gstRate, setGstRate]                   = useState(0.10);
   const [accomRates, setAccomRates]             = useState([]);
@@ -258,6 +270,7 @@ export default function OnboardingForm() {
           secondaryColor,
           costCentres,
           tripTypes: allTripTypes,
+          sectorTypes: [...sectorTypes, ...customSectorTypes],
           approvalByTripType: approvalByType,
           emailNotifications,
           features,
@@ -466,6 +479,41 @@ export default function OnboardingForm() {
             <Label optional>Other travel types</Label>
             <p className="text-xs text-gray-400 mb-2">If you use other categories of travel not listed above, add them here.</p>
             <TagField values={customTripTypes} onChange={setCustomTripTypes} placeholder="e.g. Secondments, International Conferences" />
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-0.5">Booking components</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                These are the individual cost items that can be recorded within a trip — for example,
+                a single trip might include a flight, accommodation, and a car hire. Untick any that
+                your organisation never uses.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {DEFAULT_SECTOR_TYPES.map(s => (
+                <label key={s.id} className="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                  style={sectorTypes.includes(s.id) ? { background: '#f9fafb' } : { opacity: 0.6 }}>
+                  <input
+                    type="checkbox"
+                    checked={sectorTypes.includes(s.id)}
+                    onChange={e => setSectorTypes(prev =>
+                      e.target.checked ? [...prev, s.id] : prev.filter(x => x !== s.id)
+                    )}
+                    className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{s.id}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div>
+              <Label optional>Additional components</Label>
+              <p className="text-xs text-gray-400 mb-2">Add any custom cost categories your organisation tracks.</p>
+              <TagField values={customSectorTypes} onChange={setCustomSectorTypes} placeholder="e.g. Conference Fees, Equipment Hire" />
+            </div>
           </div>
         </Section>
 

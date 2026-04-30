@@ -38,8 +38,9 @@ function buildUpdatePatch(r) {
   if (r.primaryColor && r.primaryColor !== '#1e40af')     d['branding.primaryColor']   = r.primaryColor;
   if (r.secondaryColor && r.secondaryColor !== '#93c5fd') d['branding.secondaryColor'] = r.secondaryColor;
 
-  if (r.costCentres?.length) d['dropdowns.costCentres'] = r.costCentres;
-  if (r.tripTypes?.length)   d['dropdowns.tripTypes']   = r.tripTypes;
+  if (r.costCentres?.length)  d['dropdowns.costCentres']  = r.costCentres;
+  if (r.tripTypes?.length)    d['dropdowns.tripTypes']    = r.tripTypes;
+  if (r.sectorTypes?.length)  d['dropdowns.sectorTypes']  = r.sectorTypes;
 
   if (r.approvalByTripType && Object.keys(r.approvalByTripType).length) {
     d['workflow.approvalByTripType'] = r.approvalByTripType;
@@ -99,8 +100,9 @@ function buildFullConfig(r) {
   if (r.primaryColor)   cfg.branding.primaryColor   = r.primaryColor;
   if (r.secondaryColor) cfg.branding.secondaryColor = r.secondaryColor;
 
-  if (r.costCentres?.length) cfg.dropdowns.costCentres = r.costCentres;
-  if (r.tripTypes?.length)   cfg.dropdowns.tripTypes   = r.tripTypes;
+  if (r.costCentres?.length)  cfg.dropdowns.costCentres  = r.costCentres;
+  if (r.tripTypes?.length)    cfg.dropdowns.tripTypes    = r.tripTypes;
+  if (r.sectorTypes?.length)  cfg.dropdowns.sectorTypes  = r.sectorTypes;
 
   if (r.approvalByTripType && Object.keys(r.approvalByTripType).length) {
     cfg.workflow.approvalByTripType = r.approvalByTripType;
@@ -373,6 +375,7 @@ function ReviewModal({ form, onClose, onApplied }) {
         <ResponseGroup title="Departments & Travel">
           <Row label="Cost centres" value={r.costCentres?.length ? r.costCentres.join(', ') : null} />
           <Row label="Trip types" value={r.tripTypes?.length ? r.tripTypes.join(', ') : null} />
+          <Row label="Sector types" value={r.sectorTypes?.length ? r.sectorTypes.join(', ') : null} />
         </ResponseGroup>
 
         <ResponseGroup title="Workflow">
