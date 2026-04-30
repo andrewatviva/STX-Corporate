@@ -4,6 +4,94 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import Modal from '../shared/Modal';
 
+function slugify(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+// Mirrors ClientForm DEFAULT_CONFIG — used when creating a new client from onboarding
+const BASE_CONFIG = {
+  branding:  { logo: '', primaryColor: '#1e40af', secondaryColor: '#93c5fd', portalTitle: '' },
+  dropdowns: {
+    costCentres: [],
+    tripTypes:   ['Self-Managed', 'STX-Managed', 'Group Event'],
+    sectorTypes: ['Flight', 'Accommodation', 'Car Hire', 'Parking', 'Transfers', 'Meals', 'Other'],
+    idTypes:     ['Passport', 'Drivers Licence', 'Proof of Age Card', 'Other'],
+  },
+  fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
+  workflow:  { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
+  features:  { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false },
+  hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0, selfManagedHotelBooking: true },
+  policyVariance: {
+    accommodation: { enabled: false, type: 'percent', value: 0, action: 'warn' },
+    flight:        { enabled: false, type: 'percent', value: 0, action: 'warn' },
+  },
+  contact: { email: '' },
+};
+
+// Build a flat dot-notation update object from onboarding responses.
+// Used with updateDoc so nested fields are patched without clobbering siblings.
+function buildUpdatePatch(r) {
+  const d = {};
+
+  if (r.portalTitle)    d['branding.portalTitle']    = r.portalTitle;
+  if (r.logo)           d['branding.logo']           = r.logo;
+  if (r.primaryColor && r.primaryColor !== '#1e40af')     d['branding.primaryColor']   = r.primaryColor;
+  if (r.secondaryColor && r.secondaryColor !== '#93c5fd') d['branding.secondaryColor'] = r.secondaryColor;
+
+  if (r.costCentres?.length) d['dropdowns.costCentres'] = r.costCentres;
+  if (r.tripTypes?.length)   d['dropdowns.tripTypes']   = r.tripTypes;
+
+  if (r.approvalByTripType && Object.keys(r.approvalByTripType).length) {
+    d['workflow.approvalByTripType'] = r.approvalByTripType;
+    d['workflow.requiresApproval']   = Object.values(r.approvalByTripType).some(Boolean);
+  }
+  if (r.emailNotifications !== undefined) d['workflow.emailNotifications'] = r.emailNotifications;
+
+  if (r.features) {
+    for (const [key, val] of Object.entries(r.features)) d[`features.${key}`] = val;
+  }
+
+  if (r.gstRate !== undefined) d['fees.gstRate'] = r.gstRate;
+
+  return d;
+}
+
+// Merge responses onto BASE_CONFIG to produce a complete config for a brand-new client.
+function buildFullConfig(r) {
+  const cfg = {
+    branding:  { ...BASE_CONFIG.branding },
+    dropdowns: { ...BASE_CONFIG.dropdowns },
+    fees:      { ...BASE_CONFIG.fees },
+    workflow:  { ...BASE_CONFIG.workflow },
+    features:  { ...BASE_CONFIG.features },
+    hotelBooking:   { ...BASE_CONFIG.hotelBooking },
+    policyVariance: {
+      accommodation: { ...BASE_CONFIG.policyVariance.accommodation },
+      flight:        { ...BASE_CONFIG.policyVariance.flight },
+    },
+    contact: { ...BASE_CONFIG.contact },
+  };
+
+  if (r.portalTitle)    cfg.branding.portalTitle    = r.portalTitle;
+  if (r.logo)           cfg.branding.logo           = r.logo;
+  if (r.primaryColor)   cfg.branding.primaryColor   = r.primaryColor;
+  if (r.secondaryColor) cfg.branding.secondaryColor = r.secondaryColor;
+
+  if (r.costCentres?.length) cfg.dropdowns.costCentres = r.costCentres;
+  if (r.tripTypes?.length)   cfg.dropdowns.tripTypes   = r.tripTypes;
+
+  if (r.approvalByTripType && Object.keys(r.approvalByTripType).length) {
+    cfg.workflow.approvalByTripType = r.approvalByTripType;
+    cfg.workflow.requiresApproval   = Object.values(r.approvalByTripType).some(Boolean);
+  }
+  if (r.emailNotifications !== undefined) cfg.workflow.emailNotifications = r.emailNotifications;
+
+  if (r.features) cfg.features = { ...cfg.features, ...r.features };
+  if (r.gstRate !== undefined) cfg.fees.gstRate = r.gstRate;
+
+  return cfg;
+}
+
 const STATUS_COLOURS = {
   pending:   'bg-amber-100 text-amber-700',
   submitted: 'bg-blue-100 text-blue-700',
@@ -111,76 +199,64 @@ function SendModal({ onClose, onSent }) {
 // ── Review & Apply modal ──────────────────────────────────────────────────────
 
 function ReviewModal({ form, onClose, onApplied }) {
-  const [clients, setClients]         = useState([]);
-  const [clientId, setClientId]       = useState('');
-  const [applying, setApplying]       = useState(false);
-  const [applyError, setApplyError]   = useState('');
-  const [applyDone, setApplyDone]     = useState(false);
+  const [clients, setClients]       = useState([]);
+  const [mode, setMode]             = useState('existing'); // 'existing' | 'new'
+  const [clientId, setClientId]     = useState('');
+  const [newName, setNewName]       = useState(form.clientName || '');
+  const [newCid, setNewCid]         = useState(slugify(form.clientName || ''));
+  const [applying, setApplying]     = useState(false);
+  const [applyError, setApplyError] = useState('');
+  const [applyDone, setApplyDone]   = useState(false);
+  const [appliedCid, setAppliedCid] = useState('');
 
   useEffect(() => {
     getDocs(collection(db, 'clients')).then(snap => {
-      setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.active !== false).sort((a, b) => a.name.localeCompare(b.name)));
+      setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name)));
     }).catch(() => {});
   }, []);
 
   const r = form.responses || {};
 
   const handleApply = async () => {
-    if (!clientId) return setApplyError('Please select a client to apply the settings to.');
     setApplyError('');
+    if (mode === 'existing' && !clientId) return setApplyError('Please select a client.');
+    if (mode === 'new') {
+      if (!newName.trim()) return setApplyError('Client name is required.');
+      if (!newCid.trim())  return setApplyError('Client ID is required.');
+    }
+
+    const targetId = mode === 'new' ? newCid.trim() : clientId;
     setApplying(true);
     try {
-      // Build partial config from responses (only populate sections that were answered)
-      const configPatch = {};
-
-      // Branding — only include if at least the portal title was set
-      const hasBranding = r.portalTitle || r.logo || (r.primaryColor && r.primaryColor !== '#1e40af') || (r.secondaryColor && r.secondaryColor !== '#93c5fd');
-      if (hasBranding) {
-        configPatch.branding = {};
-        if (r.portalTitle) configPatch.branding.portalTitle = r.portalTitle;
-        if (r.logo)        configPatch.branding.logo        = r.logo;
-        if (r.primaryColor)   configPatch.branding.primaryColor   = r.primaryColor;
-        if (r.secondaryColor) configPatch.branding.secondaryColor = r.secondaryColor;
-      }
-
-      // Dropdowns
-      if (r.costCentres?.length) configPatch['dropdowns.costCentres'] = r.costCentres;
-      if (r.tripTypes?.length)   configPatch['dropdowns.tripTypes']   = r.tripTypes;
-
-      // Workflow
-      if (r.approvalByTripType && Object.keys(r.approvalByTripType).length) {
-        configPatch['workflow.approvalByTripType'] = r.approvalByTripType;
-        // derive requiresApproval from whether any type requires it
-        const anyRequired = Object.values(r.approvalByTripType).some(Boolean);
-        configPatch['workflow.requiresApproval'] = anyRequired;
-      }
-      if (r.emailNotifications !== undefined) {
-        configPatch['workflow.emailNotifications'] = r.emailNotifications;
-      }
-
-      // Features
-      if (r.features) {
-        for (const [key, val] of Object.entries(r.features)) {
-          configPatch[`features.${key}`] = val;
+      if (mode === 'new') {
+        // Create client root doc
+        await setDoc(doc(db, 'clients', targetId), {
+          clientId: targetId,
+          name: newName.trim(),
+          active: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        // Create full initial config merged with responses
+        await setDoc(
+          doc(db, 'clients', targetId, 'config', 'settings'),
+          { ...buildFullConfig(r), updatedAt: serverTimestamp() }
+        );
+      } else {
+        // Patch existing config — dot-notation keys update nested fields without clobbering siblings
+        const patch = buildUpdatePatch(r);
+        if (Object.keys(patch).length) {
+          await updateDoc(
+            doc(db, 'clients', targetId, 'config', 'settings'),
+            { ...patch, updatedAt: serverTimestamp() }
+          );
         }
       }
 
-      // GST rate
-      if (r.gstRate !== undefined) {
-        configPatch['fees.gstRate'] = r.gstRate;
-      }
-
-      // Write settings patch
-      await setDoc(
-        doc(db, 'clients', clientId, 'config', 'settings'),
-        { ...configPatch, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-
-      // Accommodation rates (separate doc)
+      // Accommodation rates (separate doc) — same for both paths
       if (r.accomRates && Object.keys(r.accomRates).length) {
         await setDoc(
-          doc(db, 'clients', clientId, 'config', 'travelPolicy'),
+          doc(db, 'clients', targetId, 'config', 'travelPolicy'),
           { rates: r.accomRates },
           { merge: true }
         );
@@ -190,9 +266,10 @@ function ReviewModal({ form, onClose, onApplied }) {
       await updateDoc(doc(db, 'onboarding', form.token), {
         status: 'applied',
         appliedAt: serverTimestamp(),
-        appliedToClientId: clientId,
+        appliedToClientId: targetId,
       });
 
+      setAppliedCid(targetId);
       setApplyDone(true);
       onApplied();
     } catch (err) {
@@ -218,10 +295,12 @@ function ReviewModal({ form, onClose, onApplied }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-800">Preferences applied to client config</p>
-          <p className="text-xs text-gray-500">
-            You can now review and finalise the full settings in the Clients tab.
-            Remember to set management fees, contact emails, and any hotel booking configuration.
+          <p className="text-sm font-medium text-gray-800">
+            {mode === 'new' ? 'Client created and preferences applied' : 'Preferences applied to client config'}
+          </p>
+          <p className="text-xs text-gray-500 max-w-xs mx-auto">
+            Client ID: <strong>{appliedCid}</strong>. Finalise the remaining settings (fees, contact emails,
+            hotel booking) in the Clients tab.
           </p>
           <button onClick={onClose} className="mt-2 px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900">Done</button>
         </div>
@@ -265,7 +344,7 @@ function ReviewModal({ form, onClose, onApplied }) {
 
         <ResponseGroup title="Workflow">
           {r.approvalByTripType && Object.entries(r.approvalByTripType).map(([type, required]) => (
-            <Row key={type} label={type} value={renderValue(required ? 'Approval required' : 'No approval')} />
+            <Row key={type} label={type} value={required ? 'Approval required' : 'No approval'} />
           ))}
           <Row label="Email notifications" value={renderValue(r.emailNotifications)} />
         </ResponseGroup>
@@ -297,39 +376,80 @@ function ReviewModal({ form, onClose, onApplied }) {
         )}
 
         {/* Apply section */}
-        {form.status !== 'applied' && (
+        {form.status !== 'applied' ? (
           <div className="border-t border-gray-200 pt-4 space-y-3">
             <p className="text-sm font-medium text-gray-700">Apply to client configuration</p>
-            <p className="text-xs text-gray-500">
-              Select the client account to populate with these preferences. Only responses the client
-              filled in will be applied — blank fields are left as-is. Management fees, contact emails,
-              and hotel booking settings are <strong>not</strong> touched and must be configured separately.
-            </p>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={clientId}
-              onChange={e => setClientId(e.target.value)}
-            >
-              <option value="">— Select client —</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+
+            {/* Mode toggle */}
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+              {[['existing', 'Existing client'], ['new', 'Create new client']].map(([v, l]) => (
+                <button key={v} type="button" onClick={() => { setMode(v); setApplyError(''); }}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${mode === v ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  {l}
+                </button>
               ))}
-            </select>
+            </div>
+
+            {mode === 'existing' ? (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">
+                  Only responses the client filled in will be applied — blank fields are left as-is.
+                  Management fees, contact emails, and hotel booking settings are not touched.
+                </p>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={clientId}
+                  onChange={e => setClientId(e.target.value)}
+                >
+                  <option value="">— Select client —</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  A new client account will be created using the responses as the starting configuration.
+                  You can add fees, contact emails, and other settings in the Clients tab afterwards.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Client name</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newName}
+                    onChange={e => { setNewName(e.target.value); setNewCid(slugify(e.target.value)); }}
+                    placeholder="e.g. Disability Australia Network"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Client ID (URL-safe, cannot be changed later)</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newCid}
+                    onChange={e => setNewCid(slugify(e.target.value))}
+                    placeholder="e.g. disability-australia-network"
+                  />
+                </div>
+              </div>
+            )}
+
             {applyError && <p className="text-xs text-red-600">{applyError}</p>}
+
             <div className="flex justify-end gap-3">
               <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Close</button>
-              <button type="button" onClick={handleApply} disabled={applying || !clientId}
+              <button type="button" onClick={handleApply} disabled={applying}
                 className="px-5 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50">
-                {applying ? 'Applying…' : 'Apply to client'}
+                {applying
+                  ? 'Applying…'
+                  : mode === 'new' ? 'Create client & apply' : 'Apply to client'}
               </button>
             </div>
           </div>
-        )}
-
-        {form.status === 'applied' && (
+        ) : (
           <div className="border-t border-gray-200 pt-4">
             <p className="text-sm text-green-600 font-medium">
-              Applied{form.appliedToClientId ? ` to client: ${form.appliedToClientId}` : ''} on {fmt(form.appliedAt)}
+              Applied{form.appliedToClientId ? ` to: ${form.appliedToClientId}` : ''} on {fmt(form.appliedAt)}
             </p>
             <div className="flex justify-end mt-3">
               <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Close</button>
