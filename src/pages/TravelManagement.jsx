@@ -131,6 +131,8 @@ function diffTrip(oldTrip, newData) {
   return changes;
 }
 
+const COMPLETED_STATUSES = new Set(['completed', 'cancelled']);
+
 export default function TravelManagement() {
   const { userProfile } = useAuth();
   const { clientId, isSTX, clientConfig, activeClientId, activeClientConfig } = useTenant();
@@ -142,8 +144,6 @@ export default function TravelManagement() {
   const trips = useMemo(() => filterTripsByScope(allTrips, scope, userProfile), [allTrips, scope, userProfile]);
 
   const [searchParams] = useSearchParams();
-
-  const COMPLETED_STATUSES = new Set(['completed', 'cancelled']);
   const initialStatusFilter = searchParams.get('status') || '';
   const [activeTab, setActiveTab] = useState(
     COMPLETED_STATUSES.has(initialStatusFilter) ? 'completed' : 'active'
