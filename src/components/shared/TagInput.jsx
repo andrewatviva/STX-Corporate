@@ -18,8 +18,8 @@ export default function TagInput({ values, onChange, placeholder = 'Add item…'
         {values.map(v => (
           <span key={v} className="flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
             {v}
-            <button type="button" onClick={() => remove(v)} className="hover:text-red-500">
-              <X size={11} />
+            <button type="button" onClick={() => remove(v)} aria-label={`Remove ${v}`} className="hover:text-red-500">
+              <X size={11} aria-hidden="true" />
             </button>
           </span>
         ))}
@@ -33,7 +33,7 @@ export default function TagInput({ values, onChange, placeholder = 'Add item…'
         />
         <button type="button" onClick={add}
           className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700">
-          <Plus size={14} /> Add
+          <Plus size={14} aria-hidden="true" /> Add
         </button>
       </div>
     </div>

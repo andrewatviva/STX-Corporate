@@ -4,14 +4,18 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
+const STAR_LABELS = ['', '1 star — Poor', '2 stars — Below average', '3 stars — Average', '4 stars — Good', '5 stars — Excellent'];
+
 function StarInput({ value, onChange }) {
   const [hover, setHover] = useState(0);
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-0.5" role="group">
       {[1, 2, 3, 4, 5].map(n => (
         <button
           key={n}
           type="button"
+          aria-label={STAR_LABELS[n]}
+          aria-pressed={value === n}
           onClick={() => onChange(n)}
           onMouseEnter={() => setHover(n)}
           onMouseLeave={() => setHover(0)}
@@ -19,6 +23,7 @@ function StarInput({ value, onChange }) {
         >
           <Star
             size={20}
+            aria-hidden="true"
             fill={(hover || value) >= n ? 'currentColor' : 'none'}
             className={(hover || value) >= n ? 'text-amber-400' : 'text-gray-500'}
           />
@@ -120,9 +125,10 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
           </div>
           <button
             onClick={() => onClose(false)}
+            aria-label="Close rating modal"
             className="p-1.5 text-gray-600 hover:text-gray-600 rounded-lg transition-colors"
           >
-            <X size={16} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 

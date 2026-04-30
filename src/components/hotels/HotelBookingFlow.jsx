@@ -213,7 +213,7 @@ function ProgressBar({ step }) {
             <div className="flex flex-col items-center">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors
                 ${done ? 'bg-teal-500 text-white' : active ? 'bg-teal-400 text-white ring-2 ring-teal-300/40' : 'bg-slate-700 text-slate-400'}`}>
-                {done ? <Check size={10} /> : i + 1}
+                {done ? <Check size={10} aria-hidden="true" /> : i + 1}
               </div>
               <span className={`text-[9px] mt-0.5 font-medium ${active ? 'text-teal-400' : 'text-slate-500'}`}>{label}</span>
             </div>
@@ -600,7 +600,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
     useSandbox && isSTX ? (
       <div className="bg-amber-400 text-amber-900 px-4 py-2 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={14} />
+          <AlertTriangle size={14} aria-hidden="true" />
           SANDBOX MODE — test bookings only, no real charges
         </div>
         <button
@@ -613,7 +613,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
     ) : !useSandbox && isSTX ? (
       <div className="bg-green-600 text-white px-4 py-2 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center gap-2">
-          <CheckCircle size={14} />
+          <CheckCircle size={14} aria-hidden="true" />
           PRODUCTION — live bookings
         </div>
         <button onClick={() => setUseSandbox(true)} className="underline hover:text-green-200">
@@ -667,7 +667,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                         <button key={`r-${i}`} type="button"
                           className="w-full text-left px-4 py-2.5 hover:bg-blue-50 flex items-start gap-2 border-b border-slate-50 last:border-0"
                           onMouseDown={() => { selectionMadeRef.current = true; setSelectedSearch(item); setSearchQuery(item.displayName); setShowSugs(false); }}>
-                          <MapPin size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                          <MapPin size={13} className="text-blue-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div>
                             <div className="text-sm font-medium text-slate-800">{item.displayName}</div>
                             {item.address && item.address !== item.displayName && <div className="text-xs text-slate-400">{item.address}</div>}
@@ -685,7 +685,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                         <button key={`h-${i}`} type="button"
                           className="w-full text-left px-4 py-2.5 hover:bg-teal-50 flex items-start gap-2 border-b border-slate-50 last:border-0"
                           onMouseDown={() => { selectionMadeRef.current = true; setSelectedSearch(item); setSearchQuery(item.displayName); setShowSugs(false); }}>
-                          <Hotel size={13} className="text-teal-500 flex-shrink-0 mt-0.5" />
+                          <Hotel size={13} className="text-teal-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div>
                             <div className="text-sm font-medium text-slate-800">{item.displayName}</div>
                             {item.address && <div className="text-xs text-slate-400">{item.address}</div>}
@@ -797,7 +797,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
 
           <button type="submit" disabled={loading}
             className="w-full py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
-            {loading ? <><RefreshCw size={16} className="animate-spin" /> Searching…</> : <><Search size={16} /> Search Hotels</>}
+            {loading ? <><RefreshCw size={16} className="animate-spin" aria-hidden="true" /> Searching…</> : <><Search size={16} aria-hidden="true" /> Search Hotels</>}
           </button>
         </form>
       </div>
@@ -818,7 +818,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setStep('search')} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
-              <ArrowLeft size={12} /> Modify search
+              <ArrowLeft size={12} aria-hidden="true" /> Modify search
             </button>
           </div>
         </div>
@@ -858,13 +858,13 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
 
         {processingPayment && (
           <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-700 flex items-center gap-2">
-            <RefreshCw size={16} className="animate-spin" /> Processing payment — please wait…
+            <RefreshCw size={16} className="animate-spin" aria-hidden="true" /> Processing payment — please wait…
           </div>
         )}
 
         {filteredHotels.length === 0 && !loading && (
           <div className="text-center py-16 text-slate-400">
-            <Hotel size={40} className="mx-auto mb-3 opacity-30" />
+            <Hotel size={40} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
             <p className="font-semibold">No hotels match your filters</p>
             <p className="text-xs mt-1">Try adjusting your filters or search criteria</p>
           </div>
@@ -889,7 +889,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                   onClick={e => { if (hotelImgs.length) { e.stopPropagation(); setLightboxPhotos(hotelImgs); setLightboxIndex(0); } }}>
                   {mainPhoto
                     ? <img src={mainPhoto} alt={hotel.name} className="w-full h-full object-cover" onError={e => { e.target.style.display='none'; }} />
-                    : <div className="w-full h-full flex items-center justify-center"><Hotel size={32} className="text-slate-300" /></div>
+                    : <div className="w-full h-full flex items-center justify-center"><Hotel size={32} className="text-slate-300" aria-hidden="true" /></div>
                   }
                   {hotelImgs.length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
@@ -903,7 +903,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
                       <h3 className="font-bold text-slate-900 text-sm">{hotel.name}</h3>
-                      {address && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin size={10} />{address}</p>}
+                      {address && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin size={10} aria-hidden="true" />{address}</p>}
                       {stars > 0 && <p className="text-xs text-amber-500 mt-0.5">{'★'.repeat(stars)}</p>}
                     </div>
                     {ratingMeta && (
@@ -924,7 +924,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                         })
                       ).slice(0, 5).map(({ Icon, label }) => (
                         <span key={label} className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded px-1.5 py-0.5">
-                          <Icon size={10} />{label}
+                          <Icon size={10} aria-hidden="true" />{label}
                         </span>
                       ))}
                     </div>
@@ -946,7 +946,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                   )}
 
                   <div className="flex items-center gap-1 text-teal-600 text-xs font-semibold mt-1">
-                    View rooms &amp; details <ChevronRight size={13} />
+                    View rooms &amp; details <ChevronRight size={13} aria-hidden="true" />
                   </div>
                 </div>
               </div>
@@ -991,7 +991,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-4 space-y-5">
           <button onClick={() => setStep('results')} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-            <ArrowLeft size={14} /> Back to results
+            <ArrowLeft size={14} aria-hidden="true" /> Back to results
           </button>
 
           {/* Gallery — use hotelImages[] with urlHd preference */}
@@ -1008,11 +1008,11 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
                 <>
                   <button onClick={() => setGalleryIndex(i => (i - 1 + hotelImgs.length) % hotelImgs.length)}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70">
-                    <ChevronLeft size={16} />
+                    <ChevronLeft size={16} aria-hidden="true" />
                   </button>
                   <button onClick={() => setGalleryIndex(i => (i + 1) % hotelImgs.length)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70">
-                    <ChevronRight size={16} />
+                    <ChevronRight size={16} aria-hidden="true" />
                   </button>
                   <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
                     {galleryIndex + 1} / {hotelImgs.length}
@@ -1038,7 +1038,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
           <div>
             <h2 className="text-xl font-bold text-slate-900">{hotel.name}</h2>
             {stars > 0 && <p className="text-amber-400 mt-0.5">{'★'.repeat(stars)}</p>}
-            {hotel.address?.city && <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><MapPin size={12} />{hotel.address.city}</p>}
+            {hotel.address?.city && <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><MapPin size={12} aria-hidden="true" />{hotel.address.city}</p>}
             {detail?.hotelDescription && (
               <div className="text-sm text-slate-600 mt-3 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_p]:mb-1"
                 dangerouslySetInnerHTML={{ __html: detail.hotelDescription }} />
@@ -1075,7 +1075,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
               <div className="flex flex-wrap gap-2">
                 {matched.map(({ Icon, label }) => (
                   <span key={label} className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                    <Icon size={12} />{label}
+                    <Icon size={12} aria-hidden="true" />{label}
                   </span>
                 ))}
               </div>
@@ -1175,7 +1175,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-xl mx-auto p-6 space-y-5">
         <button onClick={() => setStep('hotel_detail')} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-          <ArrowLeft size={14} /> Back to rooms
+          <ArrowLeft size={14} aria-hidden="true" /> Back to rooms
         </button>
 
         <div>
@@ -1245,7 +1245,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-xl mx-auto p-6 space-y-5">
           <button onClick={() => setStep('guest')} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={14} aria-hidden="true" /> Back
           </button>
           <h2 className="text-xl font-bold text-slate-900">Review Booking</h2>
 
@@ -1283,7 +1283,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
 
           {!selectedRoom?.isRefundable && (
             <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs text-amber-700 flex items-start gap-2">
-              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
               This room is non-refundable. Cancellation after booking will not be refunded.
             </div>
           )}
@@ -1293,8 +1293,8 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             disabled={prebookLoading}
             className="w-full py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
             {prebookLoading
-              ? <><RefreshCw size={16} className="animate-spin" /> Processing…</>
-              : <><CreditCard size={16} /> Confirm &amp; Pay</>}
+              ? <><RefreshCw size={16} className="animate-spin" aria-hidden="true" /> Processing…</>
+              : <><CreditCard size={16} aria-hidden="true" /> Confirm &amp; Pay</>}
           </button>
         </div>
       </div>
@@ -1337,7 +1337,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-xl mx-auto p-6 space-y-5 text-center">
           <div className="bg-green-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
-            <CheckCircle size={40} className="text-green-500" />
+            <CheckCircle size={40} className="text-green-500" aria-hidden="true" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Booking Confirmed!</h2>
@@ -1364,7 +1364,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
             <button
               onClick={handleConfirmBooked}
               className="w-full py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition-colors flex items-center justify-center gap-2">
-              <Check size={16} /> Add to Trip Sector
+              <Check size={16} aria-hidden="true" /> Add to Trip Sector
             </button>
             <p className="text-xs text-slate-400">This will pre-fill the accommodation sector in your trip. You can review and save it there.</p>
           </div>
@@ -1380,8 +1380,9 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
       <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center"
         onClick={() => setLightboxPhotos([])}>
         <button onClick={() => setLightboxPhotos([])}
+          aria-label="Close photo viewer"
           className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 rounded-full p-2 z-10">
-          <X size={20} />
+          <X size={20} aria-hidden="true" />
         </button>
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
           {lightboxIndex + 1} / {lightboxPhotos.length}
@@ -1419,7 +1420,7 @@ export default function HotelBookingFlow({ tripId, sectorIndex, tripType, client
       {/* Header */}
       <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Hotel size={20} className="text-teal-400" />
+          <Hotel size={20} className="text-teal-400" aria-hidden="true" />
           <div>
             <h1 className="text-white font-bold text-sm">Hotel Booking</h1>
             <p className="text-slate-400 text-[11px]">Powered by Nuitee</p>

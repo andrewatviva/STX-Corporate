@@ -15,11 +15,12 @@ const TYPE_LABELS = {
 
 function Stars({ value, size = 14 }) {
   return (
-    <span className="flex gap-0.5 items-center">
+    <span className="flex gap-0.5 items-center" role="img" aria-label={`${value} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map(n => (
         <Star
           key={n}
           size={size}
+          aria-hidden="true"
           fill={value >= n ? 'currentColor' : 'none'}
           className={value >= n ? 'text-amber-400' : 'text-gray-200'}
         />
@@ -78,14 +79,14 @@ export default function ProviderRatings() {
   const processAvg = avg(processRatings);
 
   if (loading) {
-    return <div className="text-sm text-gray-400 py-12 text-center">Loading ratings…</div>;
+    return <div className="text-sm text-gray-600 py-12 text-center">Loading ratings…</div>;
   }
 
   if (feedbackDocs.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
-        <Star size={28} className="mx-auto mb-3 text-gray-300" />
-        <p className="text-sm font-medium text-gray-500">No ratings yet</p>
+      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-600">
+        <Star size={28} aria-hidden="true" className="mx-auto mb-3 text-gray-700" />
+        <p className="text-sm font-medium text-gray-700">No ratings yet</p>
         <p className="text-xs mt-1">
           Ratings will appear here once travellers have rated their trips.
         </p>
@@ -98,25 +99,25 @@ export default function ProviderRatings() {
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-400 mb-1">Total reviews</p>
+          <p className="text-xs text-gray-600 mb-1">Total reviews</p>
           <p className="text-2xl font-bold text-gray-900">{feedbackDocs.length}</p>
         </div>
         {processRatings.length > 0 && processAvg >= 4.5 && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-400 mb-1">STX service rating</p>
+            <p className="text-xs text-gray-600 mb-1">STX service rating</p>
             <div className="flex items-center gap-2">
               <p className="text-2xl font-bold text-gray-900">{processAvg.toFixed(1)}</p>
               <Stars value={Math.round(processAvg)} size={13} />
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">from {processRatings.length} response{processRatings.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-gray-600 mt-0.5">from {processRatings.length} response{processRatings.length !== 1 ? 's' : ''}</p>
           </div>
         )}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-400 mb-1">Providers rated</p>
+          <p className="text-xs text-gray-600 mb-1">Providers rated</p>
           <p className="text-2xl font-bold text-gray-900">{providers.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-400 mb-1">Written comments</p>
+          <p className="text-xs text-gray-600 mb-1">Written comments</p>
           <p className="text-2xl font-bold text-gray-900">
             {providers.reduce((s, p) => s + p.comments.length, 0) + generalComments.length}
           </p>
@@ -136,7 +137,7 @@ export default function ProviderRatings() {
                     className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                       typeFilter === 'all'
                         ? 'bg-teal-600 text-white border-teal-600'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
                     }`}
                   >
                     All
@@ -148,7 +149,7 @@ export default function ProviderRatings() {
                       className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                         typeFilter === t
                           ? 'bg-teal-600 text-white border-teal-600'
-                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                          : 'border-gray-200 text-gray-700 hover:border-gray-300'
                       }`}
                     >
                       {TYPE_LABELS[t] || t}
@@ -163,7 +164,7 @@ export default function ProviderRatings() {
                 placeholder="Search provider…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 w-48 focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-400"
+                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 w-48 focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder:text-gray-600"
               />
               <div className="flex gap-1">
                 {[0, 3, 4, 4.5].map(r => (
@@ -173,7 +174,7 @@ export default function ProviderRatings() {
                     className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                       minRating === r
                         ? 'bg-amber-400 text-white border-amber-400'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
                     }`}
                   >
                     {r === 0 ? 'Any rating' : `${r}★+`}
@@ -181,7 +182,7 @@ export default function ProviderRatings() {
                 ))}
               </div>
               {(search || minRating > 0) && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-600">
                   {filtered.length} of {providers.length}
                 </span>
               )}
@@ -196,7 +197,7 @@ export default function ProviderRatings() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">{TYPE_LABELS[p.type] || p.type}</p>
+                      <p className="text-xs text-gray-600">{TYPE_LABELS[p.type] || p.type}</p>
                     </div>
                     {p.stars.length > 0 && (
                       <div className="text-right shrink-0">
@@ -204,7 +205,7 @@ export default function ProviderRatings() {
                           <Stars value={Math.round(a)} />
                           <span className="text-sm font-bold text-gray-800">{a.toFixed(1)}</span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{p.stars.length} review{p.stars.length !== 1 ? 's' : ''}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{p.stars.length} review{p.stars.length !== 1 ? 's' : ''}</p>
                       </div>
                     )}
                   </div>
@@ -217,14 +218,14 @@ export default function ProviderRatings() {
                         const pct = (count / p.stars.length) * 100;
                         return (
                           <div key={n} className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400 w-2">{n}</span>
+                            <span className="text-xs text-gray-600 w-2">{n}</span>
                             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-amber-400 rounded-full"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="text-xs text-gray-400 w-4 text-right">{count}</span>
+                            <span className="text-xs text-gray-600 w-4 text-right">{count}</span>
                           </div>
                         );
                       })}
