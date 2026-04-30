@@ -53,6 +53,28 @@ function buildUpdatePatch(r) {
 
   if (r.gstRate !== undefined) d['fees.gstRate'] = r.gstRate;
 
+  if (r.selfManagedHotelBooking !== undefined)
+    d['hotelBooking.selfManagedHotelBooking'] = r.selfManagedHotelBooking;
+
+  if (r.policyVariance?.accommodation) {
+    const a = r.policyVariance.accommodation;
+    d['policyVariance.accommodation.enabled'] = a.enabled;
+    if (a.enabled) {
+      d['policyVariance.accommodation.type']   = a.type;
+      d['policyVariance.accommodation.value']  = a.value;
+      d['policyVariance.accommodation.action'] = a.action;
+    }
+  }
+  if (r.policyVariance?.flight) {
+    const f = r.policyVariance.flight;
+    d['policyVariance.flight.enabled'] = f.enabled;
+    if (f.enabled) {
+      d['policyVariance.flight.type']   = f.type;
+      d['policyVariance.flight.value']  = f.value;
+      d['policyVariance.flight.action'] = f.action;
+    }
+  }
+
   return d;
 }
 
@@ -88,6 +110,14 @@ function buildFullConfig(r) {
 
   if (r.features) cfg.features = { ...cfg.features, ...r.features };
   if (r.gstRate !== undefined) cfg.fees.gstRate = r.gstRate;
+
+  if (r.selfManagedHotelBooking !== undefined)
+    cfg.hotelBooking.selfManagedHotelBooking = r.selfManagedHotelBooking;
+
+  if (r.policyVariance?.accommodation)
+    cfg.policyVariance.accommodation = { ...cfg.policyVariance.accommodation, ...r.policyVariance.accommodation };
+  if (r.policyVariance?.flight)
+    cfg.policyVariance.flight = { ...cfg.policyVariance.flight, ...r.policyVariance.flight };
 
   return cfg;
 }
@@ -253,11 +283,14 @@ function ReviewModal({ form, onClose, onApplied }) {
         }
       }
 
-      // Accommodation rates (separate doc) — same for both paths
-      if (r.accomRates && Object.keys(r.accomRates).length) {
+      // Travel policy rates (separate doc) — same for both paths
+      const policyPatch = {};
+      if (r.accomRates  && Object.keys(r.accomRates).length)  policyPatch.rates       = r.accomRates;
+      if (r.flightRates && Object.keys(r.flightRates).length) policyPatch.flightRates = r.flightRates;
+      if (Object.keys(policyPatch).length) {
         await setDoc(
           doc(db, 'clients', targetId, 'config', 'travelPolicy'),
-          { rates: r.accomRates },
+          policyPatch,
           { merge: true }
         );
       }
@@ -353,12 +386,12 @@ function ReviewModal({ form, onClose, onApplied }) {
           {r.features && Object.entries(r.features).map(([key, val]) => (
             <Row key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())} value={renderValue(val)} />
           ))}
+          <Row label="Self-managed hotel booking" value={renderValue(r.selfManagedHotelBooking)} />
         </ResponseGroup>
 
-        <ResponseGroup title="Tax & Policy">
-          <Row label="GST rate" value={r.gstRate === 0.10 ? '10%' : r.gstRate === 0.15 ? '15%' : r.gstRate === 0 ? 'None' : r.gstRate} />
+        <ResponseGroup title="Spend Limits">
           {r.accomRates && Object.keys(r.accomRates).length > 0 && (
-            <Row label="Accom. rates" value={
+            <Row label="Accommodation" value={
               <div className="space-y-0.5">
                 {Object.entries(r.accomRates).map(([city, rate]) => (
                   <div key={city} className="text-xs">{city}: ${rate}/night</div>
@@ -366,6 +399,34 @@ function ReviewModal({ form, onClose, onApplied }) {
               </div>
             } />
           )}
+          {r.flightRates && Object.keys(r.flightRates).length > 0 && (
+            <Row label="Flights" value={
+              <div className="space-y-0.5">
+                {Object.entries(r.flightRates).map(([city, rate]) => (
+                  <div key={city} className="text-xs">{city}: ${rate}/trip</div>
+                ))}
+              </div>
+            } />
+          )}
+        </ResponseGroup>
+
+        <ResponseGroup title="Policy Compliance">
+          {r.policyVariance?.accommodation?.enabled && (
+            <Row label="Accommodation" value={`${r.policyVariance.accommodation.value}${r.policyVariance.accommodation.type === 'percent' ? '%' : '$'} over → ${r.policyVariance.accommodation.action === 'warn' ? 'warn' : 'require approval'}`} />
+          )}
+          {r.policyVariance?.accommodation?.enabled === false && (
+            <Row label="Accommodation" value="No compliance rules" />
+          )}
+          {r.policyVariance?.flight?.enabled && (
+            <Row label="Flights" value={`${r.policyVariance.flight.value}${r.policyVariance.flight.type === 'percent' ? '%' : '$'} over → ${r.policyVariance.flight.action === 'warn' ? 'warn' : 'require approval'}`} />
+          )}
+          {r.policyVariance?.flight?.enabled === false && (
+            <Row label="Flights" value="No compliance rules" />
+          )}
+        </ResponseGroup>
+
+        <ResponseGroup title="Tax">
+          <Row label="GST rate" value={r.gstRate === 0.10 ? '10%' : r.gstRate === 0.15 ? '15%' : r.gstRate === 0 ? 'None' : r.gstRate} />
         </ResponseGroup>
 
         {r.notes && (

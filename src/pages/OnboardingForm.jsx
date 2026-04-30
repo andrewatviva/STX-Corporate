@@ -183,10 +183,18 @@ export default function OnboardingForm() {
   const [features, setFeatures]                 = useState(() =>
     Object.fromEntries(FEATURES.map(f => [f.key, f.defaultOn]))
   );
+  const [selfManagedHotelBooking, setSelfManagedHotelBooking] = useState(true);
   const [gstRate, setGstRate]                   = useState(0.10);
   const [accomRates, setAccomRates]             = useState([]);
   const [newAccomCity, setNewAccomCity]         = useState('');
   const [newAccomRate, setNewAccomRate]         = useState('');
+  const [flightRates, setFlightRates]           = useState([]);
+  const [newFlightDest, setNewFlightDest]       = useState('');
+  const [newFlightRate, setNewFlightRate]       = useState('');
+  const [variance, setVariance]                 = useState({
+    accommodation: { enabled: false, type: 'percent', value: 10, action: 'warn' },
+    flight:        { enabled: false, type: 'percent', value: 10, action: 'warn' },
+  });
   const [notes, setNotes]                       = useState('');
 
   useEffect(() => {
@@ -220,12 +228,26 @@ export default function OnboardingForm() {
 
   const removeAccomRate = (city) => setAccomRates(prev => prev.filter(r => r.city !== city));
 
+  const addFlightRate = () => {
+    const dest = newFlightDest.trim();
+    const rate = parseFloat(newFlightRate);
+    if (!dest || isNaN(rate) || rate <= 0) return;
+    if (flightRates.find(r => r.city === dest)) return;
+    setFlightRates(prev => [...prev, { city: dest, rate }]);
+    setNewFlightDest(''); setNewFlightRate('');
+  };
+  const removeFlightRate = (city) => setFlightRates(prev => prev.filter(r => r.city !== city));
+
+  const setVar = (type, key, value) =>
+    setVariance(prev => ({ ...prev, [type]: { ...prev[type], [key]: value } }));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSaving(true);
     try {
-      const accomRatesObj = Object.fromEntries(accomRates.map(r => [r.city, r.rate]));
+      const accomRatesObj  = Object.fromEntries(accomRates.map(r => [r.city, r.rate]));
+      const flightRatesObj = Object.fromEntries(flightRates.map(r => [r.city, r.rate]));
       await updateDoc(doc(db, 'onboarding', token), {
         status: 'submitted',
         submittedAt: new Date().toISOString(),
@@ -239,8 +261,11 @@ export default function OnboardingForm() {
           approvalByTripType: approvalByType,
           emailNotifications,
           features,
+          selfManagedHotelBooking,
           gstRate,
           accomRates: accomRatesObj,
+          flightRates: flightRatesObj,
+          policyVariance: variance,
           notes,
         },
       });
@@ -504,74 +529,257 @@ export default function OnboardingForm() {
         >
           <div className="space-y-4">
             {FEATURES.map(f => (
-              <Toggle
-                key={f.key}
-                checked={features[f.key] ?? f.defaultOn}
-                onChange={v => setFeatures(prev => ({ ...prev, [f.key]: v }))}
-                label={f.label}
-                description={f.description}
-              />
+              <React.Fragment key={f.key}>
+                <Toggle
+                  checked={features[f.key] ?? f.defaultOn}
+                  onChange={v => setFeatures(prev => ({ ...prev, [f.key]: v }))}
+                  label={f.label}
+                  description={f.description}
+                />
+                {f.key === 'hotelBooking' && (features.hotelBooking ?? true) && (
+                  <div className="ml-7 pl-4 border-l-2 border-teal-100">
+                    <Toggle
+                      checked={selfManagedHotelBooking}
+                      onChange={setSelfManagedHotelBooking}
+                      label="Allow hotel booking for Self-Managed trips"
+                      description={selfManagedHotelBooking
+                        ? 'Travellers on Self-Managed trips can search and book hotels directly through the portal.'
+                        : 'Hotel booking is restricted to STX-Managed trips only. Self-managed travellers cannot use the hotel search.'}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
         </Section>
 
-        {/* 7 — Accommodation spend limits */}
+        {/* 7 — Spend limits */}
         <Section
           id="policy"
-          title="7. Accommodation Spend Limits"
+          title="7. Travel Spend Limits"
           badge="optional"
-          description="Set maximum nightly accommodation rates per city. These are used in the Travel Policy report to flag bookings that exceed your limits."
+          description="Set maximum accommodation rates and flight costs per destination. Used in the Travel Policy report to track compliance and, optionally, to trigger warnings or approvals when limits are exceeded."
         >
           <InfoBox>
-            If you have accommodation spend policies (e.g. a maximum of $220/night in Sydney), you can
-            enter them here. These are for reporting and compliance tracking only — the portal will flag
-            bookings above the limit but not block them. Leave this blank if you'd prefer to set it up
-            with STX later.
+            Leave this blank if you don't have formal spend policies yet — you can add them with STX later.
+            Rates are in AUD, inclusive of GST.
           </InfoBox>
 
-          {accomRates.length > 0 && (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="grid grid-cols-[1fr_120px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">City</span>
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Max/night</span>
-                <span />
-              </div>
-              {accomRates.map(({ city, rate }) => (
-                <div key={city} className="grid grid-cols-[1fr_120px_36px] px-3 py-2 items-center border-b border-gray-100 last:border-0">
-                  <span className="text-sm text-gray-700">{city}</span>
-                  <span className="text-sm text-gray-700 text-right">${rate.toFixed(0)} incl. GST</span>
-                  <button type="button" onClick={() => removeAccomRate(city)}
-                    className="text-gray-300 hover:text-red-400 text-base text-center">×</button>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Accommodation */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-gray-700">Accommodation — max per night by city</p>
+            <p className="text-xs text-gray-400">e.g. Sydney $220, Melbourne $195, Brisbane $180</p>
 
-          <div className="flex gap-2 items-end flex-wrap">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">City</label>
-              <input className={inp + ' w-44'} value={newAccomCity} onChange={e => setNewAccomCity(e.target.value)}
-                placeholder="e.g. Sydney" />
+            {accomRates.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_130px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">City</span>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Max/night incl. GST</span>
+                  <span />
+                </div>
+                {accomRates.map(({ city, rate }) => (
+                  <div key={city} className="grid grid-cols-[1fr_130px_36px] px-3 py-2 items-center border-b border-gray-100 last:border-0">
+                    <span className="text-sm text-gray-700">{city}</span>
+                    <span className="text-sm text-gray-700 text-right">${rate.toFixed(0)}</span>
+                    <button type="button" onClick={() => removeAccomRate(city)}
+                      className="text-gray-300 hover:text-red-400 text-base text-center">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">City</label>
+                <input className={inp + ' w-44'} value={newAccomCity} onChange={e => setNewAccomCity(e.target.value)}
+                  placeholder="e.g. Sydney" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Max/night ($)</label>
+                <input type="number" min="0" step="5" className={inp + ' w-28'} value={newAccomRate}
+                  onChange={e => setNewAccomRate(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAccomRate())}
+                  placeholder="e.g. 220" />
+              </div>
+              <button type="button" onClick={addAccomRate}
+                disabled={!newAccomCity.trim() || !newAccomRate}
+                className="px-3 py-2 bg-gray-700 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-gray-800">
+                + Add
+              </button>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Max per night ($, incl. GST)</label>
-              <input type="number" min="0" step="5" className={inp + ' w-36'} value={newAccomRate}
-                onChange={e => setNewAccomRate(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAccomRate())}
-                placeholder="e.g. 220" />
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">Flights — max total cost per trip by destination</p>
+            <p className="text-xs text-gray-400">e.g. Sydney $350 return, Melbourne $280 return. This is the total flight cost for the trip, not per-leg.</p>
+
+            {flightRates.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_130px_36px] bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Destination</span>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Max/trip incl. GST</span>
+                  <span />
+                </div>
+                {flightRates.map(({ city, rate }) => (
+                  <div key={city} className="grid grid-cols-[1fr_130px_36px] px-3 py-2 items-center border-b border-gray-100 last:border-0">
+                    <span className="text-sm text-gray-700">{city}</span>
+                    <span className="text-sm text-gray-700 text-right">${rate.toFixed(0)}</span>
+                    <button type="button" onClick={() => removeFlightRate(city)}
+                      className="text-gray-300 hover:text-red-400 text-base text-center">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Destination city</label>
+                <input className={inp + ' w-44'} value={newFlightDest} onChange={e => setNewFlightDest(e.target.value)}
+                  placeholder="e.g. Sydney" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Max/trip ($)</label>
+                <input type="number" min="0" step="10" className={inp + ' w-28'} value={newFlightRate}
+                  onChange={e => setNewFlightRate(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addFlightRate())}
+                  placeholder="e.g. 350" />
+              </div>
+              <button type="button" onClick={addFlightRate}
+                disabled={!newFlightDest.trim() || !newFlightRate}
+                className="px-3 py-2 bg-gray-700 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-gray-800">
+                + Add
+              </button>
             </div>
-            <button type="button" onClick={addAccomRate}
-              disabled={!newAccomCity.trim() || !newAccomRate}
-              className="px-3 py-2 bg-gray-700 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-gray-800">
-              + Add city
-            </button>
           </div>
         </Section>
 
-        {/* 8 — Tax settings */}
+        {/* 8 — Policy compliance */}
+        <Section
+          id="variance"
+          title="8. Policy Compliance Rules"
+          badge="optional"
+          description="When a booking exceeds your spend limit, you can choose whether the portal simply warns the staff member, or requires explicit approval before the trip can proceed."
+        >
+          <InfoBox>
+            These rules only apply if you've set spend limits in section 7. You can configure a tolerance
+            — e.g. allow up to 10% over the limit before triggering a response — so minor overruns don't
+            create unnecessary friction. Leave this blank to discuss with STX.
+          </InfoBox>
+
+          {/* Accommodation variance */}
+          <div className="space-y-3">
+            <Toggle
+              checked={variance.accommodation.enabled}
+              onChange={v => setVar('accommodation', 'enabled', v)}
+              label="Apply compliance rules to accommodation"
+              description="When a nightly rate exceeds your accommodation limit, trigger a warning or approval."
+            />
+            {variance.accommodation.enabled && (
+              <div className="ml-7 pl-4 border-l-2 border-gray-200 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">How much over the limit is acceptable before triggering a response?</label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="number" min="0" step="1"
+                      className={inp + ' w-24'}
+                      value={variance.accommodation.value}
+                      onChange={e => setVar('accommodation', 'value', parseFloat(e.target.value) || 0)}
+                    />
+                    <select
+                      className={inp + ' w-40'}
+                      value={variance.accommodation.type}
+                      onChange={e => setVar('accommodation', 'type', e.target.value)}
+                    >
+                      <option value="percent">% over the limit</option>
+                      <option value="amount">$ over the limit</option>
+                    </select>
+                    <p className="text-xs text-gray-400 w-full mt-1">
+                      e.g. "10% over" means a $220 limit allows up to $242 before triggering.
+                      Set to 0 to trigger on any amount over the limit.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">When the threshold is exceeded, what should happen?</label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'warn',    label: 'Show a warning — staff member is alerted but the booking can continue' },
+                      { value: 'approve', label: 'Require approval — the trip must be approved before STX can proceed' },
+                    ].map(opt => (
+                      <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300"
+                        style={variance.accommodation.action === opt.value ? { borderColor: '#0d9488', background: '#f0fdfa' } : {}}>
+                        <input type="radio" name="accom-action" value={opt.value}
+                          checked={variance.accommodation.action === opt.value}
+                          onChange={() => setVar('accommodation', 'action', opt.value)}
+                          className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0" />
+                        <span className="text-sm text-gray-700">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Flight variance */}
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <Toggle
+              checked={variance.flight.enabled}
+              onChange={v => setVar('flight', 'enabled', v)}
+              label="Apply compliance rules to flights"
+              description="When total flight costs exceed your flight limit, trigger a warning or approval."
+            />
+            {variance.flight.enabled && (
+              <div className="ml-7 pl-4 border-l-2 border-gray-200 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">How much over the limit is acceptable before triggering a response?</label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="number" min="0" step="1"
+                      className={inp + ' w-24'}
+                      value={variance.flight.value}
+                      onChange={e => setVar('flight', 'value', parseFloat(e.target.value) || 0)}
+                    />
+                    <select
+                      className={inp + ' w-40'}
+                      value={variance.flight.type}
+                      onChange={e => setVar('flight', 'type', e.target.value)}
+                    >
+                      <option value="percent">% over the limit</option>
+                      <option value="amount">$ over the limit</option>
+                    </select>
+                    <p className="text-xs text-gray-400 w-full mt-1">
+                      Set to 0 to trigger on any amount over the limit.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">When the threshold is exceeded, what should happen?</label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'warn',    label: 'Show a warning — staff member is alerted but the booking can continue' },
+                      { value: 'approve', label: 'Require approval — the trip must be approved before STX can proceed' },
+                    ].map(opt => (
+                      <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300"
+                        style={variance.flight.action === opt.value ? { borderColor: '#0d9488', background: '#f0fdfa' } : {}}>
+                        <input type="radio" name="flight-action" value={opt.value}
+                          checked={variance.flight.action === opt.value}
+                          onChange={() => setVar('flight', 'action', opt.value)}
+                          className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0" />
+                        <span className="text-sm text-gray-700">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* 9 — Tax settings */}
         <Section
           id="tax"
-          title="8. Tax Settings"
+          title="9. Tax Settings"
           description="Set the GST rate applicable to your travel bookings."
         >
           <InfoBox>
@@ -598,10 +806,10 @@ export default function OnboardingForm() {
           </div>
         </Section>
 
-        {/* 9 — Notes */}
+        {/* 10 — Notes */}
         <Section
           id="notes"
-          title="9. Questions & Notes"
+          title="10. Questions & Notes"
           badge="optional"
           description="Use this space for any questions, special requirements, or anything you'd like to discuss with the STX team."
         >
