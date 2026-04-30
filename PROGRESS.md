@@ -20,6 +20,7 @@
 | — | Email notifications + user preferences + notification badge | ✅ Complete (✅ SendGrid confirmed working) |
 | — | Account settings, password reset, CI/CD service account auth | ✅ Complete |
 | — | Lead time indicator, Travel Policy report (flights + ex-GST + flags), feedback form, itinerary email, badge tooltip | ✅ Complete |
+| — | Feedback & Fault Manager, cost centre gating, hotel booking gates, policy variance, Active/Completed tabs, accessibility toolbar | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏸ Deferred |
 | 7 | Invoice generation | ✅ Complete |
 | 8 | Reports | ✅ Complete |
@@ -304,6 +305,62 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
+### Post-Phase 8 Enhancements (Session 3) ✅
+
+#### Admin Panel — Feedback & Fault Manager
+- `src/components/admin/FeedbackManager.jsx` — new component added as third tab "Feedback & Faults" in Admin Panel
+- Real-time `onSnapshot` on `/portalFeedback` collection ordered by `createdAt` desc
+- List view: clickable count cards (Open / In Progress / Resolved), status filter buttons, submission cards
+- Detail view: original submission, response thread (blue left-border), reply box with status selector, metadata sidebar
+- On send reply: `arrayUnion` response to doc + queue `feedback_response` email to `recipientId: selected.userId`
+- `feedback_response` email type added to Cloud Function — routes via existing `else` branch (recipientId lookup), skips STX roles
+- Deep-link support: `useSearchParams` reads `?tab=feedback&id=` from URL — auto-opens specific submission (e.g. from "View in Admin Panel" email CTA)
+- `portal_feedback` email CTA now includes `feedbackId` for deep-linking: `Contact.jsx` captures `feedbackRef.id` from `addDoc`
+- `AdminPanel.jsx` updated: imports `FeedbackManager`, `MessageSquare`, `useSearchParams`; reads `initialId` from `?id=` param
+
+#### Trip Form — Cost Centre Permission Gating
+- Cost centre field restricted: only `isSTX`, `client_approver`, `client_ops` can edit
+- Mandatory reason field always required when cost centre changes (no new-trip exemption)
+- `originalCostCentre` tracked as `useState` (not `const`) so it updates when traveller auto-fills — required to correctly detect a user-initiated change vs auto-fill
+
+#### Hotel Booking — Self-Managed Gate
+- `selfManagedHotelBooking` toggle added to `hotelBooking` section of ClientForm and `CONFIG_DEFAULTS` in TenantContext
+- In TripForm: `hotelBookingAllowedForTripType` = `features.hotelBooking && (tripType !== 'Self-Managed' || selfManagedHotelBooking)`
+- STX users bypass all client permission gates — hotel booking button always shown when logged in as STX regardless of client config or trip type
+
+#### Policy Variance Thresholds
+- Per-client config in ClientForm: toggle to enable, type selector (% or $), value input, action selector (Warn / Require Approval) — separate settings for Accommodation and Flights
+- `policyVariance` section added to `CONFIG_DEFAULTS` and `mergeWithDefaults` in TenantContext
+- `travelPolicy` loaded from Firestore in TripForm; `findPolicyRate(city, rates)` with case-insensitive match + "All Cities" fallback
+- `varianceBreaches` useMemo in TripForm — recomputes on every sector/cost/policy change
+- On save: if any breach has `action: 'approve'`, status forced to `pending_approval`; `policyVarianceBreached` + `varianceBreaches[]` saved on trip document
+- TripDetail: breach notice block above amend prompt showing each sector breach (cost vs policy rate, % over, threshold); approval-required message when status is `pending_approval` due to variance
+
+#### Travel Dashboard — Active / Completed Tab Split
+- `TravelManagement.jsx`: `COMPLETED_STATUSES = new Set(['completed', 'cancelled'])` defined at module level
+- `activeTrips` / `completedTrips` split via `useMemo` using `getDisplayStatus(trip)` from TripList
+- Tab switcher UI above the list: Active and Completed tabs with live count badges
+- `key={activeTab}` on TripList resets all filters when switching tabs
+- New Trip button hidden on Completed tab
+- If arriving via `?status=cancelled` URL param, Completed tab is pre-selected
+
+#### Accessibility Toolbar
+- `src/components/layout/AccessibilityToolbar.jsx` — fixed floating button (bottom-right); panel opens upward
+- 11 features across 4 sections:
+  - **Text size**: `−` / `{n}%` / `+` buttons (10% steps, 80–160%); applied as `html.style.fontSize` to scale all `rem` units
+  - **Colour** (chip toggles): High Contrast (`filter: contrast(1.5)`), Dark Contrast (smart invert: `filter: invert(1) hue-rotate(180deg)`), Light Background (white `main` bg), Grayscale (`filter: grayscale(1)`), Invert Colours (`filter: invert(1)`)
+  - **Reading** (toggle rows): Readable Font (Lexend, lazy-loaded from Google Fonts), Underline Links, Increase Line Spacing
+  - **Navigation** (toggle rows): Enhanced Focus Indicators (4px blue `outline` on `:focus-visible`), Reduce Motion (disables animations/transitions)
+- Colour filters stacked as a single `body.style.filter` value computed from all active options — avoids CSS specificity conflicts
+- Image correction: `a11y-invert-imgs` / `a11y-smart-imgs` CSS classes on `html` re-invert images to prevent double-inversion artifacts
+- CSS injected via `<style id="a11y-styles">` tag on first mount; Lexend injected as `<link id="a11y-lexend">` only when enabled
+- Active preference count badge on floating button; Reset All button appears in panel header when anything is active
+- Persists to `localStorage` under key `stx_a11y_prefs`; restored on mount
+- Respects `clientConfig.features.accessibilityToolbar` feature flag (STX always sees it)
+- From email changed to `noreply@supportedtravelx.com.au` (was `notifications@...`)
+
+---
+
 ### Post-Phase 8 Enhancements (Session 2) ✅
 
 #### Lead Time Indicator
@@ -441,4 +498,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete. SendGrid emails confirmed working. Auto-fee on trip type change, cancellation modal with invoicing review, client cancellation email to STX, invoice scanner picks up cancelled trips. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
+*Last updated: 30 April 2026 — Phases 0–5, 7–8 complete. Recent: Feedback & Fault Manager, cost centre permission gating, hotel booking self-managed gate, policy variance thresholds (warn/approve), Active/Completed trip dashboard tabs, accessibility toolbar (11 features, localStorage persistence). Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*

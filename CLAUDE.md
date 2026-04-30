@@ -48,12 +48,12 @@ React + Firebase. All client-specific configuration is stored in Firestore, not 
 src/
 ├── components/
 │   ├── auth/         LoginPage
-│   ├── layout/       AppShell, Sidebar, TopBar (client selector for STX)
+│   ├── layout/       AppShell, Sidebar, TopBar (client selector for STX), AccessibilityToolbar
 │   ├── trips/        TripList, TripForm, TripDetail, Attachments
 │   ├── passengers/   PassengerList, PassengerForm, PassengerDetail    ← Phase 5
 │   ├── invoices/     InvoiceBuilder, InvoiceDetail                   ← Phase 7 ✅
 │   ├── reports/      (stub — Phase 8)
-│   ├── admin/        ClientManager, ClientForm, UserManager
+│   ├── admin/        ClientManager, ClientForm, UserManager, FeedbackManager
 │   └── shared/       Modal, Toggle, TagInput, PermissionGate
 ├── contexts/         AuthContext, TenantContext, PermissionsContext
 ├── hooks/            useTrips, useTeamScope, usePassengers (Ph5), useInvoices (Ph7)
@@ -89,6 +89,7 @@ src/
 - `/clients/{clientId}` — tenant root (name, active status)
 - `/clients/{clientId}/config/settings` — full tenant config
 - `/clients/{clientId}/config/travelPolicy` — `{ rates: {city: rateInclGST}, flightRates: {city: rateInclGST} }` — always save with `{ merge: true }`
+- `/clients/{clientId}/config/settings` also stores `policyVariance: { accommodation: { enabled, type ('percent'|'dollar'), value, action ('warn'|'approve') }, flight: { … } }`
 - `/clients/{clientId}/trips/{tripId}` — trips (includes `travellerId`, `createdBy`, `amendments[]`, `fees[]`, `attachments[]`)
 - `/clients/{clientId}/passengers/{passengerId}` — passenger profiles ← Phase 5
 - `/clients/{clientId}/invoices/{invoiceId}` — invoices ← Phase 7 ✅
@@ -107,6 +108,8 @@ trip {
   fees[],          // management fee, amendment fee — stored ex-GST; incl-GST = amount × (1 + gstRate)
   attachments[],   // Firebase Storage refs
   amendments[],    // full audit trail with diff (changes[] — always strings, never objects)
+  policyVarianceBreached, // boolean — true if any sector exceeded client policy variance threshold
+  varianceBreaches[],     // [{ sectorIndex, sectorType, city, actual, policy, threshold, action }]
   createdBy, createdAt, updatedAt
 }
 
@@ -133,14 +136,15 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 | `onEmailQueued` | Firestore onCreate `/emailQueue/{id}` | Dispatches email immediately if `scheduledFor` ≤ now; skips if deferred |
 | `sweepEmailQueue` | Cloud Scheduler (daily) | Processes pending deferred emailQueue items |
 | `portal_feedback` email type | (dispatched by onEmailQueued) | Sends feedback/fault report to all `stx_admin` + `stx_ops` users |
+| `feedback_response` email type | (dispatched by onEmailQueued) | Sends STX reply to feedback originator; routed via `recipientId` |
 | `trip_itinerary_added` email type | (dispatched by onEmailQueued) | Sent to traveller when digital itinerary link first added to a trip |
 | `trip_cancelled_by_client` email type | (dispatched by onEmailQueued) | Sent to all STX staff when a non-STX user cancels a trip |
 
 ### Email notifications (SendGrid)
 - Secret: `SENDGRID_API_KEY` stored in Firebase Secret Manager (both projects)
-- From: `notifications@supportedtravelx.com.au`
+- From: `noreply@supportedtravelx.com.au`
 - Queue collection: `/emailQueue/{id}` — `{ type, recipientId, clientId, tripId, tripTitle, scheduledFor, status, createdAt }`
-- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after), `portal_feedback` (to all STX staff), `trip_cancelled_by_client` (to all STX staff)
+- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after), `portal_feedback` (to all STX staff), `feedback_response` (to originator), `trip_cancelled_by_client` (to all STX staff)
 - Mandatory types (bypass preferences): `trip_approved`, `trip_declined`
 - User preferences stored at `/users/{uid}.emailPreferences.{type}` — `undefined` = opted in, `false` = opted out
 - Queued from `TripDetail.jsx` act() function on status transitions
@@ -156,7 +160,12 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 - `prod` branch → auto-deploys to `stx-corporate`
 
 ### Important implementation notes
-- `getDisplayStatus(trip)` — derives `travelling`/`completed` from `booked` + dates; use this for all status display
+- `getDisplayStatus(trip)` — derives `travelling`/`completed` from `booked` + dates; use this for all status display. Travel dashboard splits trips by this: Active tab = everything except `completed`/`cancelled`; Completed tab = `completed` + `cancelled`
+- **Cost centre editing** — restricted to STX staff and `client_approver`/`client_ops` roles; always requires a reason (stored in amendment history); `originalCostCentre` is tracked as state in TripForm (updates when traveller auto-fills)
+- **Hotel booking visibility** — STX always sees hotel booking button regardless of client config; clients gated by `features.hotelBooking` + `hotelBooking.selfManagedHotelBooking` (the latter gates Self-Managed trip type only)
+- **Policy variance** — `findPolicyRate(city, rates)` does case-insensitive lookup with "All Cities" fallback; `varianceBreaches` useMemo in TripForm; breaches with `action: 'approve'` force `status = 'pending_approval'` on save
+- **Accessibility toolbar** — `src/components/layout/AccessibilityToolbar.jsx`; 11 features; CSS injected via `<style>` tag; body `filter` computed from active colour options (stacked CSS filter functions); images re-corrected to avoid double-inversion; Lexend font lazy-loaded; persists to `localStorage` under key `stx_a11y_prefs`
+- **Admin Panel tabs** — Clients, Users, Feedback & Faults; `useSearchParams` for `?tab=feedback&id=` deep-link from email CTAs
 - **Cost calculations (all three must be consistent):**
   - `calcTripCost(trip)` in `Dashboard.jsx` — sectors (raw `cost`, incl. GST as entered) + fees at `amount × (1 + gstRate)` → "Incl. GST" total
   - `calcTripExGST(trip)` in `TripList.jsx` — domestic sectors ÷ 1.1, international at face value, fees at `amount` (ex-GST) → "Ex-GST" total
@@ -251,5 +260,5 @@ lineItem {
 - Approver-only preferences (e.g. `trip_submitted`) hidden from traveller roles
 
 ### Current status
-**Phases 0–5, 7–8 complete. Plus email notifications, notification badge, account settings, CI/CD fixes, lead time indicator, Travel Policy report (accommodation + flights, ex-GST, feature flags), contact feedback/fault form, digital itinerary email, badge tooltip breakdown. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
+**Phases 0–5, 7–8 complete. Recent additions: Feedback & Fault Manager (Admin Panel), cost centre permission gating + mandatory reason, self-managed hotel booking gate per client, policy variance thresholds (warn/approve), Active/Completed trip dashboard tabs, accessibility toolbar (11 features). Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
 See `PROGRESS.md` for full phase breakdown.
