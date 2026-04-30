@@ -10,7 +10,7 @@ import Modal from '../components/shared/Modal';
 import Toggle from '../components/shared/Toggle';
 import PermissionOverridesEditor from '../components/shared/PermissionOverridesEditor';
 import PassengerForm from '../components/passengers/PassengerForm';
-import { ROLE_LABELS, CLIENT_ROLES } from '../utils/permissions';
+import { ROLE_LABELS, CLIENT_ROLES, ROLE_PERMISSIONS } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { usePassengers } from '../hooks/usePassengers';
@@ -51,10 +51,28 @@ function memberName(m) {
 function TreeNode({ member, members, depth = 0 }) {
   const memberMap = useMemo(() => Object.fromEntries(members.map(m => [m.id, m])), [members]);
   const directReports = members.filter(m => m.managerId === member.id);
-  const approveFor = (member.approveFor || [])
+  const approveForNames = (member.approveFor || [])
     .map(uid => memberMap[uid])
     .filter(Boolean)
     .map(memberName);
+
+  // Infer scope for backward compat (old records with only approveFor set)
+  const approveScope = member.approveScope
+    ?? ((member.approveFor?.length > 0) ? 'select' : 'all');
+
+  const approveScopeLabel = (() => {
+    if (approveScope === 'select' && approveForNames.length > 0)
+      return `Approves for: ${approveForNames.join(', ')}`;
+    if (approveScope === 'reports') {
+      const depth = member.approveReportsDepth || 1;
+      return `Approves for: ${
+        depth === 1 ? 'direct reports' :
+        depth === 2 ? 'direct + once removed' :
+                      'direct + twice removed'
+      }`;
+    }
+    return 'Approves for: all team members';
+  })();
 
   return (
     <div>
@@ -69,12 +87,8 @@ function TreeNode({ member, members, depth = 0 }) {
             {memberName(member)}
           </span>
           <RoleBadge role={member.role} />
-          {member.role === 'client_approver' && (
-            <span className="text-xs text-purple-500">
-              {approveFor.length > 0
-                ? `Approves for: ${approveFor.join(', ')}`
-                : 'Approves for: all team members'}
-            </span>
+          {(ROLE_PERMISSIONS[member.role]?.includes('trip:approve') || member.approveScope) && (
+            <span className="text-xs text-purple-500">{approveScopeLabel}</span>
           )}
         </div>
       </div>
@@ -206,14 +220,20 @@ function CreateMemberForm({ clientId, members, costCentres = [], onCreated, onCa
 // ── Edit member form ──────────────────────────────────────────────────────────
 
 function EditMemberForm({ user, members, costCentres = [], canDelete, showPermissions, onSaved, onDeleted, onCancel }) {
+  // Backward-compat: infer approveScope from legacy approveFor if not set explicitly
+  const initApproveScope = user.approveScope
+    ?? ((user.approveFor?.length > 0) ? 'select' : 'all');
+
   const [form, setForm] = useState({
-    firstName:          user.firstName  || '',
-    lastName:           user.lastName   || '',
-    role:               user.role       || 'client_traveller',
-    active:             user.active !== false,
-    managerId:          user.managerId  || '',
-    approveFor:         user.approveFor || [],
-    costCentre:         user.costCentre || '',
+    firstName:           user.firstName  || '',
+    lastName:            user.lastName   || '',
+    role:                user.role       || 'client_traveller',
+    active:              user.active !== false,
+    managerId:           user.managerId  || '',
+    approveScope:        initApproveScope,
+    approveFor:          user.approveFor || [],
+    approveReportsDepth: user.approveReportsDepth || 1,
+    costCentre:          user.costCentre || '',
     permissionOverrides: user.permissionOverrides || {},
   });
   const [saving, setSaving]       = useState(false);
@@ -232,6 +252,11 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
     set('approveFor', current.includes(uid) ? current.filter(id => id !== uid) : [...current, uid]);
   };
 
+  // Whether this user effectively has approval permission (role default + overrides)
+  const roleHasApprove = !!(ROLE_PERMISSIONS[form.role]?.includes('trip:approve'));
+  const overrideApprove = form.permissionOverrides?.['trip:approve'];
+  const canApproveTrips = overrideApprove !== undefined ? overrideApprove : roleHasApprove;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -248,11 +273,13 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
           active:    form.active,
         },
       });
-      // Direct Firestore update for hierarchy metadata and cost centre
+      // Direct Firestore update for hierarchy metadata, approval scope, and cost centre
       await updateDoc(doc(db, 'users', user.id), {
-        managerId:          form.managerId || null,
-        approveFor:         form.role === 'client_approver' ? (form.approveFor || []) : [],
-        costCentre:         form.costCentre || null,
+        managerId:           form.managerId || null,
+        approveScope:        form.approveScope,
+        approveFor:          form.approveScope === 'select' ? (form.approveFor || []) : [],
+        approveReportsDepth: form.approveReportsDepth || 1,
+        costCentre:          form.costCentre || null,
         permissionOverrides: form.permissionOverrides,
       });
       onSaved();
@@ -355,23 +382,42 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
           </select>
         </Field>
 
-        {/* Approver delegation — only shown for client_approver role */}
-        {form.role === 'client_approver' && (
-          <Field
-            label="Can approve travel for"
-            hint="Leave all unchecked to allow approving for any team member."
-          >
-            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!form.approveFor || form.approveFor.length === 0}
-                  onChange={() => set('approveFor', [])}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-700 font-medium">All team members</span>
-              </label>
-              <div className="pl-2 space-y-1.5">
+        {/* Approval scope — shown for any user who has (or can have) approval permission */}
+        {canApproveTrips && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-0.5">Approval scope</p>
+              <p className="text-xs text-gray-400">Which team members' trips this person can approve or decline.</p>
+            </div>
+
+            {/* Scope selector */}
+            <div className="space-y-2">
+              {[
+                { value: 'all',     label: 'All team members',            hint: 'Can approve any trip within this client account.' },
+                { value: 'select',  label: 'Specific members only',       hint: 'Choose which team members below.' },
+                { value: 'reports', label: 'Staff reporting to this user', hint: 'Approves for their direct reports and optionally deeper in the hierarchy.' },
+              ].map(({ value, label, hint }) => (
+                <label key={value} className="flex items-start gap-2.5 cursor-pointer group">
+                  <input
+                    type="radio"
+                    checked={form.approveScope === value}
+                    onChange={() => set('approveScope', value)}
+                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
+                    <p className="text-xs text-gray-400">{hint}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Select-specific member list */}
+            {form.approveScope === 'select' && (
+              <div className="ml-6 space-y-1.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                {otherMembers.length === 0 && (
+                  <p className="text-xs text-gray-400">No other members in this client.</p>
+                )}
                 {otherMembers.map(m => {
                   const checked = (form.approveFor || []).includes(m.id);
                   return (
@@ -388,8 +434,27 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, showPermis
                   );
                 })}
               </div>
-            </div>
-          </Field>
+            )}
+
+            {/* Reports-scope depth selector */}
+            {form.approveScope === 'reports' && (
+              <div className="ml-6 space-y-2">
+                <label className="block text-xs font-medium text-gray-600">How deep in the reporting structure</label>
+                <select
+                  value={form.approveReportsDepth}
+                  onChange={e => set('approveReportsDepth', Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={1}>Direct reports only</option>
+                  <option value={2}>Direct reports + once removed</option>
+                  <option value={3}>Direct reports + twice removed</option>
+                </select>
+                <p className="text-xs text-gray-400">
+                  Staff must have this user set as their manager (or report to someone who does) for this to apply.
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

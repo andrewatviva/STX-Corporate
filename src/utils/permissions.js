@@ -33,7 +33,7 @@ export const ROLE_PERMISSIONS = {
   ],
 
   client_ops: [
-    'trip:view', 'trip:create', 'trip:edit',
+    'trip:view', 'trip:create', 'trip:edit', 'trip:approve',
     'passenger:view', 'passenger:edit',
     'invoice:view',
     'report:view',
@@ -79,7 +79,7 @@ export const CLIENT_CONFIGURABLE_PERMISSIONS = [
   {
     key: 'trip:approve',
     label: 'Approve trips',
-    description: 'Approve or decline travel requests. Included in Approver role only.',
+    description: 'Approve or decline travel requests. Included in Operations and Approver roles by default.',
   },
   {
     key: 'trip:view_all',

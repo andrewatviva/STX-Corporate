@@ -8,6 +8,7 @@ import { doc, getDoc, arrayRemove, arrayUnion, collection, addDoc } from 'fireba
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
+import { useApprovalScope, matchesApprovalScope } from '../../hooks/useApprovalScope';
 import { StatusBadge, getDisplayStatus, leadTimeDays, LeadTimeBadge } from './TripList';
 import Attachments from './Attachments';
 import TripRatingModal from './TripRatingModal';
@@ -225,17 +226,9 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
   const canEditCostCentre = ['stx_admin', 'stx_ops', 'client_ops'].includes(role);
 
-  // Determine if this user can approve THIS specific trip.
-  // client_approver respects their approveFor list (empty = all).
-  const isApprover = (() => {
-    if (['stx_admin', 'stx_ops'].includes(role)) return true;
-    if (role !== 'client_approver') return false;
-    const approveFor = userProfile?.approveFor || [];
-    if (approveFor.length === 0) return true;
-    // Check by travellerId (preferred) then by travellerName
-    if (trip.travellerId) return approveFor.includes(trip.travellerId);
-    return false; // can't determine without travellerId — don't show button
-  })();
+  // Determine if this user can approve THIS specific trip, respecting their approval scope.
+  const approvalScope = useApprovalScope(userProfile, clientId);
+  const isApprover = ['stx_admin', 'stx_ops'].includes(role) || matchesApprovalScope(approvalScope, trip);
   // client_ops and client_approver can book self-managed trips on behalf of travellers
   const canBook = ['stx_admin', 'stx_ops', 'client_ops', 'client_approver', 'client_traveller'].includes(role);
 

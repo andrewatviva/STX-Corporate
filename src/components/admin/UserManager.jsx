@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import { Plus, Edit2, UserCheck, UserX, Mail, Trash2, Search } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Toggle from '../shared/Toggle';
 import PermissionOverridesEditor from '../shared/PermissionOverridesEditor';
-import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES } from '../../utils/permissions';
+import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES, ROLE_PERMISSIONS } from '../../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ALL_ROLES = [...STX_ROLES, ...CLIENT_ROLES];
@@ -40,6 +40,19 @@ function useCostCentres(clientId) {
     });
   }, [clientId]);
   return costCentres;
+}
+
+function useClientMembers(clientId) {
+  const [members, setMembers] = useState([]);
+  useEffect(() => {
+    if (!clientId) { setMembers([]); return; }
+    const q = query(collection(db, 'users'), where('clientId', '==', clientId));
+    const unsub = onSnapshot(q, snap => {
+      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [clientId]);
+  return members;
 }
 
 // ── Create user form ──────────────────────────────────────────────────────────
@@ -136,16 +149,22 @@ function CreateUserForm({ clients, onCreated, onCancel }) {
 const OPS_ROLES = ['stx_admin', 'stx_ops', 'client_ops'];
 
 function EditUserForm({ user, clients, onSaved, onCancel }) {
+  const initApproveScope = user.approveScope
+    ?? ((user.approveFor?.length > 0) ? 'select' : 'all');
+
   const [form, setForm] = useState({
-    firstName:          user.firstName  || '',
-    lastName:           user.lastName   || '',
-    role:               user.role       || 'client_ops',
-    clientId:           user.clientId   || '',
-    active:             user.active !== false,
-    costCentre:         user.costCentre || '',
-    invoiceAccess:      user.invoiceAccess !== undefined
+    firstName:           user.firstName  || '',
+    lastName:            user.lastName   || '',
+    role:                user.role       || 'client_ops',
+    clientId:            user.clientId   || '',
+    active:              user.active !== false,
+    costCentre:          user.costCentre || '',
+    invoiceAccess:       user.invoiceAccess !== undefined
       ? user.invoiceAccess
       : OPS_ROLES.includes(user.role || 'client_ops'),
+    approveScope:        initApproveScope,
+    approveFor:          user.approveFor || [],
+    approveReportsDepth: user.approveReportsDepth || 1,
     permissionOverrides: user.permissionOverrides || {},
   });
   const [saving, setSaving]       = useState(false);
@@ -153,9 +172,14 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
   const [resetLink, setResetLink] = useState('');
   const [error, setError]         = useState('');
 
-  const needsClient = CLIENT_ROLES.includes(form.role);
-  const costCentres = useCostCentres(needsClient ? form.clientId : null);
+  const needsClient    = CLIENT_ROLES.includes(form.role);
+  const costCentres    = useCostCentres(needsClient ? form.clientId : null);
+  const clientMembers  = useClientMembers(needsClient && form.approveScope === 'select' ? form.clientId : null);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const roleHasApprove  = !!(ROLE_PERMISSIONS[form.role]?.includes('trip:approve'));
+  const overrideApprove = form.permissionOverrides?.['trip:approve'];
+  const canApproveTrips = overrideApprove !== undefined ? overrideApprove : roleHasApprove;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -175,10 +199,13 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
           active:    form.active,
         },
       });
-      // Store cost centre and access flags directly (not in CF allowlist)
+      // Store cost centre, access flags, and approval scope directly (not in CF allowlist)
       await updateDoc(doc(db, 'users', user.id), {
         costCentre:          form.costCentre || null,
         invoiceAccess:       form.invoiceAccess,
+        approveScope:        form.approveScope,
+        approveFor:          form.approveScope === 'select' ? (form.approveFor || []) : [],
+        approveReportsDepth: form.approveReportsDepth || 1,
         permissionOverrides: form.permissionOverrides,
       });
       onSaved();
@@ -220,7 +247,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         <Field label="Role">
           <select className={inp} value={form.role} onChange={e => {
             const newRole = e.target.value;
-            setForm(p => ({ ...p, role: newRole, invoiceAccess: OPS_ROLES.includes(newRole), permissionOverrides: {} }));
+            setForm(p => ({ ...p, role: newRole, invoiceAccess: OPS_ROLES.includes(newRole), permissionOverrides: {}, approveScope: 'all', approveFor: [] }));
           }}>
             {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
@@ -258,6 +285,67 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
             overrides={form.permissionOverrides}
             onChange={v => set('permissionOverrides', v)}
           />
+        </div>
+      )}
+
+      {needsClient && canApproveTrips && (
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-700 mb-0.5">Approval scope</p>
+            <p className="text-xs text-gray-400">Which team members' trips this person can approve or decline.</p>
+          </div>
+          <div className="space-y-2">
+            {[
+              { value: 'all',     label: 'All team members',            hint: 'Can approve any trip in this client account.' },
+              { value: 'select',  label: 'Specific members only',       hint: 'Choose below.' },
+              { value: 'reports', label: 'Staff reporting to this user', hint: 'Approves for their reporting hierarchy.' },
+            ].map(({ value, label, hint }) => (
+              <label key={value} className="flex items-start gap-2.5 cursor-pointer">
+                <input type="radio" checked={form.approveScope === value}
+                  onChange={() => set('approveScope', value)}
+                  className="mt-0.5 text-blue-600 focus:ring-blue-500" />
+                <div>
+                  <span className="text-sm text-gray-700">{label}</span>
+                  <p className="text-xs text-gray-400">{hint}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          {form.approveScope === 'select' && (
+            <div className="ml-6 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1.5">
+              {clientMembers.filter(m => m.id !== user.id).length === 0
+                ? <p className="text-xs text-gray-400">No other members in this client.</p>
+                : clientMembers.filter(m => m.id !== user.id).map(m => {
+                    const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email;
+                    const checked = (form.approveFor || []).includes(m.id);
+                    return (
+                      <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={checked}
+                          onChange={() => {
+                            const cur = form.approveFor || [];
+                            set('approveFor', checked ? cur.filter(id => id !== m.id) : [...cur, m.id]);
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <span className="text-gray-700">{name}</span>
+                        <span className="text-xs text-gray-400">{ROLE_LABELS[m.role] ?? m.role}</span>
+                      </label>
+                    );
+                  })
+              }
+            </div>
+          )}
+          {form.approveScope === 'reports' && (
+            <div className="ml-6 space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">Hierarchy depth</label>
+              <select value={form.approveReportsDepth}
+                onChange={e => set('approveReportsDepth', Number(e.target.value))}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value={1}>Direct reports only</option>
+                <option value={2}>Direct reports + once removed</option>
+                <option value={3}>Direct reports + twice removed</option>
+              </select>
+            </div>
+          )}
         </div>
       )}
 
