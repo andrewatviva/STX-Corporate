@@ -654,6 +654,17 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
 
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
+  const [travelPolicy, setTravelPolicy] = useState({ rates: {}, flightRates: {} });
+
+  // Load client travel policy for variance checking
+  useEffect(() => {
+    const cid = form.clientId || clientIdProp;
+    if (!cid) return;
+    getDoc(doc(db, 'clients', cid, 'config', 'travelPolicy')).then(snap => {
+      if (snap.exists()) setTravelPolicy(snap.data());
+      else setTravelPolicy({ rates: {}, flightRates: {} });
+    }).catch(() => {});
+  }, [form.clientId, clientIdProp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -787,6 +798,83 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   const removeAdditionalPassenger = (i) =>
     setForm(p => ({ ...p, additionalPassengers: p.additionalPassengers.filter((_, j) => j !== i) }));
 
+  // ── Policy variance checking ───────────────────────────────────────────────
+  function findPolicyRate(destination, rates) {
+    if (!rates || !destination) return null;
+    if (rates[destination] !== undefined) return rates[destination];
+    const lower = destination.toLowerCase();
+    for (const [city, rate] of Object.entries(rates)) {
+      if (city === 'All Cities') continue;
+      if (city.toLowerCase() === lower || lower.includes(city.toLowerCase()) || city.toLowerCase().includes(lower)) return rate;
+    }
+    return rates['All Cities'] !== undefined ? rates['All Cities'] : null;
+  }
+
+  const varianceBreaches = useMemo(() => {
+    const breaches = [];
+    const accomV  = clientConfig?.policyVariance?.accommodation;
+    const flightV = clientConfig?.policyVariance?.flight;
+
+    if (accomV?.enabled) {
+      form.sectors.filter(s => s.type === 'accommodation' && parseFloat(s.cost) > 0).forEach(s => {
+        const nights = s.checkIn && s.checkOut
+          ? Math.max(1, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000))
+          : 1;
+        const perNight = parseFloat(s.cost) / nights;
+        const city = s.reportingCity || form.destinationCity || '';
+        const policyRate = findPolicyRate(city, travelPolicy.rates);
+        if (!policyRate) return;
+        const threshold = accomV.type === 'percent'
+          ? policyRate * (1 + (accomV.value || 0) / 100)
+          : policyRate + (accomV.value || 0);
+        if (perNight > threshold) {
+          breaches.push({
+            sectorType: 'accommodation',
+            label: s.propertyName || 'Accommodation',
+            city,
+            cost: perNight,
+            policyRate,
+            threshold,
+            excess: perNight - policyRate,
+            excessPct: ((perNight - policyRate) / policyRate) * 100,
+            action: accomV.action || 'warn',
+            unit: 'per night',
+          });
+        }
+      });
+    }
+
+    if (flightV?.enabled) {
+      const flightSectors = form.sectors.filter(s => s.type === 'flight' && parseFloat(s.cost) > 0);
+      if (flightSectors.length > 0) {
+        const totalCost = flightSectors.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
+        const destination = form.destinationCity || '';
+        const policyRate = findPolicyRate(destination, travelPolicy.flightRates);
+        if (policyRate) {
+          const threshold = flightV.type === 'percent'
+            ? policyRate * (1 + (flightV.value || 0) / 100)
+            : policyRate + (flightV.value || 0);
+          if (totalCost > threshold) {
+            breaches.push({
+              sectorType: 'flight',
+              label: 'Flights',
+              city: destination,
+              cost: totalCost,
+              policyRate,
+              threshold,
+              excess: totalCost - policyRate,
+              excessPct: ((totalCost - policyRate) / policyRate) * 100,
+              action: flightV.action || 'warn',
+              unit: 'total',
+            });
+          }
+        }
+      }
+    }
+
+    return breaches;
+  }, [form.sectors, form.destinationCity, clientConfig?.policyVariance, travelPolicy]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSave = async (submitForApproval = false) => {
     setError('');
     if (isSTX && !form.clientId) return setError('Please select a client for this trip.');
@@ -837,7 +925,20 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         status = 'draft';
       }
 
-      await onSave({ ...form, sectors, additionalPassengers, primaryAllocatedCost, status, totalCost });
+      // Force pending_approval if any variance breach requires explicit approval
+      const hasApproveBreaches = varianceBreaches.some(b => b.action === 'approve');
+      if (hasApproveBreaches && status !== 'booked') status = 'pending_approval';
+
+      await onSave({
+        ...form,
+        sectors,
+        additionalPassengers,
+        primaryAllocatedCost,
+        status,
+        totalCost,
+        policyVarianceBreached: varianceBreaches.length > 0,
+        varianceBreaches:       varianceBreaches.length > 0 ? varianceBreaches : [],
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1138,6 +1239,46 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         >
           <Plus size={14} /> Add sector
         </button>
+
+        {/* Policy variance warnings */}
+        {varianceBreaches.length > 0 && (
+          <div className={`mt-3 rounded-xl border p-4 space-y-2 ${
+            varianceBreaches.some(b => b.action === 'approve')
+              ? 'bg-red-50 border-red-200'
+              : 'bg-amber-50 border-amber-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={15} className={varianceBreaches.some(b => b.action === 'approve') ? 'text-red-600' : 'text-amber-600'} />
+              <p className={`text-sm font-semibold ${varianceBreaches.some(b => b.action === 'approve') ? 'text-red-800' : 'text-amber-800'}`}>
+                {varianceBreaches.some(b => b.action === 'approve')
+                  ? 'Policy variance exceeded — approval required before this trip can proceed'
+                  : 'Policy variance exceeded — please review before submitting'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              {varianceBreaches.map((b, i) => (
+                <div key={i} className="text-xs text-gray-700 pl-5 flex items-start gap-1">
+                  <span>
+                    <span className="font-medium">{b.label}</span>
+                    {b.city && ` (${b.city})`}:
+                    {' '}A${b.cost.toFixed(2)} {b.unit} vs policy A${b.policyRate.toFixed(2)}
+                    {' '}— <span className="font-medium">{b.excessPct > 0 ? '+' : ''}{b.excessPct.toFixed(1)}% over policy</span>
+                    {' '}(threshold A${b.threshold.toFixed(2)})
+                  </span>
+                  {b.action === 'approve'
+                    ? <span className="ml-1 text-red-600 font-medium shrink-0">→ Requires approval</span>
+                    : <span className="ml-1 text-amber-600 shrink-0">→ Warning only</span>
+                  }
+                </div>
+              ))}
+            </div>
+            {varianceBreaches.some(b => b.action === 'approve') && (
+              <p className="text-xs text-red-600 pl-5">
+                This trip will be placed into approval review when saved.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Additional Passengers */}

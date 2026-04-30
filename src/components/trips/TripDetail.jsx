@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock, Clock, Trash2, Receipt, Star,
+  Lock, Clock, Trash2, Receipt, Star, AlertTriangle,
 } from 'lucide-react';
 import { doc, getDoc, arrayRemove, arrayUnion, collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -495,6 +495,32 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           )}
         </div>
       </div>
+
+      {/* Policy variance breach notice */}
+      {trip.policyVarianceBreached && (trip.varianceBreaches || []).length > 0 && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={15} className="text-red-600 shrink-0" />
+            <p className="text-sm font-semibold text-red-800">Policy variance exceeded</p>
+          </div>
+          <div className="space-y-1 mb-2">
+            {(trip.varianceBreaches || []).map((b, i) => (
+              <p key={i} className="text-xs text-gray-700 pl-5">
+                <span className="font-medium">{b.label}</span>
+                {b.city && ` (${b.city})`}:
+                {' '}A${(b.cost || 0).toFixed(2)} {b.unit} vs policy A${(b.policyRate || 0).toFixed(2)}
+                {' '}— <span className="font-medium">{(b.excessPct || 0) > 0 ? '+' : ''}{(b.excessPct || 0).toFixed(1)}% over policy</span>
+                {' '}(threshold A${(b.threshold || 0).toFixed(2)})
+              </p>
+            ))}
+          </div>
+          {trip.status === 'pending_approval' && (
+            <p className="text-xs text-red-700 pl-5 font-medium">
+              This trip requires explicit approval to proceed due to the policy variance above.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Amend prompt — fee decision before opening form */}
       {showAmendPrompt && (

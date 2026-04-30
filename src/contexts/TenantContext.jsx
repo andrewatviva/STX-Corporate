@@ -54,6 +54,10 @@ const CONFIG_DEFAULTS = {
     email: 'enquiries@supportedtravelx.com.au',
     stxNotifyEmail: '',
   },
+  policyVariance: {
+    accommodation: { enabled: false, type: 'percent', value: 0, action: 'warn' },
+    flight:        { enabled: false, type: 'percent', value: 0, action: 'warn' },
+  },
 };
 
 function mergeWithDefaults(config) {
@@ -68,6 +72,10 @@ function mergeWithDefaults(config) {
     features:     { ...CONFIG_DEFAULTS.features,     ...config.features },
     hotelBooking: { ...CONFIG_DEFAULTS.hotelBooking, ...config.hotelBooking },
     contact:      { ...CONFIG_DEFAULTS.contact,      ...config.contact },
+    policyVariance: {
+      accommodation: { ...CONFIG_DEFAULTS.policyVariance.accommodation, ...(config.policyVariance?.accommodation || {}) },
+      flight:        { ...CONFIG_DEFAULTS.policyVariance.flight,        ...(config.policyVariance?.flight        || {}) },
+    },
   };
 }
 

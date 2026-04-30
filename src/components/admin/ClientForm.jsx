@@ -17,6 +17,10 @@ const DEFAULT_CONFIG = {
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false },
   hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0, selfManagedHotelBooking: true },
+  policyVariance: {
+    accommodation: { enabled: false, type: 'percent', value: 0, action: 'warn' },
+    flight:        { enabled: false, type: 'percent', value: 0, action: 'warn' },
+  },
   contact: { email: '' },
 };
 
@@ -268,6 +272,10 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
       features:     { ...DEFAULT_CONFIG.features,     ...existing.config?.features },
       hotelBooking: { ...DEFAULT_CONFIG.hotelBooking, ...existing.config?.hotelBooking },
       contact:      { ...DEFAULT_CONFIG.contact,      ...existing.config?.contact },
+      policyVariance: {
+        accommodation: { ...DEFAULT_CONFIG.policyVariance.accommodation, ...(existing.config?.policyVariance?.accommodation || {}) },
+        flight:        { ...DEFAULT_CONFIG.policyVariance.flight,        ...(existing.config?.policyVariance?.flight        || {}) },
+      },
     };
   });
   const [saving, setSaving]   = useState(false);
@@ -275,6 +283,15 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
 
   const set = (section, key, value) =>
     setCfg(prev => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+
+  const setVariance = (type, key, value) =>
+    setCfg(prev => ({
+      ...prev,
+      policyVariance: {
+        ...prev.policyVariance,
+        [type]: { ...prev.policyVariance[type], [key]: value },
+      },
+    }));
 
   const setApprovalByType = (tripType, value) =>
     setCfg(prev => ({
@@ -474,6 +491,107 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           />
         </Field>
         <p className="text-xs text-gray-400">Markup is only visible to STX staff when searching hotels. Clients see the final marked-up price.</p>
+      </Section>
+
+      <Section title="Policy Variance">
+        <p className="text-xs text-gray-500 mb-4">
+          Allow bookings above the travel policy rate up to a defined threshold. When the threshold is exceeded,
+          the system can either warn the user or require explicit approval before the trip can proceed.
+        </p>
+
+        {/* Accommodation variance */}
+        <div className="space-y-3">
+          <Toggle
+            checked={cfg.policyVariance.accommodation.enabled}
+            onChange={v => setVariance('accommodation', 'enabled', v)}
+            label="Accommodation variance"
+            description="Allow per-night accommodation costs to exceed the policy rate up to a threshold"
+          />
+          {cfg.policyVariance.accommodation.enabled && (
+            <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+              <Field label="Variance allowance">
+                <div className="flex gap-2 items-center">
+                  <select
+                    className={`${inp} w-40`}
+                    value={cfg.policyVariance.accommodation.type}
+                    onChange={e => setVariance('accommodation', 'type', e.target.value)}
+                  >
+                    <option value="percent">% over policy rate</option>
+                    <option value="amount">$ over policy rate</option>
+                  </select>
+                  <input
+                    type="number" min="0"
+                    step={cfg.policyVariance.accommodation.type === 'percent' ? '1' : '5'}
+                    className={`${inp} w-28`}
+                    value={cfg.policyVariance.accommodation.value}
+                    onChange={e => setVariance('accommodation', 'value', parseFloat(e.target.value) || 0)}
+                    placeholder={cfg.policyVariance.accommodation.type === 'percent' ? '10' : '50'}
+                  />
+                  <span className="text-sm text-gray-500 shrink-0">
+                    {cfg.policyVariance.accommodation.type === 'percent' ? '%' : 'AUD'}
+                  </span>
+                </div>
+              </Field>
+              <Field label="When threshold is exceeded">
+                <select
+                  className={inp}
+                  value={cfg.policyVariance.accommodation.action}
+                  onChange={e => setVariance('accommodation', 'action', e.target.value)}
+                >
+                  <option value="warn">Show a warning — allow booking to continue</option>
+                  <option value="approve">Require explicit approval before proceeding</option>
+                </select>
+              </Field>
+            </div>
+          )}
+        </div>
+
+        {/* Flight variance */}
+        <div className="space-y-3 mt-5">
+          <Toggle
+            checked={cfg.policyVariance.flight.enabled}
+            onChange={v => setVariance('flight', 'enabled', v)}
+            label="Flight variance"
+            description="Allow total flight costs to exceed the policy rate up to a threshold"
+          />
+          {cfg.policyVariance.flight.enabled && (
+            <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+              <Field label="Variance allowance">
+                <div className="flex gap-2 items-center">
+                  <select
+                    className={`${inp} w-40`}
+                    value={cfg.policyVariance.flight.type}
+                    onChange={e => setVariance('flight', 'type', e.target.value)}
+                  >
+                    <option value="percent">% over policy rate</option>
+                    <option value="amount">$ over policy rate</option>
+                  </select>
+                  <input
+                    type="number" min="0"
+                    step={cfg.policyVariance.flight.type === 'percent' ? '1' : '5'}
+                    className={`${inp} w-28`}
+                    value={cfg.policyVariance.flight.value}
+                    onChange={e => setVariance('flight', 'value', parseFloat(e.target.value) || 0)}
+                    placeholder={cfg.policyVariance.flight.type === 'percent' ? '10' : '50'}
+                  />
+                  <span className="text-sm text-gray-500 shrink-0">
+                    {cfg.policyVariance.flight.type === 'percent' ? '%' : 'AUD'}
+                  </span>
+                </div>
+              </Field>
+              <Field label="When threshold is exceeded">
+                <select
+                  className={inp}
+                  value={cfg.policyVariance.flight.action}
+                  onChange={e => setVariance('flight', 'action', e.target.value)}
+                >
+                  <option value="warn">Show a warning — allow booking to continue</option>
+                  <option value="approve">Require explicit approval before proceeding</option>
+                </select>
+              </Field>
+            </div>
+          )}
+        </div>
       </Section>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
