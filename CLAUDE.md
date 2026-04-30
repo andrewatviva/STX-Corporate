@@ -53,10 +53,10 @@ src/
 │   ├── passengers/   PassengerList, PassengerForm, PassengerDetail    ← Phase 5
 │   ├── invoices/     InvoiceBuilder, InvoiceDetail                   ← Phase 7 ✅
 │   ├── reports/      (stub — Phase 8)
-│   ├── admin/        ClientManager, ClientForm, UserManager, FeedbackManager
-│   └── shared/       Modal, Toggle, TagInput, PermissionGate
+│   ├── admin/        ClientManager, ClientForm, UserManager, FeedbackManager, OnboardingManager
+│   └── shared/       Modal, Toggle, TagInput, PermissionGate, PermissionOverridesEditor
 ├── contexts/         AuthContext, TenantContext, PermissionsContext
-├── hooks/            useTrips, useTeamScope, usePassengers (Ph5), useInvoices (Ph7)
+├── hooks/            useTrips, useTeamScope, useApprovalScope, usePassengers (Ph5), useInvoices (Ph7)
 ├── pages/            One file per route
 └── utils/            permissions.js, formatters.js
 ```
@@ -74,15 +74,27 @@ src/
 |------|--------|
 | `stx_admin` | Everything — create tenants, manage all users, delete, view all data |
 | `stx_ops` | View/manage trips across all clients, approve, generate invoices |
-| `client_ops` | Create/edit trips and passengers within own client; manage team |
-| `client_approver` | Approve/decline trips — can be scoped to specific travellers via `approveFor[]` |
+| `client_ops` | Create/edit/approve trips + view all team trips; manage passengers and team — all within own client |
+| `client_approver` | Approve/decline trips — scoped by `approveScope` field |
 | `client_traveller` | Own data only (or team data if they have direct reports via `managerId`) |
+
+**Per-user permission overrides** (`permissionOverrides` map on user doc):
+- Any permission in `CLIENT_CONFIGURABLE_PERMISSIONS` can be explicitly granted (`true`) or denied (`false`) for an individual user
+- Overrides take priority over role defaults in `PermissionsContext.hasPermission()`
+- Invoice permissions are handled separately via the existing `invoiceAccess` boolean field
+- Managed by STX (always) or by `client_ops` if `features.customPermissions` is enabled for the client
+- `firestore.rules` blocks users from self-updating `permissionOverrides`
 
 ### User hierarchy fields (stored on `/users/{uid}`)
 | Field | Type | Purpose |
 |-------|------|---------|
 | `managerId` | `string \| null` | UID of direct manager; drives dashboard/trip scoping |
-| `approveFor` | `string[]` | UIDs this approver can approve for (empty = all in client) |
+| `approveScope` | `'all' \| 'select' \| 'reports'` | Approval scope mode; absent = inferred from `approveFor` (backward compat) |
+| `approveFor` | `string[]` | UIDs to approve for when `approveScope === 'select'` (empty = all for backward compat) |
+| `approveReportsDepth` | `1 \| 2 \| 3` | Hierarchy depth when `approveScope === 'reports'` (1=direct, 2=+once removed, 3=+twice removed) |
+| `permissionOverrides` | `Record<string, boolean>` | Per-permission grant/deny map; keys are from `CLIENT_CONFIGURABLE_PERMISSIONS` |
+| `invoiceAccess` | `boolean \| undefined` | Invoice permission override; `undefined` = use role default |
+| `costCentre` | `string \| null` | Default cost centre for this user (auto-fills on new trips) |
 | `travellerId` | — | Stored on **trips** (not users) — links a trip to a user UID |
 
 ### Firestore collections
@@ -93,7 +105,8 @@ src/
 - `/clients/{clientId}/trips/{tripId}` — trips (includes `travellerId`, `createdBy`, `amendments[]`, `fees[]`, `attachments[]`)
 - `/clients/{clientId}/passengers/{passengerId}` — passenger profiles ← Phase 5
 - `/clients/{clientId}/invoices/{invoiceId}` — invoices ← Phase 7 ✅
-- `/users/{userId}` — user profiles with role, clientId, managerId, approveFor
+- `/users/{userId}` — user profiles with role, clientId, managerId, approveScope, approveFor, approveReportsDepth, permissionOverrides, invoiceAccess, costCentre
+- `/onboarding/{token}` — client onboarding forms; `token` is 32-char hex; `allow read: if true` (token = access control); status: `pending` → `submitted` → `applied`
 - `/emailQueue/{id}` — email dispatch queue (`type`, `recipientId`, `clientId`, `tripId`, `scheduledFor`, `status`)
 - `/portalFeedback/{id}` — portal feedback/fault reports; create: any auth user; read: STX only
 
@@ -135,10 +148,13 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 | `sendPasswordReset` | HTTPS callable | Generate password reset link |
 | `onEmailQueued` | Firestore onCreate `/emailQueue/{id}` | Dispatches email immediately if `scheduledFor` ≤ now; skips if deferred |
 | `sweepEmailQueue` | Cloud Scheduler (daily) | Processes pending deferred emailQueue items |
+| `sendOnboardingForm` | HTTPS callable | Generates 32-char token, creates `/onboarding/{token}` doc, emails invite to client |
+| `onOnboardingSubmitted` | Firestore onUpdate `/onboarding/{token}` | Fires when status → `submitted`; emails all STX staff |
 | `portal_feedback` email type | (dispatched by onEmailQueued) | Sends feedback/fault report to all `stx_admin` + `stx_ops` users |
 | `feedback_response` email type | (dispatched by onEmailQueued) | Sends STX reply to feedback originator; routed via `recipientId` |
 | `trip_itinerary_added` email type | (dispatched by onEmailQueued) | Sent to traveller when digital itinerary link first added to a trip |
 | `trip_cancelled_by_client` email type | (dispatched by onEmailQueued) | Sent to all STX staff when a non-STX user cancels a trip |
+| `trip_submitted` email type | (dispatched by onEmailQueued) | Notifies all users with effective `trip:approve` permission scoped to this traveller; respects `approveScope` (all/select/reports hierarchy) |
 
 ### Email notifications (SendGrid)
 - Secret: `SENDGRID_API_KEY` stored in Firebase Secret Manager (both projects)
@@ -249,8 +265,9 @@ lineItem {
 | `useTrips` | Real-time trips listener (collectionGroup for STX global, scoped for client) |
 | `usePassengers` | Real-time passengers listener |
 | `useInvoices` | Real-time invoices listener + createInvoice (atomic counter) |
-| `useTeamScope` | Derives all/team/self scope from reporting hierarchy |
-| `useAttentionCount` | Returns `{ count, tooltip }` for sidebar badge — STX/ops: pending_approval + approved; approvers: pending_approval; travellers: declined |
+| `useTeamScope` | Derives all/team/self scope from `trip:view_all` permission (role + overrides); queries Firestore for direct reports when not 'all' |
+| `useApprovalScope` | Returns `null` (approve all), `Set<uid>` (specific), or `'none'` (no permission); queries members for 'reports' scope |
+| `useAttentionCount` | Returns `{ count, tooltip }` for sidebar badge — STX/ops: pending_approval + approved; approvers (scoped): pending_approval; travellers: declined |
 
 ### Account Settings
 - `src/components/account/AccountSettings.jsx` — modal launched from TopBar Settings button

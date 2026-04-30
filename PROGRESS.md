@@ -433,6 +433,53 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 
 ---
 
+### Post-Phase 8 Enhancements (Session 4) ✅
+
+#### Client Onboarding Form System
+- `src/pages/OnboardingForm.jsx` (NEW) — public token-gated form at `/onboarding/:token`; no portal login required
+- `src/components/admin/OnboardingManager.jsx` (NEW) — STX tab in Admin Panel to generate, track, and apply onboarding forms
+- **Admin Panel** — new "Onboarding" tab added between Users and Feedback (uses `ClipboardList` icon)
+- **10-section form:** Portal Identity, Cost Centres, Types of Travel (incl. sector types), Approval Workflow, Email Notifications, Portal Features (incl. self-managed hotel booking sub-toggle), Travel Spend Limits (accommodation + flight rates), Policy Compliance Rules (variance), Tax Settings, Questions & Notes
+- **Onboarding flow:**
+  1. STX sends a tokenised link (32-char hex token via `crypto.randomBytes`) to client email
+  2. Client completes the form without any portal login — token serves as access control
+  3. STX notified on submission (email to all STX staff + admin notify email)
+  4. STX reviews responses and applies to an existing client OR creates a new client directly from the review modal
+- `sendOnboardingForm` callable Cloud Function — generates token, stores `/onboarding/{token}` doc, sends invite email via SendGrid
+- `onOnboardingSubmitted` Firestore trigger — fires on status → `submitted`; emails all STX staff
+- **Firestore rules** — `allow read: if true` (token IS the access control); update allows `pending → submitted` transition without auth
+- **Bug fix:** `buildUpdatePatch()` uses `updateDoc` with dot-notation for existing clients; `buildFullConfig()` uses `setDoc` for new clients — fixes cost centres and trip types not applying on initial review
+- **Bitdefender false positive:** dev environment domain reputation issue; custom domain (`portal.supportedtravelx.com.au`) is the permanent fix
+
+#### Per-User Permission Override System
+- `src/components/shared/PermissionOverridesEditor.jsx` (NEW) — shared component showing all 8 configurable permissions as rows with role-default badge + grant/deny/role-default selector
+- `src/utils/permissions.js` — `CLIENT_CONFIGURABLE_PERMISSIONS` array (8 permissions): `trip:create`, `trip:edit`, `trip:approve`, `trip:view_all`, `trip:delete`, `passenger:edit`, `report:view`, `team:manage`
+- `src/contexts/PermissionsContext.jsx` — `hasPermission()` now checks `permissionOverrides` map on user doc first (explicit grant/deny wins over role default); falls through to `invoiceAccess` then role
+- `src/components/admin/UserManager.jsx` — `PermissionOverridesEditor` shown in EditUserForm for client users; saved via direct `updateDoc` (not CF)
+- `src/pages/Team.jsx` — `PermissionOverridesEditor` shown in EditMemberForm when STX OR when `features.customPermissions` is enabled for the client
+- `src/components/admin/ClientForm.jsx` — `customPermissions: false` feature flag added; toggle in Features section
+- `firestore.rules` — `permissionOverrides` added to blocked self-update fields (users cannot grant themselves permissions)
+- Backward compatible — existing users with no `permissionOverrides` field behave exactly as before
+
+#### Flexible Approval Scope System
+- `src/hooks/useApprovalScope.js` (NEW) — returns `null` (approve all), `Set<uid>` (specific UIDs), or `'none'` (no permission); subscribes to members collection only when `approveScope === 'reports'`
+- `matchesApprovalScope(scope, trip)` exported helper — used by TripDetail and useAttentionCount
+- `client_ops` role gains `trip:approve` AND `trip:view_all` by default (both deniable via permissionOverrides)
+- **Three approval scope modes** (stored as `approveScope` on `/users/{uid}`):
+  - `all` — approve any trip in the client (default)
+  - `select` — approve only for specific named members (`approveFor[]` list)
+  - `reports` — approve for staff in reporting hierarchy; depth configurable (1=direct reports, 2=+once removed, 3=+twice removed) via `approveReportsDepth`
+- `src/components/trips/TripDetail.jsx` — `isApprover` now uses `useApprovalScope` + `matchesApprovalScope`; removed hardcoded `client_approver`-only check
+- `src/hooks/useAttentionCount.js` — approver badge uses `useApprovalScope` for correct scope filtering; ops badge unchanged
+- `src/pages/Team.jsx` — full approval scope UI in EditMemberForm: radio selector (all/select/reports), member checkbox list for select mode, depth dropdown for reports mode
+- `src/components/admin/UserManager.jsx` — same approval scope UI in EditUserForm; loads client members for select mode via `useClientMembers` hook
+- `src/hooks/useTeamScope.js` — `trip:view_all` check now uses permission system (role + overrides) instead of hardcoding `role === 'client_ops'`; STX always gets `type: 'all'`
+- **HierarchyView** tree node updated to show approval scope label for any user with approve permission
+- **Cloud Function `trip_submitted`** handler updated — now notifies all users with effective `trip:approve` permission (both `client_approver` and `client_ops` by default); respects `approveScope` including reporting hierarchy traversal for `'reports'` scope
+- Backward compatible — existing users with no `approveScope` field and `approveFor: []` treated as `'all'`; non-empty `approveFor` treated as `'select'`
+
+---
+
 ### Phase 9 — QA + Production Deploy
 Security rules testing, full regression checklist, deploy to `stx-corporate` production.
 
@@ -498,4 +545,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 30 April 2026 — Phases 0–5, 7–8 complete. Recent: Feedback & Fault Manager, cost centre permission gating, hotel booking self-managed gate, policy variance thresholds (warn/approve), Active/Completed trip dashboard tabs, accessibility toolbar (11 features, localStorage persistence). Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
+*Last updated: 30 April 2026 — Phases 0–5, 7–8 complete + major post-phase enhancements. Recent (Session 4): Client onboarding form system, per-user permission override system (CLIENT_CONFIGURABLE_PERMISSIONS + permissionOverrides on user doc), flexible approval scope (all/select/reports hierarchy) with useApprovalScope hook, trip:view_all and trip:approve added to client_ops defaults, Cloud Function approval email updated to notify all approvers with effective permission. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
