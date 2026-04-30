@@ -48,6 +48,7 @@ const CONFIG_DEFAULTS = {
   hotelBooking: {
     nuiteeFeed: 'vivatravelholdingscug',
     bookingPasswordEnabled: false,
+    selfManagedHotelBooking: true,
   },
   contact: {
     email: 'enquiries@supportedtravelx.com.au',

@@ -857,6 +857,15 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
   // Hotel booking unlocked when: already approved/booked, OR no approval required (even before first save)
   const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval;
 
+  // Cost centre editable by STX or client approvers/ops only on existing trips
+  const canEditCostCentre = !trip || isSTX || ['client_approver', 'client_ops'].includes(userProfile?.role);
+
+  // Hotel booking feature gate — respects per-trip-type self-managed override
+  const selfManagedHotelEnabled = clientConfig?.hotelBooking?.selfManagedHotelBooking !== false;
+  const hotelBookingAllowedForTripType =
+    clientConfig?.features?.hotelBooking !== false &&
+    (form.tripType !== 'Self-Managed' || selfManagedHotelEnabled);
+
   return (
     <div className="space-y-5">
       {/* Nuitee booking confirmed banner */}
@@ -967,30 +976,6 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           </select>
         </div>
 
-        {costCentres.length > 0 && (
-          <div>
-            <label className={lbl}>Cost centre</label>
-            <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
-              <option value="">Select…</option>
-              {costCentres.map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Reason required when changing cost centre on an existing trip */}
-        {trip && form.costCentre !== originalCostCentre && (
-          <div className="col-span-2">
-            <label className={`${lbl} text-amber-600`}>Reason for cost centre change *</label>
-            <textarea
-              className={`${inp} border-amber-300 focus:ring-amber-500`}
-              rows={2}
-              value={form.costCentreChangeReason}
-              onChange={e => set('costCentreChangeReason', e.target.value)}
-              placeholder="Explain why the cost centre is being changed for this trip…"
-            />
-          </div>
-        )}
-
         <div>
           <label className={lbl}>Start date</label>
           <input type="date" className={inp} value={form.startDate} onChange={e => set('startDate', e.target.value)} />
@@ -1028,6 +1013,37 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         <datalist id="trip-form-cities">
           {CITIES.map(c => <option key={c} value={c} />)}
         </datalist>
+
+        {/* Cost centre — editable by STX/approvers only on existing trips */}
+        {costCentres.length > 0 && canEditCostCentre && (
+          <div>
+            <label className={lbl}>Cost centre</label>
+            <select className={inp} value={form.costCentre} onChange={e => set('costCentre', e.target.value)}>
+              <option value="">Select…</option>
+              {costCentres.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
+        {costCentres.length > 0 && !canEditCostCentre && form.costCentre && (
+          <div>
+            <label className={lbl}>Cost centre</label>
+            <p className={`${inp} bg-gray-50 text-gray-600 cursor-default`}>{form.costCentre}</p>
+          </div>
+        )}
+
+        {/* Reason required when STX/approver changes cost centre on an existing trip */}
+        {trip && canEditCostCentre && form.costCentre !== originalCostCentre && (
+          <div className="col-span-2">
+            <label className={`${lbl} text-amber-600`}>Reason for cost centre change *</label>
+            <textarea
+              className={`${inp} border-amber-300 focus:ring-amber-500`}
+              rows={2}
+              value={form.costCentreChangeReason}
+              onChange={e => set('costCentreChangeReason', e.target.value)}
+              placeholder="Explain why the cost centre is being changed for this trip…"
+            />
+          </div>
+        )}
 
         <div className="col-span-2">
           <label className={lbl}>Purpose / notes</label>
@@ -1099,12 +1115,12 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               onRemove={() => removeSector(i)}
               tripDestinationCity={form.destinationCity}
               onOpenHotelBooking={
-                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false && tripIsBookable
+                s.type === 'accommodation' && hotelBookingAllowedForTripType && tripIsBookable
                   ? () => openHotelBooking(i)
                   : undefined
               }
               hotelBookingLocked={
-                s.type === 'accommodation' && clientConfig?.features?.hotelBooking !== false && !!trip && !tripIsBookable
+                s.type === 'accommodation' && hotelBookingAllowedForTripType && !!trip && !tripIsBookable
               }
             />
           ))}

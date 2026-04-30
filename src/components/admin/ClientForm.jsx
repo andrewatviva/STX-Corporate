@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
   fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
   features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false },
-  hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0 },
+  hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0, selfManagedHotelBooking: true },
   contact: { email: '' },
 };
 
@@ -460,6 +460,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           </select>
         </Field>
         <Toggle checked={cfg.hotelBooking.bookingPasswordEnabled} onChange={v => set('hotelBooking','bookingPasswordEnabled',v)} label="Require booking password" description="Adds an extra confirmation password before completing a hotel booking" />
+        <Toggle checked={cfg.hotelBooking.selfManagedHotelBooking !== false} onChange={v => set('hotelBooking','selfManagedHotelBooking',v)} label="Allow hotel booking for Self-Managed trips" description="When off, the Nuitee hotel search is hidden for Self-Managed trip types even if hotel booking is enabled globally" />
         <Field label="Markup % (STX staff only — applied to all displayed hotel rates)">
           <input
             type="number"
