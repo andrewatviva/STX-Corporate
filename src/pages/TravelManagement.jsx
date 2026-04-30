@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTrips } from '../hooks/useTrips';
-import TripList from '../components/trips/TripList';
+import TripList, { getDisplayStatus } from '../components/trips/TripList';
 import TripForm from '../components/trips/TripForm';
 import TripDetail from '../components/trips/TripDetail';
 import Modal from '../components/shared/Modal';
@@ -142,6 +142,16 @@ export default function TravelManagement() {
   const trips = useMemo(() => filterTripsByScope(allTrips, scope, userProfile), [allTrips, scope, userProfile]);
 
   const [searchParams] = useSearchParams();
+
+  const COMPLETED_STATUSES = new Set(['completed', 'cancelled']);
+  const initialStatusFilter = searchParams.get('status') || '';
+  const [activeTab, setActiveTab] = useState(
+    COMPLETED_STATUSES.has(initialStatusFilter) ? 'completed' : 'active'
+  );
+
+  const activeTrips    = useMemo(() => trips.filter(t => !COMPLETED_STATUSES.has(getDisplayStatus(t))), [trips]);
+  const completedTrips = useMemo(() => trips.filter(t =>  COMPLETED_STATUSES.has(getDisplayStatus(t))), [trips]);
+
   const [view, setView]             = useState('list');   // 'list' | 'detail'
   const [selectedTrip, setSelected] = useState(null);
   const [formTrip, setFormTrip]     = useState(null);     // null = no modal, undefined = new, obj = edit
@@ -359,16 +369,46 @@ export default function TravelManagement() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Travel Management</h1>
 
       {view === 'list' && (
-        <TripList
-          trips={trips}
-          loading={loading}
-          canCreate={canCreate}
-          onNew={openNew}
-          onView={openDetail}
-          onEdit={openEdit}
-          onDelete={setDelete}
-          initialStatusFilter={searchParams.get('status') || ''}
-        />
+        <>
+          {/* ── Active / Completed tabs ── */}
+          <div className="flex gap-1 mb-5 border-b border-gray-200">
+            {[
+              { id: 'active',    label: 'Active',    count: activeTrips.length },
+              { id: 'completed', label: 'Completed',  count: completedTrips.length },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                  activeTab === tab.id
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <TripList
+            key={activeTab}
+            trips={activeTab === 'completed' ? completedTrips : activeTrips}
+            loading={loading}
+            canCreate={canCreate && activeTab === 'active'}
+            onNew={openNew}
+            onView={openDetail}
+            onEdit={openEdit}
+            onDelete={setDelete}
+            initialStatusFilter={COMPLETED_STATUSES.has(initialStatusFilter) ? '' : initialStatusFilter}
+          />
+        </>
       )}
 
       {view === 'detail' && selectedTrip && (

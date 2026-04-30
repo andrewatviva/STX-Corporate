@@ -17,7 +17,7 @@
 | 4 | Trip management + Dashboard + STX client context | ✅ Complete |
 | 5 | Passenger profiles | ✅ Complete |
 | — | Post-phase enhancements (cost fixes, filters, cities, reporting city, history) | ✅ Complete |
-| — | Email notifications + user preferences + notification badge | ✅ Complete (⚠️ SendGrid pending domain verification) |
+| — | Email notifications + user preferences + notification badge | ✅ Complete (✅ SendGrid confirmed working) |
 | — | Account settings, password reset, CI/CD service account auth | ✅ Complete |
 | — | Lead time indicator, Travel Policy report (flights + ex-GST + flags), feedback form, itinerary email, badge tooltip | ✅ Complete |
 | 6 | Hotel booking (Nuitee) | ⏸ Deferred |
@@ -350,11 +350,11 @@ Deferred to focus on invoicing — to be revisited after Phase 8.
 #### Email Notifications (SendGrid)
 - Cloud Functions: `onEmailQueued` (immediate dispatch) + `sweepEmailQueue` (daily scheduled)
 - `/emailQueue` collection as dispatch queue; `scheduledFor` field for deferred delivery
-- Templates: trip_submitted (to approvers), trip_approved, trip_declined, trip_booked, trip_pre_departure (3 days before), trip_rating_request (2 days after)
+- Templates: trip_submitted (to approvers), trip_approved, trip_declined, trip_booked, trip_itinerary_added, trip_pre_departure (3 days before), trip_rating_request (2 days after), portal_feedback (STX staff), trip_cancelled_by_client (STX staff)
 - Mandatory emails (approved/declined) bypass user preference checks
 - Queued from `TripDetail.jsx` on each status transition
 - Pre-departure email scheduled 3 days before `startDate`; rating request 2 days after `endDate`
-- **⚠️ SendGrid account under domain verification review — emails queued correctly but not dispatching until verified**
+- **✅ SendGrid confirmed working** — API key stored in Firebase Secret Manager (`SENDGRID_API_KEY`); rotate with `firebase functions:secrets:set SENDGRID_API_KEY` then Y to redeploy
 
 #### User Email Preferences (Account Settings)
 - `src/components/account/AccountSettings.jsx` — modal from TopBar Settings button
@@ -441,4 +441,4 @@ Security rules testing, full regression checklist, deploy to `stx-corporate` pro
 | Dev | `stx-corporate-dev` | stx-corporate-dev.web.app |
 | Prod | `stx-corporate` | stx-corporate.web.app |
 
-*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete plus email notifications, account settings, CI/CD fixes, lead time indicator, Travel Policy report (accommodation + flights, ex-GST, feature flags), contact feedback form, digital itinerary email, badge tooltip breakdown. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*
+*Last updated: 29 April 2026 — Phases 0–5, 7–8 complete. SendGrid emails confirmed working. Auto-fee on trip type change, cancellation modal with invoicing review, client cancellation email to STX, invoice scanner picks up cancelled trips. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.*

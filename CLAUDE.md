@@ -134,16 +134,18 @@ Note: For hotel spend reporting: `sector.reportingCity || trip.destinationCity` 
 | `sweepEmailQueue` | Cloud Scheduler (daily) | Processes pending deferred emailQueue items |
 | `portal_feedback` email type | (dispatched by onEmailQueued) | Sends feedback/fault report to all `stx_admin` + `stx_ops` users |
 | `trip_itinerary_added` email type | (dispatched by onEmailQueued) | Sent to traveller when digital itinerary link first added to a trip |
+| `trip_cancelled_by_client` email type | (dispatched by onEmailQueued) | Sent to all STX staff when a non-STX user cancels a trip |
 
 ### Email notifications (SendGrid)
 - Secret: `SENDGRID_API_KEY` stored in Firebase Secret Manager (both projects)
 - From: `notifications@supportedtravelx.com.au`
 - Queue collection: `/emailQueue/{id}` — `{ type, recipientId, clientId, tripId, tripTitle, scheduledFor, status, createdAt }`
-- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after), `portal_feedback` (to all STX staff)
+- Types: `trip_submitted` (to approvers), `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure` (3 days before), `trip_rating_request` (2 days after), `portal_feedback` (to all STX staff), `trip_cancelled_by_client` (to all STX staff)
 - Mandatory types (bypass preferences): `trip_approved`, `trip_declined`
 - User preferences stored at `/users/{uid}.emailPreferences.{type}` — `undefined` = opted in, `false` = opted out
 - Queued from `TripDetail.jsx` act() function on status transitions
-- **Status**: SendGrid account pending domain verification — emails queued but not yet dispatching in production
+- **Status**: ✅ SendGrid confirmed working — secret set via `firebase functions:secrets:set SENDGRID_API_KEY` and functions redeployed
+- To rotate the key: `firebase functions:secrets:set SENDGRID_API_KEY` then answer Y to redeploy (destroys stale version automatically)
 
 ### Firebase projects
 - **Dev/Staging**: `stx-corporate-dev` — used during development, `.env.development`
