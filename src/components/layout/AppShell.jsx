@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import TopBar from './TopBar';
 import Sidebar from './Sidebar';
+import AccessibilityToolbar from './AccessibilityToolbar';
 
 export default function AppShell() {
   const { currentUser, authLoading } = useAuth();
@@ -31,6 +32,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <AccessibilityToolbar />
     </div>
   );
 }
