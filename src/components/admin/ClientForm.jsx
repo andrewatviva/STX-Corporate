@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
   },
   fees: { managementFeeEnabled: true, managementFeeAmount: 55, managementFeeLabel: 'STX Management Fee', managementFeeAppliesTo: [], amendmentFeeEnabled: true, amendmentFeeAmount: 30, amendmentFeeAppliesTo: [], gstRate: 0.10 },
   workflow: { requiresApproval: true, approvalLevels: 1, emailNotifications: false, approvalByTripType: null },
-  features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false },
+  features: { hotelBooking: true, invoiceGeneration: true, reports: true, accessibilityToolbar: true, groupEvents: true, fileAttachments: true, selfManagedTrips: true, accommodationPolicy: true, flightPolicy: false, customPermissions: false },
   hotelBooking: { nuiteeFeed: 'vivatravelholdingscug', bookingPasswordEnabled: false, markupPercent: 0, selfManagedHotelBooking: true },
   policyVariance: {
     accommodation: { enabled: false, type: 'percent', value: 0, action: 'warn' },
@@ -431,6 +431,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           ['selfManagedTrips',    'Self-managed trips',      'Allow Self-Managed trip type'],
           ['accommodationPolicy', 'Accommodation policy',    'Show accommodation spend vs policy rates in Travel Policy report'],
           ['flightPolicy',        'Flight cost policy',      'Show flight spend vs policy rates in Travel Policy report'],
+          ['customPermissions',   'Custom user permissions', 'Allow client operations managers to override permissions for individual team members'],
         ].map(([key, label, desc]) => (
           <Toggle key={key} checked={cfg.features[key]} onChange={v => set('features',key,v)} label={label} description={desc} />
         ))}

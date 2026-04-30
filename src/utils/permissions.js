@@ -62,3 +62,48 @@ export const ROLE_LABELS = {
 
 export const STX_ROLES = ['stx_admin', 'stx_ops'];
 export const CLIENT_ROLES = ['client_ops', 'client_approver', 'client_traveller'];
+
+// Permissions that STX (or client_ops with the feature enabled) can override per user.
+// Invoice access is handled separately via the invoiceAccess field.
+export const CLIENT_CONFIGURABLE_PERMISSIONS = [
+  {
+    key: 'trip:create',
+    label: 'Create trips',
+    description: 'Submit new travel requests. Included in Operations and Traveller roles by default.',
+  },
+  {
+    key: 'trip:edit',
+    label: 'Edit trips',
+    description: 'Modify existing trip details, sectors, and costs. Included in Operations role only.',
+  },
+  {
+    key: 'trip:approve',
+    label: 'Approve trips',
+    description: 'Approve or decline travel requests. Included in Approver role only.',
+  },
+  {
+    key: 'trip:view_all',
+    label: 'View all team trips',
+    description: 'See trips across the entire client account, not just their own. Included in Operations role only.',
+  },
+  {
+    key: 'trip:delete',
+    label: 'Delete trips',
+    description: 'Permanently remove trip records. Not included in any client role by default — use with caution.',
+  },
+  {
+    key: 'passenger:edit',
+    label: 'Edit passenger profiles',
+    description: 'Create and update passenger profiles. Included in Operations role only.',
+  },
+  {
+    key: 'report:view',
+    label: 'View reports',
+    description: 'Access analytics and spend reports. Included in Operations and Approver roles.',
+  },
+  {
+    key: 'team:manage',
+    label: 'Manage team members',
+    description: 'Add, edit, and deactivate staff accounts. Included in Operations role only.',
+  },
+];

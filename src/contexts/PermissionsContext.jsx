@@ -15,6 +15,11 @@ export function PermissionsProvider({ children }) {
   );
 
   const hasPermission = (permission) => {
+    // Per-user permission override — explicit grant or deny takes priority over everything
+    const overrides = userProfile?.permissionOverrides;
+    if (overrides && permission in overrides) {
+      return overrides[permission] === true;
+    }
     // Invoice permissions: user-level flag overrides role default
     if (INVOICE_PERMISSIONS.includes(permission)) {
       const flag = userProfile?.invoiceAccess;

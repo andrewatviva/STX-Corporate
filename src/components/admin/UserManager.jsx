@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import { Plus, Edit2, UserCheck, UserX, Mail, Trash2, Search } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Toggle from '../shared/Toggle';
+import PermissionOverridesEditor from '../shared/PermissionOverridesEditor';
 import { ROLE_LABELS, CLIENT_ROLES, STX_ROLES } from '../../utils/permissions';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -136,15 +137,16 @@ const OPS_ROLES = ['stx_admin', 'stx_ops', 'client_ops'];
 
 function EditUserForm({ user, clients, onSaved, onCancel }) {
   const [form, setForm] = useState({
-    firstName:     user.firstName  || '',
-    lastName:      user.lastName   || '',
-    role:          user.role       || 'client_ops',
-    clientId:      user.clientId   || '',
-    active:        user.active !== false,
-    costCentre:    user.costCentre || '',
-    invoiceAccess: user.invoiceAccess !== undefined
+    firstName:          user.firstName  || '',
+    lastName:           user.lastName   || '',
+    role:               user.role       || 'client_ops',
+    clientId:           user.clientId   || '',
+    active:             user.active !== false,
+    costCentre:         user.costCentre || '',
+    invoiceAccess:      user.invoiceAccess !== undefined
       ? user.invoiceAccess
       : OPS_ROLES.includes(user.role || 'client_ops'),
+    permissionOverrides: user.permissionOverrides || {},
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -175,8 +177,9 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
       });
       // Store cost centre and access flags directly (not in CF allowlist)
       await updateDoc(doc(db, 'users', user.id), {
-        costCentre:    form.costCentre || null,
-        invoiceAccess: form.invoiceAccess,
+        costCentre:          form.costCentre || null,
+        invoiceAccess:       form.invoiceAccess,
+        permissionOverrides: form.permissionOverrides,
       });
       onSaved();
     } catch (err) {
@@ -217,7 +220,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         <Field label="Role">
           <select className={inp} value={form.role} onChange={e => {
             const newRole = e.target.value;
-            setForm(p => ({ ...p, role: newRole, invoiceAccess: OPS_ROLES.includes(newRole) }));
+            setForm(p => ({ ...p, role: newRole, invoiceAccess: OPS_ROLES.includes(newRole), permissionOverrides: {} }));
           }}>
             {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
@@ -243,6 +246,20 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         label="Invoice access"
         description="Can view and generate invoices. On by default for operations roles."
       />
+
+      {needsClient && (
+        <div className="border border-gray-200 rounded-lg p-4">
+          <p className="text-sm font-semibold text-gray-700 mb-1">Permission overrides</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Override individual permissions for this user. "Role default" means no override — the user's role determines access.
+          </p>
+          <PermissionOverridesEditor
+            role={form.role}
+            overrides={form.permissionOverrides}
+            onChange={v => set('permissionOverrides', v)}
+          />
+        </div>
+      )}
 
       {/* Password reset section */}
       <div className="border border-gray-200 rounded-lg p-4">

@@ -79,7 +79,7 @@ service cloud.firestore {
       allow write: if isSTXAdmin();
       allow update: if request.auth.uid == userId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'clientId', 'active']);
+          .hasAny(['role', 'clientId', 'active', 'permissionOverrides']);
     }
 
     // STX global config

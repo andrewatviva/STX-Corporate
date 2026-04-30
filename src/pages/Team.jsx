@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Modal from '../components/shared/Modal';
 import Toggle from '../components/shared/Toggle';
+import PermissionOverridesEditor from '../components/shared/PermissionOverridesEditor';
 import PassengerForm from '../components/passengers/PassengerForm';
 import { ROLE_LABELS, CLIENT_ROLES } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
@@ -204,15 +205,16 @@ function CreateMemberForm({ clientId, members, costCentres = [], onCreated, onCa
 
 // ── Edit member form ──────────────────────────────────────────────────────────
 
-function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, onDeleted, onCancel }) {
+function EditMemberForm({ user, members, costCentres = [], canDelete, showPermissions, onSaved, onDeleted, onCancel }) {
   const [form, setForm] = useState({
-    firstName:  user.firstName  || '',
-    lastName:   user.lastName   || '',
-    role:       user.role       || 'client_traveller',
-    active:     user.active !== false,
-    managerId:  user.managerId  || '',
-    approveFor: user.approveFor || [],
-    costCentre: user.costCentre || '',
+    firstName:          user.firstName  || '',
+    lastName:           user.lastName   || '',
+    role:               user.role       || 'client_traveller',
+    active:             user.active !== false,
+    managerId:          user.managerId  || '',
+    approveFor:         user.approveFor || [],
+    costCentre:         user.costCentre || '',
+    permissionOverrides: user.permissionOverrides || {},
   });
   const [saving, setSaving]       = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -248,9 +250,10 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
       });
       // Direct Firestore update for hierarchy metadata and cost centre
       await updateDoc(doc(db, 'users', user.id), {
-        managerId:  form.managerId || null,
-        approveFor: form.role === 'client_approver' ? (form.approveFor || []) : [],
-        costCentre: form.costCentre || null,
+        managerId:          form.managerId || null,
+        approveFor:         form.role === 'client_approver' ? (form.approveFor || []) : [],
+        costCentre:         form.costCentre || null,
+        permissionOverrides: form.permissionOverrides,
       });
       onSaved();
     } catch (err) {
@@ -319,7 +322,10 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
 
       {/* Role */}
       <Field label="Role">
-        <select className={inp} value={form.role} onChange={e => set('role', e.target.value)}>
+        <select className={inp} value={form.role} onChange={e => {
+          set('role', e.target.value);
+          set('permissionOverrides', {});
+        }}>
           {CLIENT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
         </select>
       </Field>
@@ -390,6 +396,21 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
       {/* Active toggle */}
       <Toggle checked={form.active} onChange={v => set('active', v)} label="Active account" description="Inactive users cannot log in" />
 
+      {/* Permission overrides */}
+      {showPermissions && (
+        <div className="border border-gray-200 rounded-lg p-4">
+          <p className="text-sm font-semibold text-gray-700 mb-1">Permission overrides</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Override individual permissions for this user. "Role default" means the user's role determines access.
+          </p>
+          <PermissionOverridesEditor
+            role={form.role}
+            overrides={form.permissionOverrides}
+            onChange={v => set('permissionOverrides', v)}
+          />
+        </div>
+      )}
+
       {/* Password reset */}
       <div className="border border-gray-200 rounded-lg p-4">
         <p className="text-sm font-medium text-gray-700 mb-2">Password reset</p>
@@ -440,7 +461,9 @@ function EditMemberForm({ user, members, costCentres = [], canDelete, onSaved, o
 export default function Team() {
   const { userProfile } = useAuth();
   const { isSTX, clientId, activeClientId, clientsList, clientConfig, activeClientConfig } = useTenant();
-  const effectiveCostCentres = (isSTX ? activeClientConfig : clientConfig)?.dropdowns?.costCentres || [];
+  const effectiveConfig = isSTX ? activeClientConfig : clientConfig;
+  const effectiveCostCentres = effectiveConfig?.dropdowns?.costCentres || [];
+  const showPermissions = isSTX || !!effectiveConfig?.features?.customPermissions;
 
   const role = userProfile?.role;
   const isAdmin = role === 'stx_admin';
@@ -657,6 +680,7 @@ export default function Team() {
             members={members}
             costCentres={effectiveCostCentres}
             canDelete={isAdmin}
+            showPermissions={showPermissions}
             onSaved={() => setEditing(null)}
             onDeleted={() => setEditing(null)}
             onCancel={() => setEditing(null)}
