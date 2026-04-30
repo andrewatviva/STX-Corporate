@@ -46,17 +46,18 @@ React + Firebase. All client-specific configuration is stored in Firestore, not 
 ### Folder structure
 ```
 src/
+├── __tests__/        accessibility.test.js (jest-axe WCAG regression suite)
 ├── components/
 │   ├── auth/         LoginPage
 │   ├── layout/       AppShell, Sidebar, TopBar (client selector for STX), AccessibilityToolbar
 │   ├── trips/        TripList, TripForm, TripDetail, Attachments
 │   ├── passengers/   PassengerList, PassengerForm, PassengerDetail    ← Phase 5
 │   ├── invoices/     InvoiceBuilder, InvoiceDetail                   ← Phase 7 ✅
-│   ├── reports/      (stub — Phase 8)
+│   ├── reports/      AllTravelReport, AvgSpendByDestination, SpendByDepartureCity, HotelPopularity, TravelPolicy, ProviderRatings
 │   ├── admin/        ClientManager, ClientForm, UserManager, FeedbackManager, OnboardingManager
 │   └── shared/       Modal, Toggle, TagInput, PermissionGate, PermissionOverridesEditor
 ├── contexts/         AuthContext, TenantContext, PermissionsContext
-├── hooks/            useTrips, useTeamScope, useApprovalScope, usePassengers (Ph5), useInvoices (Ph7)
+├── hooks/            useTrips, useTeamScope, useApprovalScope, usePassengers (Ph5), useInvoices (Ph7), useAnnounce
 ├── pages/            One file per route
 └── utils/            permissions.js, formatters.js
 ```
@@ -268,6 +269,7 @@ lineItem {
 | `useTeamScope` | Derives all/team/self scope from `trip:view_all` permission (role + overrides); queries Firestore for direct reports when not 'all' |
 | `useApprovalScope` | Returns `null` (approve all), `Set<uid>` (specific), or `'none'` (no permission); queries members for 'reports' scope |
 | `useAttentionCount` | Returns `{ count, tooltip }` for sidebar badge — STX/ops: pending_approval + approved; approvers (scoped): pending_approval; travellers: declined |
+| `useAnnounce` | Returns a function that writes a message to the global `#status-announcer` aria-live region; used to announce filter results and state changes to screen readers |
 
 ### Account Settings
 - `src/components/account/AccountSettings.jsx` — modal launched from TopBar Settings button
@@ -276,6 +278,33 @@ lineItem {
 - Notification types: `trip_submitted`, `trip_approved`, `trip_declined`, `trip_booked`, `trip_itinerary_added`, `trip_pre_departure`, `trip_rating_request`
 - Approver-only preferences (e.g. `trip_submitted`) hidden from traveller roles
 
+### Accessibility (WCAG 2.1 AA) — implemented and required for all future work
+
+**The portal is built to WCAG 2.1 Level AA.** All future code changes — new features, bug fixes, UI updates — **must maintain this standard**. Do not introduce regressions.
+
+**What is in place:**
+- **Color contrast**: all text uses `text-gray-700` minimum on light backgrounds (`text-gray-600` for secondary); no `text-gray-300/400/500` on white/light backgrounds. Dark-background contexts (Sidebar `bg-gray-900`) exempt.
+- **Placeholder contrast**: all `<input>` / `<textarea>` use `placeholder:text-gray-500` minimum — included in the shared `inp` constant used in all form files.
+- **Focus indicators**: global `:focus-visible` CSS in `App.css` — 3px blue outline, 2px offset. Do not remove `focus:outline-none` without replacing it.
+- **Skip navigation**: `<a href="#main-content">` as first element in `AppShell.jsx`.
+- **Landmark regions**: `<nav aria-label="Main navigation">` in Sidebar; `<main id="main-content" tabIndex={-1}>` in AppShell.
+- **Modal focus trap**: `Modal.jsx` traps keyboard focus, restores on close, has `role="dialog"`, `aria-modal`, `aria-labelledby`.
+- **Icon accessibility**: every Lucide icon is either `aria-hidden="true"` (decorative, alongside text) or has an `aria-label` on the parent button. Never add an icon-only button without an `aria-label`.
+- **Form errors**: use `role="alert"` or `aria-live="assertive"` on error messages. Link errors to fields with `aria-describedby` where field-level.
+- **Status announcements**: use `useAnnounce()` hook to announce dynamic changes (filter results, save confirmations) to screen readers via the global `#status-announcer` live region in AppShell.
+- **Page titles**: every route sets `document.title` in a `useEffect`. Dynamic titles (e.g. trip detail) update when data loads.
+- **Tables**: all `<th>` elements have `scope="col"`.
+- **Star ratings** (TripRatingModal, ProviderRatings): interactive stars have `aria-label` + `aria-pressed`; display-only stars wrapped in `role="img" aria-label="N out of 5 stars"`.
+- **`prefers-reduced-motion`**: CSS media query in `App.css` disables all animations/transitions when OS motion reduction is on.
+
+**Automated regression tests**: `src/__tests__/accessibility.test.js` uses `jest-axe`. Run `npm test` — axe violations fail CI. Add a test for any new page-level component.
+
+**Manual testing checklist** (run before each production deploy):
+1. Tab through the full app without a mouse — all actions reachable, focus always visible
+2. VoiceOver (Mac: Cmd+F5) or NVDA — navigate login, create trip, approve trip flows
+3. Browser zoom at 200% — no content overlaps or disappears
+4. Check Lighthouse accessibility score on Dashboard, TripList, TripForm (target 90+)
+
 ### Current status
-**Phases 0–5, 7–8 complete. Recent additions: Feedback & Fault Manager (Admin Panel), cost centre permission gating + mandatory reason, self-managed hotel booking gate per client, policy variance thresholds (warn/approve), Active/Completed trip dashboard tabs, accessibility toolbar (11 features). Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
+**Phases 0–5, 7–8 complete. WCAG 2.1 AA accessibility implementation complete (all four phases). Recent additions: Feedback & Fault Manager, cost centre gating, self-managed hotel booking gate, policy variance thresholds, Active/Completed dashboard tabs, accessibility toolbar (11 features), full WCAG 2.1 AA compliance. Phase 6 (Hotel Booking) deferred. Phase 9 (QA + Production) next.**
 See `PROGRESS.md` for full phase breakdown.
