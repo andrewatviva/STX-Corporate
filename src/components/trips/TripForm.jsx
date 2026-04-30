@@ -855,8 +855,9 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       : clientConfig?.workflow?.requiresApproval !== false;
   })();
 
-  // Hotel booking unlocked when: already approved/booked, OR no approval required (even before first save)
-  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval;
+  // Hotel booking unlocked when: already approved/booked, OR no approval required, OR STX creating a new trip
+  // (STX staff bypass the client approval gate on unsaved trips — config may not have loaded yet anyway)
+  const tripIsBookable = ['approved', 'booked'].includes(trip?.status) || !tripNeedsApproval || (isSTX && !trip);
 
   // Cost centre editable by STX or client approvers/ops only — never by regular travellers
   const canEditCostCentre = isSTX || ['client_approver', 'client_ops'].includes(userProfile?.role);
