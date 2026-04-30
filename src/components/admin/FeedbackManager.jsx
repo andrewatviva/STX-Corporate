@@ -28,11 +28,11 @@ function StatusBadge({ status }) {
 function TypeBadge({ type }) {
   return type === 'fault' ? (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-      <AlertTriangle size={11} /> Fault
+      <AlertTriangle size={11} aria-hidden="true" /> Fault
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-      <MessageSquare size={11} /> Feedback
+      <MessageSquare size={11} aria-hidden="true" /> Feedback
     </span>
   );
 }
@@ -149,7 +149,7 @@ export default function FeedbackManager({ initialId }) {
           onClick={() => setSelected(null)}
           className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 mb-5"
         >
-          <ChevronLeft size={15} /> Back to list
+          <ChevronLeft size={15} aria-hidden="true" /> Back to list
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -163,14 +163,14 @@ export default function FeedbackManager({ initialId }) {
               <h2 className="text-base font-semibold text-gray-900 mb-3">{selected.subject}</h2>
               <div className="flex flex-wrap gap-4 text-xs text-gray-700 mb-4">
                 <span className="flex items-center gap-1">
-                  <User size={11} /> {selected.userName || selected.userEmail || 'Unknown'}
+                  <User size={11} aria-hidden="true" /> {selected.userName || selected.userEmail || 'Unknown'}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Calendar size={11} /> {new Date(selected.createdAt).toLocaleString('en-AU')}
+                  <Calendar size={11} aria-hidden="true" /> {new Date(selected.createdAt).toLocaleString('en-AU')}
                 </span>
                 {selected.clientId && (
                   <span className="flex items-center gap-1">
-                    <Building2 size={11} /> {selected.clientId}
+                    <Building2 size={11} aria-hidden="true" /> {selected.clientId}
                   </span>
                 )}
               </div>
@@ -229,7 +229,7 @@ export default function FeedbackManager({ initialId }) {
                   disabled={sending || (!responseText.trim() && newStatus === currentStatus)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Send size={13} />
+                  <Send size={13} aria-hidden="true" />
                   {sending ? 'Saving…' : responseText.trim() ? 'Send response' : 'Update status'}
                 </button>
               </div>
@@ -316,7 +316,7 @@ export default function FeedbackManager({ initialId }) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="flex items-center gap-2">
-          <Filter size={13} className="text-gray-600" />
+          <Filter size={13} className="text-gray-600" aria-hidden="true" />
           <span className="text-xs text-gray-700 font-medium">Status:</span>
           {['all', 'open', 'in_progress', 'resolved'].map(s => (
             <button
@@ -353,7 +353,7 @@ export default function FeedbackManager({ initialId }) {
       {/* List */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <MessageSquare size={32} className="text-gray-500 mx-auto mb-2" />
+          <MessageSquare size={32} className="text-gray-500 mx-auto mb-2" aria-hidden="true" />
           <p className="text-sm text-gray-700">No submissions match the current filters.</p>
         </div>
       ) : (
@@ -382,7 +382,7 @@ export default function FeedbackManager({ initialId }) {
                     {new Date(item.createdAt).toLocaleDateString('en-AU')}
                   </p>
                 </div>
-                <ChevronRight size={16} className="text-gray-500 shrink-0 mt-1" />
+                <ChevronRight size={16} className="text-gray-500 shrink-0 mt-1" aria-hidden="true" />
               </div>
             </button>
           ))}

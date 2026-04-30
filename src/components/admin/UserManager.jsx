@@ -368,7 +368,7 @@ function EditUserForm({ user, clients, onSaved, onCancel }) {
         ) : (
           <button type="button" onClick={handlePasswordReset} disabled={resetting}
             className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50">
-            <Mail size={14} />
+            <Mail size={14} aria-hidden="true" />
             {resetting ? 'Generating…' : 'Generate password reset link'}
           </button>
         )}
@@ -446,7 +446,7 @@ export default function UserManager() {
         </p>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search users…"
@@ -457,7 +457,7 @@ export default function UserManager() {
           </div>
           <button onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-            <Plus size={15} /> Add user
+            <Plus size={15} aria-hidden="true" /> Add user
           </button>
         </div>
       </div>
@@ -492,14 +492,14 @@ export default function UserManager() {
                   <td className="px-4 py-3 text-gray-700">{clientName(user.clientId)}</td>
                   <td className="px-4 py-3">
                     {user.active !== false
-                      ? <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} /> Active</span>
-                      : <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} /> Inactive</span>}
+                      ? <span className="flex items-center gap-1 text-green-600 text-xs"><UserCheck size={13} aria-hidden="true" /> Active</span>
+                      : <span className="flex items-center gap-1 text-red-500 text-xs"><UserX size={13} aria-hidden="true" /> Inactive</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setEditing(user)}
                         className="text-blue-600 hover:text-blue-800 p-1" title="Edit user">
-                        <Edit2 size={14} />
+                        <Edit2 size={14} aria-hidden="true" />
                       </button>
                       {isSTXAdmin && (
                         <button
@@ -507,7 +507,7 @@ export default function UserManager() {
                           className="text-gray-600 hover:text-red-600 p-1" title="Delete user"
                           disabled={deleting === user.id}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       )}
                     </div>

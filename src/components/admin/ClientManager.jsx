@@ -40,7 +40,7 @@ export default function ClientManager() {
           onClick={() => { setEditing(null); setShowForm(true); }}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
         >
-          <Plus size={15} /> Add client
+          <Plus size={15} aria-hidden="true" /> Add client
         </button>
       </div>
 
@@ -64,14 +64,14 @@ export default function ClientManager() {
                   <td className="px-4 py-3 text-gray-700 font-mono text-xs">{client.id}</td>
                   <td className="px-4 py-3">
                     {client.active !== false ? (
-                      <span className="flex items-center gap-1 text-green-600 text-xs"><CheckCircle size={13} /> Active</span>
+                      <span className="flex items-center gap-1 text-green-600 text-xs"><CheckCircle size={13} aria-hidden="true" /> Active</span>
                     ) : (
-                      <span className="flex items-center gap-1 text-red-500 text-xs"><XCircle size={13} /> Inactive</span>
+                      <span className="flex items-center gap-1 text-red-500 text-xs"><XCircle size={13} aria-hidden="true" /> Inactive</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => handleEdit(client)} className="text-blue-600 hover:text-blue-800">
-                      <Edit2 size={15} />
+                      <Edit2 size={15} aria-hidden="true" />
                     </button>
                   </td>
                 </tr>

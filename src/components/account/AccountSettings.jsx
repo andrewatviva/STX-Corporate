@@ -111,9 +111,10 @@ export default function AccountSettings({ onClose }) {
           <h2 className="text-base font-semibold text-gray-900">Account settings</h2>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-700 rounded-lg transition-colors"
+            aria-label="Close account settings"
+            className="p-1 text-gray-600 hover:text-gray-700 rounded-lg transition-colors"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -123,8 +124,8 @@ export default function AccountSettings({ onClose }) {
           {/* ── Security ── */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Lock size={13} className="text-gray-400" />
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Security</h3>
+              <Lock size={13} aria-hidden="true" className="text-gray-600" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Security</h3>
             </div>
             <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
               <p className="text-sm text-gray-700 mb-2">
@@ -132,8 +133,8 @@ export default function AccountSettings({ onClose }) {
                 <span className="font-medium">{currentUser?.email}</span>
               </p>
               {resetSent ? (
-                <span className="flex items-center gap-1.5 text-sm text-green-600">
-                  <CheckCircle2 size={14} /> Reset link sent — check your inbox
+                <span role="status" aria-live="polite" className="flex items-center gap-1.5 text-sm text-green-600">
+                  <CheckCircle2 size={14} aria-hidden="true" /> Reset link sent — check your inbox
                 </span>
               ) : (
                 <button
@@ -149,11 +150,11 @@ export default function AccountSettings({ onClose }) {
           {/* ── Email notifications ── */}
           <section>
             <div className="flex items-center gap-2 mb-1">
-              <Mail size={13} className="text-gray-400" />
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email notifications</h3>
+              <Mail size={13} aria-hidden="true" className="text-gray-600" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Email notifications</h3>
             </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Sent to <span className="font-medium text-gray-500">{currentUser?.email}</span>
+            <p className="text-xs text-gray-600 mb-4">
+              Sent to <span className="font-medium text-gray-700">{currentUser?.email}</span>
             </p>
 
             <div className="space-y-4">
@@ -163,10 +164,10 @@ export default function AccountSettings({ onClose }) {
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-medium text-gray-800">{t.label}</p>
                       {t.mandatory && (
-                        <span className="text-xs text-gray-400">· required</span>
+                        <span className="text-xs text-gray-600">· required</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{t.desc}</p>
+                    <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{t.desc}</p>
                   </div>
                   <div className="shrink-0 mt-0.5">
                     <MiniToggle

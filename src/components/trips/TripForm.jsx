@@ -25,7 +25,7 @@ const TRANSFER_TYPES = ['Taxi', 'Ride Share', 'Private Car', 'Shuttle', 'Accessi
 const MEAL_TYPES     = ['Breakfast', 'Morning Tea', 'Lunch', 'Afternoon Tea', 'Dinner', 'Event Catering'];
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-const lbl = 'block text-xs font-medium text-gray-500 mb-1';
+const lbl = 'block text-xs font-medium text-gray-700 mb-1';
 
 function F({ label, children, span2 }) {
   return (
@@ -127,12 +127,12 @@ function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, 
               >
                 <Hotel size={13} />
                 Search &amp; Book via Nuitee
-                <ExternalLink size={11} className="opacity-70" />
+                <ExternalLink size={11} aria-hidden="true" className="opacity-70" />
               </button>
-              <p className="text-[10px] text-gray-400 mt-1">Opens hotel search in a new tab — booking details will auto-fill here.</p>
+              <p className="text-[10px] text-gray-600 mt-1">Opens hotel search in a new tab — booking details will auto-fill here.</p>
             </>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-400 cursor-not-allowed">
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 cursor-not-allowed">
               <Hotel size={13} />
               Search &amp; Book via Nuitee — available once trip is approved
             </div>
@@ -148,7 +148,7 @@ function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, 
             <button
               type="button"
               onClick={() => upd('reportingCity', '')}
-              className="text-xs text-gray-400 hover:text-gray-700"
+              className="text-xs text-gray-600 hover:text-gray-700"
             >
               Use trip destination
             </button>
@@ -172,10 +172,10 @@ function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, 
             autoComplete="off"
           />
         ) : (
-          <p className="text-xs text-gray-500 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-xs text-gray-700 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
             {tripDestinationCity
               ? <>Using trip destination: <strong>{tripDestinationCity}</strong></>
-              : <span className="text-gray-400">No trip destination set — add one above or override here.</span>}
+              : <span className="text-gray-600">No trip destination set — add one above or override here.</span>}
           </p>
         )}
       </div>
@@ -363,7 +363,7 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 bg-gray-50">
-        <span className="text-xs font-medium text-gray-400 w-5 shrink-0">{index + 1}</span>
+        <span className="text-xs font-medium text-gray-600 w-5 shrink-0">{index + 1}</span>
 
         {!sector.type ? (
           <select
@@ -378,11 +378,11 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
           </select>
         ) : (
           <>
-            {Icon && <Icon size={14} className="text-gray-400 shrink-0" />}
+            {Icon && <Icon size={14} aria-hidden="true" className="text-gray-600 shrink-0" />}
             <span className="text-xs font-semibold text-gray-700 shrink-0 w-24">{cfg.label}</span>
-            <span className="flex-1 text-xs text-gray-500 truncate">{sectorSummary(sector)}</span>
+            <span className="flex-1 text-xs text-gray-700 truncate">{sectorSummary(sector)}</span>
             {sector.cost && (
-              <span className="text-xs text-gray-500 shrink-0 mr-1">
+              <span className="text-xs text-gray-700 shrink-0 mr-1">
                 A${parseFloat(sector.cost || 0).toFixed(2)}
               </span>
             )}
@@ -394,17 +394,19 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
             <button
               type="button"
               onClick={() => setExpanded(v => !v)}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              aria-label={expanded ? 'Collapse sector' : 'Expand sector'}
+              className="p-1 text-gray-600 hover:text-gray-600 rounded"
             >
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
             </button>
           )}
           <button
             type="button"
             onClick={onRemove}
-            className="p-1 text-gray-400 hover:text-red-500 rounded"
+            aria-label="Remove sector"
+            className="p-1 text-gray-600 hover:text-red-500 rounded"
           >
-            <Trash2 size={14} />
+            <Trash2 size={14} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -421,7 +423,7 @@ function SectorCard({ sector, index, onChange, onRemove, tripDestinationCity, on
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-gray-700 font-medium">International sector</span>
-              <span className="text-xs text-gray-400">(GST-free — no GST applied on invoice)</span>
+              <span className="text-xs text-gray-600">(GST-free — no GST applied on invoice)</span>
             </label>
           </div>
         </div>
@@ -436,9 +438,9 @@ function AdditionalPassengerCard({ pax, index, sectors, passengers, teamMembers,
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Passenger {index + 2}</span>
-        <button type="button" onClick={onRemove} className="p-1 text-gray-400 hover:text-red-500 rounded">
-          <Trash2 size={14} />
+        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Passenger {index + 2}</span>
+        <button type="button" onClick={onRemove} aria-label="Remove passenger" className="p-1 text-gray-600 hover:text-red-500 rounded">
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
 
@@ -548,7 +550,7 @@ function AdditionalPassengerCard({ pax, index, sectors, passengers, teamMembers,
               Reset to auto
             </button>
           ) : (
-            <span className="text-xs text-gray-400">Auto from sector shares</span>
+            <span className="text-xs text-gray-600">Auto from sector shares</span>
           )}
         </div>
       </div>
@@ -974,7 +976,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       {nuiteeBooked && (
         <div className="p-3 bg-teal-50 border border-teal-300 rounded-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-teal-800">
-            <CheckCircle size={15} className="text-teal-600 flex-shrink-0" />
+            <CheckCircle size={15} aria-hidden="true" className="text-teal-600 flex-shrink-0" />
             <span><strong>Hotel booked via Nuitee.</strong> Save the trip below — status will update to <strong>Booked</strong> automatically.</span>
           </div>
         </div>
@@ -1063,7 +1065,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           </datalist>
           {matchedPassenger?.preferredName && matchedPassenger.preferredName !== matchedPassenger.firstName && (
             <div className="mt-1.5 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
-              <AlertTriangle size={13} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle size={13} aria-hidden="true" className="text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-amber-800">
                 <span className="font-semibold">Name mismatch:</span> Known as{' '}
                 <span className="font-semibold">{matchedPassenger.preferredName}</span> but legal name is{' '}
@@ -1205,7 +1207,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-700">Sectors</h3>
           {totalCost > 0 && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-700">
               Est. total: <strong className="text-gray-800">A${totalCost.toFixed(2)}</strong>
             </span>
           )}
@@ -1237,7 +1239,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           onClick={addSector}
           className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 py-1"
         >
-          <Plus size={14} /> Add sector
+          <Plus size={14} aria-hidden="true" /> Add sector
         </button>
 
         {/* Policy variance warnings */}
@@ -1248,7 +1250,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
               : 'bg-amber-50 border-amber-200'
           }`}>
             <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className={varianceBreaches.some(b => b.action === 'approve') ? 'text-red-600' : 'text-amber-600'} />
+              <AlertTriangle size={15} aria-hidden="true" className={varianceBreaches.some(b => b.action === 'approve') ? 'text-red-600' : 'text-amber-600'} />
               <p className={`text-sm font-semibold ${varianceBreaches.some(b => b.action === 'approve') ? 'text-red-800' : 'text-amber-800'}`}>
                 {varianceBreaches.some(b => b.action === 'approve')
                   ? 'Policy variance exceeded — approval required before this trip can proceed'
@@ -1287,7 +1289,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
           <div>
             <h3 className="text-sm font-semibold text-gray-700">Additional Passengers</h3>
             {form.additionalPassengers.length === 0 && (
-              <p className="text-xs text-gray-400 mt-0.5">Add passengers travelling on this trip (each can be assigned to specific sectors and cost centres)</p>
+              <p className="text-xs text-gray-600 mt-0.5">Add passengers travelling on this trip (each can be assigned to specific sectors and cost centres)</p>
             )}
           </div>
           <button
@@ -1295,7 +1297,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
             onClick={addAdditionalPassenger}
             className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
           >
-            <Plus size={14} /> Add passenger
+            <Plus size={14} aria-hidden="true" /> Add passenger
           </button>
         </div>
 
@@ -1304,11 +1306,11 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
             {/* Primary traveller cost row */}
             <div className="border border-blue-200 rounded-lg p-3 bg-blue-50 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Passenger 1 — Primary</span>
+                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Passenger 1 — Primary</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-gray-800 flex-1">{form.travellerName || '—'}</span>
-                {form.costCentre && <span className="text-xs text-gray-400">{form.costCentre}</span>}
+                {form.costCentre && <span className="text-xs text-gray-600">{form.costCentre}</span>}
               </div>
               <div>
                 <label className={lbl}>Allocated cost incl. GST (A$)</label>
@@ -1330,7 +1332,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
                       Reset to auto
                     </button>
                   ) : (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-600">
                       Auto-split ({1 + form.additionalPassengers.length} passengers)
                     </span>
                   )}
@@ -1376,7 +1378,11 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
         )}
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && (
+        <p id="tripform-error" role="alert" aria-live="assertive" className="text-red-700 text-sm">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
         <button

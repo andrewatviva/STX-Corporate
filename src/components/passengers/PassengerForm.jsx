@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-const lbl = 'block text-xs font-medium text-gray-500 mb-1';
+const lbl = 'block text-xs font-medium text-gray-700 mb-1';
 
 const DISABILITY_TYPES = [
   'Physical / Mobility', 'Intellectual / Developmental', 'Sensory (Vision)',
@@ -258,7 +258,7 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
               </F>
               <div className="col-span-2 flex justify-end">
                 <button type="button" onClick={() => removeDoc(i)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
-                  <Trash2 size={12} /> Remove
+                  <Trash2 size={12} aria-hidden="true" /> Remove
                 </button>
               </div>
             </div>
@@ -268,7 +268,7 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
             onClick={addDoc}
             className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
           >
-            <Plus size={14} /> Add document
+            <Plus size={14} aria-hidden="true" /> Add document
           </button>
         </div>
       </Section>
@@ -340,15 +340,15 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
                   <div className="grid grid-cols-3 gap-2 mt-1">
                     <div>
                       <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairLengthCm} onChange={e => set('wheelchairLengthCm', e.target.value)} placeholder="Length" />
-                      <p className="text-xs text-gray-400 mt-0.5 text-center">Length</p>
+                      <p className="text-xs text-gray-600 mt-0.5 text-center">Length</p>
                     </div>
                     <div>
                       <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairWidthCm} onChange={e => set('wheelchairWidthCm', e.target.value)} placeholder="Width" />
-                      <p className="text-xs text-gray-400 mt-0.5 text-center">Width</p>
+                      <p className="text-xs text-gray-600 mt-0.5 text-center">Width</p>
                     </div>
                     <div>
                       <input type="number" min="0" step="0.1" className={inp} value={form.wheelchairHeightCm} onChange={e => set('wheelchairHeightCm', e.target.value)} placeholder="Height" />
-                      <p className="text-xs text-gray-400 mt-0.5 text-center">Height</p>
+                      <p className="text-xs text-gray-600 mt-0.5 text-center">Height</p>
                     </div>
                   </div>
                 </div>
@@ -448,13 +448,13 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
               </select>
               <input className={inp} value={lp.program} onChange={e => updateLP(i, 'program', e.target.value)} placeholder="Program name" />
               <input className={inp} value={lp.number} onChange={e => updateLP(i, 'number', e.target.value)} placeholder="Member number" />
-              <button type="button" onClick={() => removeLP(i)} className="p-1 text-gray-400 hover:text-red-500 shrink-0">
-                <Trash2 size={14} />
+              <button type="button" onClick={() => removeLP(i)} aria-label="Remove loyalty program" className="p-1 text-gray-600 hover:text-red-500 shrink-0">
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             </div>
           ))}
           <button type="button" onClick={addLP} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800">
-            <Plus size={14} /> Add loyalty program
+            <Plus size={14} aria-hidden="true" /> Add loyalty program
           </button>
         </div>
 
@@ -480,7 +480,7 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
               <p className="text-sm font-medium text-gray-800">
                 Consent to share accessibility information with travel providers
               </p>
-              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+              <p className="text-xs text-gray-700 mt-1 leading-relaxed">
                 I consent to my accessibility and support needs (including disability type, mobility aids, dietary requirements,
                 and medical requirements relevant to travel) being shared with travel providers — such as airlines, hotels,
                 and transfer companies — to facilitate appropriate assistance during travel.
@@ -488,7 +488,7 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
             </div>
           </label>
           {form.dataShareConsent && form.dataShareConsentAt && (
-            <p className="text-xs text-gray-400 pl-7">
+            <p className="text-xs text-gray-600 pl-7">
               Consent recorded {new Date(form.dataShareConsentAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           )}
@@ -515,7 +515,11 @@ export default function PassengerForm({ passenger, teamMembers = [], onSave, onC
         </Section>
       )}
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && (
+        <p role="alert" aria-live="assertive" className="text-red-700 text-sm">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end gap-3 pt-1">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">

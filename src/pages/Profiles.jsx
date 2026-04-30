@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, User, Trash2, AlertCircle } from 'lucide-react';
 import { collection, query, where, onSnapshot, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';

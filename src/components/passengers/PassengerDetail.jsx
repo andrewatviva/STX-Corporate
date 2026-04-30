@@ -3,7 +3,7 @@ import { Edit2, User, Printer, AlertTriangle, X, ClipboardCheck } from 'lucide-r
 import DocumentVault from './DocumentVault';
 import { useAuth } from '../../contexts/AuthContext';
 
-const lbl = 'text-xs font-medium text-gray-500';
+const lbl = 'text-xs font-medium text-gray-700';
 const val = 'text-sm text-gray-800 mt-0.5';
 
 function Section({ title, children }) {
@@ -19,7 +19,7 @@ function Field({ label, value, placeholder = '—' }) {
   return (
     <div>
       <p className={lbl}>{label}</p>
-      <p className={val}>{value || <span className="text-gray-400 italic">{placeholder}</span>}</p>
+      <p className={val}>{value || <span className="text-gray-600 italic">{placeholder}</span>}</p>
     </div>
   );
 }
@@ -29,7 +29,7 @@ function Tags({ label, values = [] }) {
     <div>
       <p className={lbl}>{label}</p>
       {values.length === 0
-        ? <p className={`${val} text-gray-400 italic`}>None recorded</p>
+        ? <p className={`${val} text-gray-600 italic`}>None recorded</p>
         : (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {values.map(v => (
@@ -58,7 +58,7 @@ function ERow({ label, value, highlight }) {
   if (!value) return null;
   return (
     <div className={`py-2 border-b border-gray-100 last:border-0 ${highlight ? 'bg-red-50 -mx-4 px-4 rounded' : ''}`}>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-0.5">{label}</p>
       <p className="text-sm text-gray-900 whitespace-pre-line">{value}</p>
     </div>
   );
@@ -116,10 +116,10 @@ function EmergencyCard({ passenger: p, onClose }) {
                   onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
                 >
-                  <Printer size={14} /> Print / Save PDF
+                  <Printer size={14} aria-hidden="true" /> Print / Save PDF
                 </button>
-                <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
-                  <X size={18} />
+                <button onClick={onClose} aria-label="Close emergency card" className="p-1.5 text-gray-600 hover:text-gray-600 rounded-lg">
+                  <X size={18} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -129,14 +129,14 @@ function EmergencyCard({ passenger: p, onClose }) {
 
               {/* Header */}
               <div className="flex items-start gap-4 pb-4 border-b-2 border-red-500">
-                <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center shrink-0" aria-hidden="true">
                   <User size={26} className="text-red-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-red-600 uppercase tracking-widest mb-0.5">Emergency Summary</div>
                   <h2 className="text-xl font-bold text-gray-900 leading-tight">{fullName}</h2>
-                  {legalName && <p className="text-xs text-gray-500">Legal name: {legalName}</p>}
-                  <p className="text-xs text-gray-500">
+                  {legalName && <p className="text-xs text-gray-700">Legal name: {legalName}</p>}
+                  <p className="text-xs text-gray-700">
                     {p.dateOfBirth && formatDate(p.dateOfBirth)}
                     {age != null && ` (age ${age})`}
                     {p.gender && ` · ${p.gender}`}
@@ -207,7 +207,7 @@ function EmergencyCard({ passenger: p, onClose }) {
               )}
 
               {/* Footer */}
-              <p className="text-xs text-gray-400 text-center pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-600 text-center pt-2 border-t border-gray-100">
                 Generated {new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} · Disability Aware Travel Management
               </p>
             </div>
@@ -246,14 +246,14 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0" aria-hidden="true">
             <User size={22} className="text-blue-600" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">{fullName}</h2>
-            {legalName && <p className="text-sm text-gray-500">Legal name: {legalName}</p>}
+            {legalName && <p className="text-sm text-gray-700">Legal name: {legalName}</p>}
             {p.dateOfBirth && (
-              <p className="text-sm text-gray-500">{formatDate(p.dateOfBirth)}{p.gender ? ` · ${p.gender}` : ''}</p>
+              <p className="text-sm text-gray-700">{formatDate(p.dateOfBirth)}{p.gender ? ` · ${p.gender}` : ''}</p>
             )}
           </div>
         </div>
@@ -266,23 +266,22 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
                   style={{ width: `${completeness}%` }}
                 />
               </div>
-              <span className="text-xs text-gray-500">{completeness}% complete</span>
+              <span className="text-xs text-gray-700">{completeness}% complete</span>
             </div>
           )}
           {hasEmergencyData && (
             <button
               onClick={() => setShowEmergency(true)}
               className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
-              title="View printable emergency summary"
             >
-              <AlertTriangle size={14} /> Emergency card
+              <AlertTriangle size={14} aria-hidden="true" /> Emergency card
             </button>
           )}
           <button
             onClick={onEdit}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
           >
-            <Edit2 size={14} /> Edit profile
+            <Edit2 size={14} aria-hidden="true" /> Edit profile
           </button>
         </div>
       </div>
@@ -313,7 +312,7 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
           <div className={`rounded-xl border ${statusStyles[status]}`}>
             <div className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="flex items-center gap-3">
-                <ClipboardCheck size={16} className="shrink-0" />
+                <ClipboardCheck size={16} aria-hidden="true" className="shrink-0" />
                 <div>
                   <p className="text-sm font-medium">{statusLabels[status]}</p>
                   {p.lastReviewedAt ? (
@@ -494,7 +493,7 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
                 : 'No consent — accessibility data cannot be shared with providers'}
             </p>
             {p.dataShareConsent && p.dataShareConsentAt && (
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-600 mt-0.5">
                 Recorded {new Date(p.dataShareConsentAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             )}
@@ -532,14 +531,14 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
                 <div className="space-y-1 mt-1">
                   {(p.loyaltyPrograms || []).map((lp, i) => (
                     <p key={i} className={val}>
-                      <span className="text-xs text-gray-400 mr-2">{lp.type}</span>
+                      <span className="text-xs text-gray-600 mr-2">{lp.type}</span>
                       {lp.program} — {lp.number}
                     </p>
                   ))}
                   {/* backward compat for old frequentFlyer field */}
                   {!p.loyaltyPrograms && (p.frequentFlyer || []).map((ff, i) => (
                     <p key={i} className={val}>
-                      <span className="text-xs text-gray-400 mr-2">Airline</span>
+                      <span className="text-xs text-gray-600 mr-2">Airline</span>
                       {ff.airline} — {ff.number}
                     </p>
                   ))}

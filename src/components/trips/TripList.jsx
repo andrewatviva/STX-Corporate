@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Eye, Edit2, Trash2, Paperclip, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
+import { useAnnounce } from '../../hooks/useAnnounce';
 
 // Returns the GST-exclusive total cost for a trip (sector costs back-calculated + fees already ex-GST)
 export function calcTripExGST(trip, gstRate = 0.1) {
@@ -176,6 +177,7 @@ const sel = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-n
 export default function TripList({ trips, loading, onNew, onView, onEdit, onDelete, canCreate, initialStatusFilter = '' }) {
   const { userProfile } = useAuth();
   const { isSTX } = useTenant();
+  const announce = useAnnounce();
 
   const [search,          setSearch]          = useState('');
   const [statusFilter,    setStatusFilter]    = useState(initialStatusFilter);
@@ -225,6 +227,12 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
     });
   }, [trips, search, statusFilter, tripTypeFilter, costCentreFilter, destCityFilter, dateFrom, dateTo]);
 
+  useEffect(() => {
+    if (hasFilters) {
+      announce(`${filtered.length} trip${filtered.length !== 1 ? 's' : ''} found`);
+    }
+  }, [filtered.length, hasFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return <p className="text-sm text-gray-600 py-8 text-center">Loading trips…</p>;
   }
@@ -236,6 +244,8 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search size={15} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
+            type="search"
+            aria-label="Search trips"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search trips…"
