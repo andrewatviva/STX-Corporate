@@ -395,14 +395,34 @@ export default function PassengerDetail({ passenger, onEdit, onBack, completenes
       {p.identityDocuments?.length > 0 && (
         <Section title="Identity documents">
           <div className="space-y-3">
-            {p.identityDocuments.map((doc, i) => (
-              <div key={i} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <Field label="Document type" value={doc.type} />
-                <Field label="Number" value={doc.number} />
-                <Field label="Expiry" value={formatDate(doc.expiry)} />
-                <Field label="Issuing country / state" value={doc.notes} />
-              </div>
-            ))}
+            {p.identityDocuments.map((doc, i) => {
+              const expiryStatus = (() => {
+                if (!doc.expiry) return null;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const exp = new Date(doc.expiry);
+                exp.setHours(0, 0, 0, 0);
+                const daysUntil = Math.round((exp - today) / 86400000);
+                if (daysUntil < 0)   return { label: 'Expired', cls: 'text-red-600 font-semibold' };
+                if (daysUntil <= 30)  return { label: `Expires in ${daysUntil}d`, cls: 'text-red-600 font-semibold' };
+                if (daysUntil <= 180) return { label: `Expires in ${Math.round(daysUntil / 30)}mo`, cls: 'text-amber-600 font-medium' };
+                return { label: formatDate(doc.expiry), cls: 'text-green-700' };
+              })();
+              return (
+                <div key={i} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <Field label="Document type" value={doc.type} />
+                  <Field label="Number" value={doc.number} />
+                  <div>
+                    <p className={lbl}>Expiry</p>
+                    {doc.expiry
+                      ? <p className={`text-sm mt-0.5 ${expiryStatus?.cls || 'text-gray-800'}`}>{expiryStatus?.label || formatDate(doc.expiry)}</p>
+                      : <p className="text-sm text-gray-600 italic mt-0.5">—</p>
+                    }
+                  </div>
+                  <Field label="Issuing country / state" value={doc.notes} />
+                </div>
+              );
+            })}
           </div>
         </Section>
       )}

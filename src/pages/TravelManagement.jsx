@@ -121,6 +121,18 @@ function diffTrip(oldTrip, newData) {
     }
   }
 
+  // ── Additional passenger role changes ────────────────────────────────────────
+  const oldPax = oldTrip.additionalPassengers || [];
+  const newPax = newData.additionalPassengers || [];
+  const minPax = Math.min(oldPax.length, newPax.length);
+  for (let i = 0; i < minPax; i++) {
+    const oldRole = oldPax[i].role || 'traveller';
+    const newRole = newPax[i].role || 'traveller';
+    if (oldRole !== newRole) {
+      changes.push(fmtChange(`Passenger ${i + 1} role`, oldRole, newRole));
+    }
+  }
+
   // ── Overall cost summary (only when no per-sector cost change was logged) ──
   const oldTotal = calcSectorCost(oldTrip.sectors);
   const newTotal = calcSectorCost(newData.sectors);
@@ -367,6 +379,30 @@ export default function TravelManagement() {
     setFormTrip(undefined);  // undefined = new trip
   };
 
+  const handleDuplicate = (trip) => {
+    // eslint-disable-next-line no-unused-vars
+    const { id, tripRef, createdAt, updatedAt, amendments, status, fees,
+      bookingChecklist, policyVarianceBreached, varianceBreaches,
+      startDate, endDate, actualsRecorded, ...rest } = trip;
+    const dupTrip = {
+      ...rest,
+      sectors: (rest.sectors || []).map(s => {
+        // eslint-disable-next-line no-unused-vars
+        const { date, checkIn, checkOut, pickupDate, dropOffDate, entryDate, exitDate, actualCost, ...sRest } = s;
+        return sRest;
+      }),
+      amendments: [{
+        at: new Date().toISOString(),
+        by: userProfile?.uid || '',
+        byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+        type: 'edit',
+        note: `Duplicated from trip ${tripRef || id}`,
+        changes: [],
+      }],
+    };
+    setFormTrip(dupTrip);
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Travel Management</h1>
@@ -423,6 +459,7 @@ export default function TravelManagement() {
           onAmend={openAmend}
           onStatusChange={handleStatusChange}
           onUpdate={handleUpdate}
+          onDuplicate={canCreate ? handleDuplicate : undefined}
         />
       )}
 
@@ -437,7 +474,7 @@ export default function TravelManagement() {
           wide
         >
           <TripForm
-            trip={formTrip?.id ? formTrip : null}
+            trip={formTrip?.id ? formTrip : (formTrip ?? null)}
             clientId={resolveClientId(formTrip)}
             onSave={handleSave}
             onCancel={() => { setFormTrip(null); setIsAmending(false); setPendingAmendFee(null); }}

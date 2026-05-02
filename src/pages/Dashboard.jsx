@@ -1,5 +1,7 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db } from '../firebase';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
@@ -103,6 +105,46 @@ export default function Dashboard() {
   useEffect(() => {
     document.title = `Dashboard — STX Connect`;
   }, []);
+
+  // B3: Budget data
+  const [budgets, setBudgets] = useState(null);
+  useEffect(() => {
+    const cid = effectiveClientId;
+    if (!cid) { setBudgets(null); return; }
+    getDoc(doc(db, 'clients', cid, 'config', 'settings'))
+      .then(snap => setBudgets(snap.exists() ? (snap.data()?.budgets || null) : null))
+      .catch(() => setBudgets(null));
+  }, [effectiveClientId]);
+
+  // B4: Document expiry — STX only, passengers expiring within 90 days
+  const [expiringDocs, setExpiringDocs] = useState([]);
+  useEffect(() => {
+    if (!isSTX) return;
+    const cid = effectiveClientId;
+    if (!cid) { setExpiringDocs([]); return; }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in90 = new Date(today);
+    in90.setDate(in90.getDate() + 90);
+    const todayStr = today.toISOString().slice(0, 10);
+    const in90Str  = in90.toISOString().slice(0, 10);
+    getDocs(collection(db, 'clients', cid, 'passengers'))
+      .then(snap => {
+        const expiring = [];
+        snap.docs.forEach(d => {
+          const p = d.data();
+          const name = [p.preferredName || p.firstName, p.lastName].filter(Boolean).join(' ');
+          (p.identityDocuments || []).forEach(doc => {
+            if (doc.expiry && doc.expiry >= todayStr && doc.expiry <= in90Str) {
+              expiring.push({ passengerId: d.id, name, docType: doc.type, expiry: doc.expiry });
+            }
+          });
+        });
+        expiring.sort((a, b) => a.expiry.localeCompare(b.expiry));
+        setExpiringDocs(expiring.slice(0, 10));
+      })
+      .catch(() => setExpiringDocs([]));
+  }, [isSTX, effectiveClientId]);
 
   // ── status counts ────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -354,6 +396,86 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* B3: Budget vs actual widget */}
+          {budgets && (budgets.overall > 0 || Object.keys(budgets.byCostCentre || {}).length > 0) && (
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3">
+                Budget vs Actual — FY{budgets.fiscalYear}/{String((budgets.fiscalYear || currentFY) + 1).slice(2)}
+              </h2>
+              {budgets.overall > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                    <span>Overall</span>
+                    <span>{fmtAUD(currentFYTotal)} of {fmtAUD(budgets.overall)}</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        currentFYTotal / budgets.overall >= 1 ? 'bg-red-500'
+                        : currentFYTotal / budgets.overall >= (budgets.alertThreshold || 80) / 100 ? 'bg-amber-400'
+                        : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (currentFYTotal / budgets.overall) * 100).toFixed(1)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {((currentFYTotal / budgets.overall) * 100).toFixed(0)}% used
+                    {currentFYTotal / budgets.overall >= (budgets.alertThreshold || 80) / 100 && (
+                      <span className="ml-2 text-amber-600 font-medium">Alert threshold reached</span>
+                    )}
+                  </p>
+                </div>
+              )}
+              {Object.entries(budgets.byCostCentre || {}).filter(([, v]) => v > 0).map(([cc, budget]) => {
+                const spent = costCentreData.find(d => d.centre === cc)?.amount || 0;
+                const pct = Math.min(100, (spent / budget) * 100);
+                return (
+                  <div key={cc} className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                      <span className="truncate">{cc}</span>
+                      <span className="shrink-0 ml-2">{fmtAUDShort(spent)} / {fmtAUDShort(budget)}</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${pct >= 100 ? 'bg-red-500' : pct >= (budgets.alertThreshold || 80) ? 'bg-amber-400' : 'bg-indigo-400'}`}
+                        style={{ width: `${pct.toFixed(1)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* B4: Documents expiring soon — STX only */}
+          {isSTX && expiringDocs.length > 0 && (
+            <div className="bg-white border border-amber-200 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-amber-700 mb-3">
+                Documents expiring within 90 days ({expiringDocs.length})
+              </h2>
+              <div className="divide-y divide-gray-100">
+                {expiringDocs.map((item, i) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const exp = new Date(item.expiry);
+                  exp.setHours(0, 0, 0, 0);
+                  const daysUntil = Math.round((exp - today) / 86400000);
+                  return (
+                    <div key={i} className="flex items-center gap-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800 truncate">{item.name}</p>
+                        <p className="text-xs text-gray-600">{item.docType}</p>
+                      </div>
+                      <span className={`text-xs font-medium shrink-0 ${daysUntil <= 30 ? 'text-red-600' : 'text-amber-600'}`}>
+                        {daysUntil <= 0 ? 'Expired' : `${daysUntil}d`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

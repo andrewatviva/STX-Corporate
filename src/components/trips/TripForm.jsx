@@ -25,6 +25,34 @@ const CABIN_CLASSES  = ['Economy', 'Premium Economy', 'Business', 'First'];
 const TRANSFER_TYPES = ['Taxi', 'Ride Share', 'Private Car', 'Shuttle', 'Accessible Vehicle', 'Other'];
 const MEAL_TYPES     = ['Breakfast', 'Morning Tea', 'Lunch', 'Afternoon Tea', 'Dinner', 'Event Catering'];
 
+const FLIGHT_SSR_OPTIONS = [
+  { code: 'WCHR', label: 'Wheelchair — can walk short distances (to/from gate)' },
+  { code: 'WCHP', label: 'Wheelchair — can walk to seat but not long distances' },
+  { code: 'WCHC', label: 'Wheelchair — cannot walk at all (requires full assistance)' },
+  { code: 'WCBD', label: 'Dry-cell battery wheelchair (cabin storage)' },
+  { code: 'WCBW', label: 'Wet-cell battery wheelchair (hold only)' },
+  { code: 'WCMP', label: 'Manual collapsible wheelchair' },
+  { code: 'BLND', label: 'Blind / visually impaired traveller' },
+  { code: 'DEAF', label: 'Deaf / hearing impaired traveller' },
+  { code: 'DPNA', label: 'Traveller with intellectual or developmental disability requiring assistance' },
+  { code: 'PETC', label: 'Emotional support or assistance animal in cabin' },
+  { code: 'UMNR', label: 'Unaccompanied minor' },
+  { code: 'OTHER', label: 'Other — specify below', other: true },
+];
+
+const ACCOM_ACCESSIBILITY_OPTIONS = [
+  { key: 'roll_in_shower',     label: 'Roll-in shower' },
+  { key: 'grab_rails',         label: 'Grab rails / bathroom support' },
+  { key: 'bath_hoist',         label: 'Bath hoist / shower chair' },
+  { key: 'ground_floor',       label: 'Ground floor or lift access required' },
+  { key: 'wide_doorways',      label: 'Wide doorways / turning circle (≥ 900mm)' },
+  { key: 'hearing_loop',       label: 'Hearing loop / visual fire alarm' },
+  { key: 'accessible_parking', label: 'Accessible parking at property' },
+  { key: 'carer_bed',          label: 'Carer / attendant bed in same room' },
+  { key: 'adjustable_bed',     label: 'Height-adjustable or profiling bed' },
+  { key: 'no_steps',           label: 'No steps at entry / throughout property' },
+];
+
 const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500';
 const lbl = 'block text-xs font-medium text-gray-700 mb-1';
 
@@ -40,6 +68,7 @@ function F({ label, children, span2 }) {
 // ── Sector field components ───────────────────────────────────────────────────
 
 function FlightFields({ s, upd }) {
+  const [ssrOpen, setSsrOpen] = useState((s.specialAssistance || []).length > 0);
   return (
     <div className="grid grid-cols-2 gap-3">
       <F label="From (airport / city)">
@@ -80,11 +109,59 @@ function FlightFields({ s, upd }) {
       <F label="Notes / special requirements" span2>
         <textarea className={inp} rows={2} value={s.notes || ''} onChange={e => upd('notes', e.target.value)} placeholder="e.g. wheelchair assistance, aisle seat required" />
       </F>
+
+      <div className="col-span-2 border-t border-gray-100 pt-3">
+        <button
+          type="button"
+          onClick={() => setSsrOpen(v => !v)}
+          className="flex items-center gap-2 text-xs font-medium text-gray-600 hover:text-gray-800 w-full text-left"
+        >
+          {ssrOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+          <span>Special assistance (SSR codes)</span>
+          {(s.specialAssistance || []).length > 0 && (
+            <span className="ml-2 flex flex-wrap gap-1">
+              {(s.specialAssistance || []).map(c => (
+                <span key={c} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-semibold">{c}</span>
+              ))}
+            </span>
+          )}
+        </button>
+        {ssrOpen && (
+          <div className="mt-2 space-y-1.5 pl-4">
+            {FLIGHT_SSR_OPTIONS.map(opt => (
+              <label key={opt.code} className="flex items-start gap-2 text-xs cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={(s.specialAssistance || []).includes(opt.code)}
+                  onChange={e => {
+                    const cur = s.specialAssistance || [];
+                    upd('specialAssistance', e.target.checked ? [...cur, opt.code] : cur.filter(c => c !== opt.code));
+                  }}
+                  className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-700">
+                  {!opt.other && <span className="font-mono font-semibold text-blue-700 mr-1">{opt.code}</span>}
+                  {opt.label}
+                </span>
+              </label>
+            ))}
+            {(s.specialAssistance || []).includes('OTHER') && (
+              <input
+                className={`${inp} mt-1`}
+                value={s.specialAssistanceOther || ''}
+                onChange={e => upd('specialAssistanceOther', e.target.value)}
+                placeholder="Describe the special assistance required…"
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, hotelBookingLocked }) {
+  const [accomAccessOpen, setAccomAccessOpen] = useState((s.accessibilityRequirements || []).length > 0);
   const nights = s.checkIn && s.checkOut
     ? Math.max(0, Math.round((new Date(s.checkOut) - new Date(s.checkIn)) / 86400000))
     : null;
@@ -178,6 +255,50 @@ function AccommodationFields({ s, upd, tripDestinationCity, onOpenHotelBooking, 
               ? <>Using trip destination: <strong>{tripDestinationCity}</strong></>
               : <span className="text-gray-600">No trip destination set — add one above or override here.</span>}
           </p>
+        )}
+      </div>
+
+      <div className="col-span-2 border-t border-gray-100 pt-3">
+        <button
+          type="button"
+          onClick={() => setAccomAccessOpen(v => !v)}
+          className="flex items-center gap-2 text-xs font-medium text-gray-600 hover:text-gray-800 w-full text-left"
+        >
+          {accomAccessOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+          <span>Accessibility requirements</span>
+          {(s.accessibilityRequirements || []).length > 0 && (
+            <span className="ml-1 text-amber-700 font-semibold">{(s.accessibilityRequirements || []).length} selected</span>
+          )}
+        </button>
+        {accomAccessOpen && (
+          <div className="mt-2 space-y-1.5 pl-4">
+            <div className="grid grid-cols-2 gap-1.5">
+              {ACCOM_ACCESSIBILITY_OPTIONS.map(opt => (
+                <label key={opt.key} className="flex items-start gap-2 text-xs cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={(s.accessibilityRequirements || []).includes(opt.key)}
+                    onChange={e => {
+                      const cur = s.accessibilityRequirements || [];
+                      upd('accessibilityRequirements', e.target.checked ? [...cur, opt.key] : cur.filter(k => k !== opt.key));
+                    }}
+                    className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Additional notes</label>
+              <textarea
+                className={inp}
+                rows={2}
+                value={s.accessibilityNotes || ''}
+                onChange={e => upd('accessibilityNotes', e.target.value)}
+                placeholder="Any other accessibility requirements for this property…"
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -496,6 +617,14 @@ function AdditionalPassengerCard({ pax, index, sectors, passengers, teamMembers,
             <input className={inp} value={pax.costCentre || ''} onChange={e => onChange({ ...pax, costCentre: e.target.value })} placeholder="Optional" />
           </div>
         )}
+        <div>
+          <label className={lbl}>Role</label>
+          <select className={inp} value={pax.role || 'traveller'} onChange={e => onChange({ ...pax, role: e.target.value })}>
+            <option value="traveller">Co-traveller</option>
+            <option value="support_worker">Support worker</option>
+            <option value="carer">Carer</option>
+          </select>
+        </div>
       </div>
 
       {sectors.some(s => s.type) && (
@@ -787,7 +916,7 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
       ...p,
       additionalPassengers: [
         ...p.additionalPassengers,
-        { _key: Math.random().toString(36).slice(2), name: '', passengerId: '', costCentre: '', sectorKeys: [], allocatedCost: '', allocatedCostOverride: false },
+        { _key: Math.random().toString(36).slice(2), name: '', passengerId: '', costCentre: '', role: 'traveller', sectorKeys: [], allocatedCost: '', allocatedCostOverride: false },
       ],
     }));
 

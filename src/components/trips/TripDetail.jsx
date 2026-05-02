@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock, Clock, Trash2, Receipt, Star, AlertTriangle, Calendar,
+  Lock, Clock, Trash2, Receipt, Star, AlertTriangle, Calendar, Copy, CheckSquare,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { doc, getDoc, getDocs, arrayRemove, arrayUnion, collection, addDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -34,6 +35,59 @@ const SECTOR_LABELS = {
   meals:         'Meals',
   other:         'Other',
 };
+
+const ACCOM_ACCESS_LABELS = {
+  roll_in_shower:     'Roll-in shower',
+  grab_rails:         'Grab rails / bathroom support',
+  bath_hoist:         'Bath hoist / shower chair',
+  ground_floor:       'Ground floor or lift access required',
+  wide_doorways:      'Wide doorways / turning circle (≥ 900mm)',
+  hearing_loop:       'Hearing loop / visual fire alarm',
+  accessible_parking: 'Accessible parking at property',
+  carer_bed:          'Carer / attendant bed in same room',
+  adjustable_bed:     'Height-adjustable or profiling bed',
+  no_steps:           'No steps at entry / throughout property',
+};
+
+function generateChecklist(trip, passenger) {
+  const items = [];
+  items.push({ key: 'itinerary_sent',    label: 'Digital itinerary sent to traveller', checked: false, waived: false });
+  items.push({ key: 'contact_confirmed', label: 'Traveller contact details confirmed', checked: false, waived: false });
+
+  if (passenger?.mobilityAids?.length || passenger?.wheelchairModel) {
+    items.push({ key: 'mobility_aid_airline',  label: 'Mobility aid notified to airline — dimensions and battery type confirmed', checked: false, waived: false });
+    items.push({ key: 'mobility_aid_handling', label: 'Ground handling instructions confirmed with airline', checked: false, waived: false });
+  }
+
+  const hasWheelchairSSR = (trip.sectors || []).some(s =>
+    s.type === 'flight' && (s.specialAssistance || []).some(c => ['WCHR', 'WCHP', 'WCHC'].includes(c))
+  );
+  if (hasWheelchairSSR) {
+    items.push({ key: 'wheelchair_assist_confirmed', label: 'Airport wheelchair assistance confirmed at origin and destination', checked: false, waived: false });
+  }
+
+  (trip.sectors || []).filter(s => s.type === 'accommodation' && (s.accessibilityRequirements || []).length > 0).forEach((s, i) => {
+    items.push({ key: `accom_access_${i}`, label: `Accessible room requirements confirmed with ${s.propertyName || 'accommodation provider'}`, checked: false, waived: false });
+  });
+
+  const hasSupportWorker = (trip.additionalPassengers || []).some(p => ['support_worker', 'carer'].includes(p.role));
+  if (hasSupportWorker || passenger?.carerRequired) {
+    items.push({ key: 'carer_seating', label: 'Carer / support worker seated adjacent to traveller on all flights', checked: false, waived: false });
+    items.push({ key: 'carer_rooming', label: 'Carer / support worker room booked adjacent or in same room', checked: false, waived: false });
+  }
+
+  const hasDPNA = (trip.sectors || []).some(s => s.type === 'flight' && (s.specialAssistance || []).includes('DPNA'));
+  if (hasDPNA) {
+    items.push({ key: 'dpna_briefed', label: 'Airline briefed on traveller support needs — ground and cabin crew notified', checked: false, waived: false });
+  }
+
+  if ((trip.sectors || []).some(s => s.international)) {
+    items.push({ key: 'insurance_confirmed', label: 'Travel insurance confirmed and policy details recorded on trip', checked: false, waived: false });
+    items.push({ key: 'visa_confirmed',      label: 'Visa / entry requirements checked for destination country', checked: false, waived: false });
+    items.push({ key: 'emergency_contacts',  label: 'In-country emergency contacts confirmed', checked: false, waived: false });
+  }
+  return items;
+}
 
 function fmt(val) {
   return val || '—';
@@ -70,6 +124,19 @@ function SectorCard({ sector, index }) {
       <Row key="ref" label="Booking ref" value={sector.bookingRef} />,
       <Row key="class" label="Class" value={sector.cabinClass} />,
     );
+    if ((sector.specialAssistance || []).length > 0) {
+      rows.push(
+        <div key="ssr" className="flex gap-2 pt-1">
+          <span className="text-xs text-gray-600 w-32 shrink-0">Special assist.</span>
+          <div className="flex flex-wrap gap-1">
+            {sector.specialAssistance.map(code => (
+              <span key={code} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-semibold">{code}</span>
+            ))}
+            {sector.specialAssistanceOther && <span className="text-xs text-gray-700 self-center">{sector.specialAssistanceOther}</span>}
+          </div>
+        </div>
+      );
+    }
   } else if (sector.type === 'accommodation') {
     const nights = sector.checkIn && sector.checkOut
       ? Math.max(0, Math.round((new Date(sector.checkOut) - new Date(sector.checkIn)) / 86400000))
@@ -83,6 +150,19 @@ function SectorCard({ sector, index }) {
       <Row key="ref" label="Booking ref" value={sector.bookingRef} />,
       sector.reportingCity && <Row key="rcity" label="Reporting city" value={`${sector.reportingCity} (override)`} />,
     );
+    if ((sector.accessibilityRequirements || []).length > 0 || sector.accessibilityNotes) {
+      rows.push(
+        <div key="access" className="flex gap-2 pt-1">
+          <span className="text-xs text-gray-600 w-32 shrink-0">Accessibility</span>
+          <div className="flex flex-wrap gap-1">
+            {(sector.accessibilityRequirements || []).map(key => (
+              <span key={key} className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">{ACCOM_ACCESS_LABELS[key] || key}</span>
+            ))}
+            {sector.accessibilityNotes && <span className="text-xs text-gray-700 w-full mt-1">{sector.accessibilityNotes}</span>}
+          </div>
+        </div>
+      );
+    }
   } else if (sector.type === 'car-hire') {
     rows.push(
       <Row key="co" label="Company" value={sector.company} />,
@@ -153,7 +233,7 @@ function SectorCard({ sector, index }) {
   );
 }
 
-export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, onStatusChange, onUpdate }) {
+export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, onStatusChange, onUpdate, onDuplicate }) {
   const { userProfile } = useAuth();
   const { isSTX, clientConfig } = useTenant();
   const [acting, setActing] = useState(false);
@@ -215,6 +295,12 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [existingRating, setExistingRating]   = useState(null);
   const [ratingLoaded, setRatingLoaded]       = useState(false);
   const [travellerPassenger, setTravellerPassenger] = useState(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistSaving, setChecklistSaving] = useState(false);
+  const [localChecklist, setLocalChecklist] = useState(null);
+  const [actualsEditing, setActualsEditing] = useState(false);
+  const [actualCosts, setActualCosts] = useState({});
+  const [actualsSubmitting, setActualsSubmitting] = useState(false);
 
   useEffect(() => {
     if (trip?.title) document.title = `${trip.title} — STX Connect`;
@@ -402,6 +488,37 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
     });
   };
 
+  const handleSaveActuals = async () => {
+    setActualsSubmitting(true);
+    try {
+      const updatedSectors = (trip.sectors || []).map((s, i) => ({
+        ...s,
+        actualCost: actualCosts[i] !== '' && actualCosts[i] != null ? parseFloat(actualCosts[i]) : s.actualCost,
+      }));
+      const changes = (trip.sectors || []).map((s, i) => {
+        const est = parseFloat(s.cost) || 0;
+        const actual = parseFloat(actualCosts[i]);
+        if (isNaN(actual) || Math.abs(est - actual) < 0.01) return null;
+        return `${SECTOR_LABELS[s.type] || s.type} actual: A$${est.toFixed(2)} (est.) → A$${actual.toFixed(2)}`;
+      }).filter(Boolean);
+      await onUpdate({
+        sectors: updatedSectors,
+        actualsRecorded: true,
+        amendments: arrayUnion({
+          at: new Date().toISOString(),
+          by: userProfile?.uid || '',
+          byName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(' ') || userProfile?.email || '',
+          type: 'edit',
+          note: 'Actual costs recorded',
+          changes,
+        }),
+      });
+      setActualsEditing(false);
+    } finally {
+      setActualsSubmitting(false);
+    }
+  };
+
   return (
     <div>
       {/* Back + actions header */}
@@ -425,6 +542,16 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             >
               <Star size={13} fill={existingRating ? 'currentColor' : 'none'} />
               {existingRating ? 'Update rating' : 'Rate providers'}
+            </button>
+          )}
+
+          {/* Duplicate trip — users who can create trips */}
+          {canEdit && onDuplicate && (
+            <button
+              onClick={() => onDuplicate(trip)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              <Copy size={13} aria-hidden="true" /> Duplicate
             </button>
           )}
 
@@ -510,7 +637,13 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               client_ops, client_approver, client_traveller can book self-managed trips only. */}
           {trip.status === 'approved' && (isSTX || (canBook && trip.tripType?.toLowerCase() === 'self-managed')) && (
             <button
-              onClick={() => act('booked')}
+              onClick={() => {
+                const checklist = localChecklist || trip.bookingChecklist;
+                if (isSTX && checklist && checklist.some(item => !item.checked && !item.waived)) {
+                  if (!window.confirm('Some pre-booking checklist items are incomplete. Proceed with booking anyway?')) return;
+                }
+                act('booked');
+              }}
               disabled={acting}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
             >
@@ -872,7 +1005,15 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
                   return (
                     <div key={i} className="flex items-center gap-3 text-sm p-2 bg-gray-50 rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{p.name}</p>
+                        <p className="font-medium text-gray-900 flex items-center gap-1.5 flex-wrap">
+                          {p.name}
+                          {p.role === 'support_worker' && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">Support worker</span>
+                          )}
+                          {p.role === 'carer' && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">Carer</span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-700 mt-0.5">
                           {p.costCentre && <span>{p.costCentre} · </span>}
                           {sectorLabels.length > 0 ? sectorLabels.join(', ') : 'All sectors'}
@@ -955,6 +1096,109 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
         </div>
       )}
 
+      {/* A6: Pre-booking checklist — STX only, approved trips */}
+      {isSTX && trip.status === 'approved' && (
+        <div className="mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => {
+              if (!checklistOpen && localChecklist === null) {
+                setLocalChecklist(trip.bookingChecklist || generateChecklist(trip, travellerPassenger));
+              }
+              setChecklistOpen(v => !v);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+            aria-expanded={checklistOpen}
+          >
+            <CheckSquare size={14} aria-hidden="true" className="text-indigo-600 shrink-0" />
+            <span className="text-sm font-medium text-gray-700 flex-1">Pre-booking checklist</span>
+            {(() => {
+              const items = localChecklist || trip.bookingChecklist;
+              if (!items) return null;
+              const done = items.filter(i => i.checked || i.waived).length;
+              const total = items.length;
+              return (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${done === total ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {done}/{total} complete
+                </span>
+              );
+            })()}
+            {checklistOpen
+              ? <ChevronUp size={14} aria-hidden="true" className="text-gray-500 shrink-0" />
+              : <ChevronDown size={14} aria-hidden="true" className="text-gray-500 shrink-0" />
+            }
+          </button>
+          {checklistOpen && localChecklist && (
+            <div className="px-4 pb-4">
+              <div className="space-y-2 mb-3 mt-1">
+                {localChecklist.map((item, idx) => (
+                  <div key={item.key} className={`py-2 border-b border-gray-100 last:border-0 ${item.waived ? 'opacity-60' : ''}`}>
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        id={`cl-${item.key}`}
+                        checked={item.checked}
+                        disabled={item.waived}
+                        onChange={e => setLocalChecklist(prev => prev.map((it, i) => i === idx ? { ...it, checked: e.target.checked } : it))}
+                        className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <label htmlFor={`cl-${item.key}`} className={`text-sm flex-1 cursor-pointer ${item.checked ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                        {item.label}
+                      </label>
+                      {!item.checked && (
+                        item.waived ? (
+                          <button
+                            type="button"
+                            onClick={() => setLocalChecklist(prev => prev.map((it, i) => i === idx ? { ...it, waived: false, waiveReason: '' } : it))}
+                            className="text-xs text-blue-600 hover:text-blue-800 shrink-0"
+                          >
+                            Undo
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setLocalChecklist(prev => prev.map((it, i) => i === idx ? { ...it, waived: true, waiveReason: '' } : it))}
+                            className="text-xs text-gray-600 hover:text-gray-800 shrink-0"
+                          >
+                            N/A
+                          </button>
+                        )
+                      )}
+                    </div>
+                    {item.waived && (
+                      <input
+                        className="mt-1 ml-6 text-xs border border-gray-200 rounded px-2 py-1 w-64 focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder:text-gray-500"
+                        placeholder="Reason not applicable (optional)"
+                        value={item.waiveReason || ''}
+                        onChange={e => setLocalChecklist(prev => prev.map((it, i) => i === idx ? { ...it, waiveReason: e.target.value } : it))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setChecklistSaving(true);
+                    try { await onUpdate({ bookingChecklist: localChecklist }); } finally { setChecklistSaving(false); }
+                  }}
+                  disabled={checklistSaving}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {checklistSaving ? 'Saving…' : 'Save checklist'}
+                </button>
+                {localChecklist.some(i => !i.checked && !i.waived) && (
+                  <p className="text-xs text-amber-600">
+                    {localChecklist.filter(i => !i.checked && !i.waived).length} item{localChecklist.filter(i => !i.checked && !i.waived).length !== 1 ? 's' : ''} remaining
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sectors */}
       {(trip.sectors || []).length > 0 && (
         <div className="mb-4">
@@ -966,6 +1210,116 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
               <SectorCard key={i} sector={s} index={i} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* B6: Record actuals — completed trips, STX + client_ops */}
+      {getDisplayStatus(trip) === 'completed' && (isSTX || role === 'client_ops') && (trip.sectors || []).some(s => parseFloat(s.cost) > 0) && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Receipt size={13} className="text-gray-600" />
+              Actual costs
+              {trip.actualsRecorded && (
+                <span className="ml-2 text-xs font-medium px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Recorded</span>
+              )}
+            </h3>
+            {!actualsEditing && (
+              <button
+                type="button"
+                onClick={() => {
+                  const init = {};
+                  (trip.sectors || []).forEach((s, i) => {
+                    init[i] = s.actualCost != null ? String(s.actualCost) : (s.cost || '');
+                  });
+                  setActualCosts(init);
+                  setActualsEditing(true);
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                {trip.actualsRecorded ? 'Update actuals' : 'Record actuals'}
+              </button>
+            )}
+          </div>
+          {actualsEditing ? (
+            <div>
+              <div className="space-y-2 mb-3">
+                {(trip.sectors || []).map((s, i) => {
+                  if (!(parseFloat(s.cost) > 0)) return null;
+                  const Icon = SECTOR_ICONS[s.type] || MoreHorizontal;
+                  const label = SECTOR_LABELS[s.type] || s.type;
+                  const summary = s.type === 'flight' ? [s.from, s.to].filter(Boolean).join(' → ')
+                    : s.type === 'accommodation' ? s.propertyName
+                    : s.type === 'car-hire' ? s.company
+                    : '';
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <Icon size={13} aria-hidden="true" className="text-gray-600 shrink-0" />
+                      <span className="text-xs text-gray-700 flex-1 min-w-0 truncate">
+                        {label}{summary ? ` — ${summary}` : ''}
+                      </span>
+                      <span className="text-xs text-gray-600 w-24 text-right shrink-0">Est. A${(parseFloat(s.cost) || 0).toFixed(2)}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-gray-600">Actual A$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={actualCosts[i] ?? ''}
+                          onChange={e => setActualCosts(prev => ({ ...prev, [i]: e.target.value }))}
+                          className="w-24 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-gray-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveActuals}
+                  disabled={actualsSubmitting}
+                  className="px-3 py-1.5 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                >
+                  {actualsSubmitting ? 'Saving…' : 'Save actuals'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActualsEditing(false)}
+                  className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : trip.actualsRecorded ? (
+            <div className="space-y-1.5">
+              {(trip.sectors || []).map((s, i) => {
+                if (s.actualCost == null) return null;
+                const Icon = SECTOR_ICONS[s.type] || MoreHorizontal;
+                const label = SECTOR_LABELS[s.type] || s.type;
+                const est = parseFloat(s.cost) || 0;
+                const actual = parseFloat(s.actualCost) || 0;
+                const diff = actual - est;
+                return (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <Icon size={12} aria-hidden="true" className="text-gray-600 shrink-0" />
+                    <span className="text-gray-700 flex-1">{label}</span>
+                    <span className="text-gray-600">Est. A${est.toFixed(2)}</span>
+                    <span className="text-gray-700 font-medium">Actual A${actual.toFixed(2)}</span>
+                    {Math.abs(diff) >= 0.01 && (
+                      <span className={diff > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                        {diff > 0 ? '+' : ''}{diff.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                );
+              }).filter(Boolean)}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-600">No actual costs recorded. Click &ldquo;Record actuals&rdquo; to add them.</p>
+          )}
         </div>
       )}
 

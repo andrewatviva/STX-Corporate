@@ -74,6 +74,21 @@ export function LeadTimeBadge({ days, showDays = false }) {
   );
 }
 
+// Returns days a trip has been waiting for approval (null if not pending)
+export function awaitingDays(trip) {
+  if (trip.status !== 'pending_approval') return null;
+  const submissions = (trip.amendments || []).filter(a => a.type === 'status_change' && a.to === 'pending_approval');
+  if (submissions.length > 0) {
+    const latest = submissions.reduce((a, b) => a.at > b.at ? a : b);
+    return Math.max(0, Math.round((Date.now() - new Date(latest.at)) / 86400000));
+  }
+  if (trip.updatedAt) {
+    const d = trip.updatedAt?.toDate ? trip.updatedAt.toDate() : new Date(trip.updatedAt);
+    return Math.max(0, Math.round((Date.now() - d) / 86400000));
+  }
+  return null;
+}
+
 // ── Passengers cell ───────────────────────────────────────────────────────────
 
 function PassengersCell({ trip }) {
@@ -233,6 +248,8 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
     }
   }, [filtered.length, hasFilters]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hasPendingApproval = filtered.some(t => t.status === 'pending_approval');
+
   if (loading) {
     return <p className="text-sm text-gray-600 py-8 text-center">Loading trips…</p>;
   }
@@ -360,6 +377,7 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Destination</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Dates</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell" title="Days between booking and travel date">Lead Time</th>
+                {hasPendingApproval && <th className="text-right px-4 py-3 font-medium text-gray-600 hidden xl:table-cell" title="Days waiting for approval">Awaiting</th>}
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Ex-GST</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3" />
@@ -403,6 +421,19 @@ export default function TripList({ trips, loading, onNew, onView, onEdit, onDele
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <LeadTimeBadge days={leadTimeDays(trip)} />
                   </td>
+                  {hasPendingApproval && (
+                    <td className="px-4 py-3 text-right hidden xl:table-cell">
+                      {(() => {
+                        const d = awaitingDays(trip);
+                        if (d === null) return <span className="text-gray-500">—</span>;
+                        return (
+                          <span className={`text-xs font-medium ${d >= 7 ? 'text-red-600' : d >= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
+                            {d}d
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right text-gray-600 text-xs tabular-nums whitespace-nowrap">
                     {(() => { const v = calcTripExGST(trip); return v > 0 ? `A$${v.toFixed(2)}` : '—'; })()}
                   </td>

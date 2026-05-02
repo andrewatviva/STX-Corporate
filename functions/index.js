@@ -854,6 +854,88 @@ exports.onOnboardingSubmitted = onDocumentWritten(
   }
 );
 
+// B5: Check approval escalation — daily job that sends reminders and escalations for pending trips
+exports.checkApprovalEscalation = onSchedule(
+  { schedule: 'every 24 hours', secrets: [SENDGRID_KEY] },
+  async () => {
+    sgMail.setApiKey(SENDGRID_KEY.value());
+    const db = getFirestore();
+    const now = new Date();
+
+    // Collect all active clients with escalation enabled
+    const clientsSnap = await db.collection('clients').where('active', '==', true).get();
+
+    await Promise.allSettled(clientsSnap.docs.map(async clientDoc => {
+      const clientId = clientDoc.id;
+      let cfg;
+      try {
+        const cfgSnap = await db.doc(`clients/${clientId}/config/settings`).get();
+        cfg = cfgSnap.exists ? cfgSnap.data() : null;
+      } catch { return; }
+
+      if (!cfg?.workflow?.escalationEnabled) return;
+      const reminderDays  = cfg.workflow.escalationReminderDays  || 3;
+      const escalateDays  = cfg.workflow.escalationEscalateDays  || 7;
+
+      const tripsSnap = await db.collection(`clients/${clientId}/trips`)
+        .where('status', '==', 'pending_approval')
+        .get();
+
+      await Promise.allSettled(tripsSnap.docs.map(async tripDoc => {
+        const trip = tripDoc.data();
+        // Find when it was submitted
+        const submissions = (trip.amendments || []).filter(a => a.type === 'status_change' && a.to === 'pending_approval');
+        if (!submissions.length) return;
+        const latestSubmit = submissions.reduce((a, b) => a.at > b.at ? a : b);
+        const submittedAt = new Date(latestSubmit.at);
+        const daysWaiting = Math.round((now - submittedAt) / 86400000);
+
+        const alreadyEscalated = trip.escalationSentAt;
+        const alreadyReminded  = trip.reminderSentAt;
+
+        if (daysWaiting >= escalateDays && !alreadyEscalated) {
+          // Escalate to all STX staff
+          try {
+            await db.collection('emailQueue').add({
+              type: 'approval_escalation',
+              clientId,
+              tripId: tripDoc.id,
+              tripTitle: trip.title || '',
+              travellerName: trip.travellerName || '',
+              daysWaiting,
+              status: 'pending',
+              scheduledFor: now.toISOString(),
+              createdAt: now.toISOString(),
+            });
+            await tripDoc.ref.update({ escalationSentAt: now.toISOString() });
+          } catch (err) {
+            console.error('escalation error', tripDoc.id, err.message);
+          }
+        } else if (daysWaiting >= reminderDays && !alreadyReminded && !alreadyEscalated) {
+          // Send reminder to approvers
+          try {
+            await db.collection('emailQueue').add({
+              type: 'approval_reminder',
+              clientId,
+              tripId: tripDoc.id,
+              tripTitle: trip.title || '',
+              travellerName: trip.travellerName || '',
+              travellerId: trip.travellerId || '',
+              daysWaiting,
+              status: 'pending',
+              scheduledFor: now.toISOString(),
+              createdAt: now.toISOString(),
+            });
+            await tripDoc.ref.update({ reminderSentAt: now.toISOString() });
+          } catch (err) {
+            console.error('reminder error', tripDoc.id, err.message);
+          }
+        }
+      }));
+    }));
+  }
+);
+
 // Daily sweep — sends any deferred emails (e.g. post-trip rating requests) that are now due
 exports.sweepEmailQueue = onSchedule(
   { schedule: 'every 24 hours', secrets: [SENDGRID_KEY] },

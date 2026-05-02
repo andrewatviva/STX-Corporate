@@ -70,11 +70,24 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
   const { userProfile } = useAuth();
   const providers = extractProviders(trip.sectors);
 
+  const hasAccessibilityRequirements =
+    (trip.sectors || []).some(s => (s.specialAssistance || []).length > 0 || (s.accessibilityRequirements || []).length > 0) ||
+    (trip.additionalPassengers || []).some(p => ['support_worker', 'carer'].includes(p.role));
+
   const [ratings, setRatings] = useState(() => {
-    const base = Object.fromEntries(providers.map(p => [p.name, { stars: 0, comment: '' }]));
+    const base = Object.fromEntries(providers.map(p => [p.name, {
+      stars: 0, comment: '',
+      accessibilityStars: 0, accessibilityMet: null, wouldUseAgain: null,
+    }]));
     if (existingRating) {
       (existingRating.providerRatings || []).forEach(r => {
-        if (base[r.name]) base[r.name] = { stars: r.stars || 0, comment: r.comment || '' };
+        if (base[r.name]) base[r.name] = {
+          stars: r.stars || 0,
+          comment: r.comment || '',
+          accessibilityStars: r.accessibilityStars || 0,
+          accessibilityMet: r.accessibilityMet ?? null,
+          wouldUseAgain: r.wouldUseAgain ?? null,
+        };
       });
     }
     return base;
@@ -90,12 +103,18 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
       const docId = `${trip.id}_${uid}`;
 
       const providerRatings = providers
-        .filter(p => (ratings[p.name]?.stars > 0) || ratings[p.name]?.comment?.trim())
+        .filter(p => (ratings[p.name]?.stars > 0) || ratings[p.name]?.comment?.trim() ||
+          (hasAccessibilityRequirements && (ratings[p.name]?.accessibilityStars > 0 || ratings[p.name]?.accessibilityMet != null || ratings[p.name]?.wouldUseAgain != null)))
         .map(p => ({
           name: p.name,
           type: p.type,
           stars: ratings[p.name]?.stars || 0,
           comment: ratings[p.name]?.comment?.trim() || '',
+          ...(hasAccessibilityRequirements ? {
+            accessibilityStars: ratings[p.name]?.accessibilityStars || 0,
+            accessibilityMet: ratings[p.name]?.accessibilityMet ?? null,
+            wouldUseAgain: ratings[p.name]?.wouldUseAgain ?? null,
+          } : {}),
         }));
 
       await setDoc(doc(db, 'tripFeedback', docId), {
@@ -157,6 +176,52 @@ export default function TripRatingModal({ trip, onClose, existingRating }) {
                       value={ratings[p.name]?.comment || ''}
                       onChange={e => setRatings(r => ({ ...r, [p.name]: { ...r[p.name], comment: e.target.value } }))}
                     />
+                    {hasAccessibilityRequirements && (
+                      <div className="mt-3 pt-3 border-t border-amber-100 space-y-2">
+                        <p className="text-xs font-medium text-amber-700">Accessibility</p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 w-28 shrink-0">Accessibility rating</span>
+                          <StarInput
+                            value={ratings[p.name]?.accessibilityStars || 0}
+                            onChange={accessibilityStars => setRatings(r => ({ ...r, [p.name]: { ...r[p.name], accessibilityStars } }))}
+                          />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 w-28 shrink-0">Needs met?</span>
+                          {[['yes', true], ['no', false]].map(([label, val]) => (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() => setRatings(r => ({ ...r, [p.name]: { ...r[p.name], accessibilityMet: val } }))}
+                              className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                                ratings[p.name]?.accessibilityMet === val
+                                  ? (val ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300')
+                                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              {label === 'yes' ? 'Yes' : 'No'}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 w-28 shrink-0">Would use again?</span>
+                          {[['yes', true], ['no', false]].map(([label, val]) => (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() => setRatings(r => ({ ...r, [p.name]: { ...r[p.name], wouldUseAgain: val } }))}
+                              className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                                ratings[p.name]?.wouldUseAgain === val
+                                  ? (val ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300')
+                                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              {label === 'yes' ? 'Yes' : 'No'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

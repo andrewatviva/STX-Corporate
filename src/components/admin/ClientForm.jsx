@@ -276,6 +276,7 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
         accommodation: { ...DEFAULT_CONFIG.policyVariance.accommodation, ...(existing.config?.policyVariance?.accommodation || {}) },
         flight:        { ...DEFAULT_CONFIG.policyVariance.flight,        ...(existing.config?.policyVariance?.flight        || {}) },
       },
+      budgets: existing.config?.budgets || {},
     };
   });
   const [saving, setSaving]   = useState(false);
@@ -418,6 +419,43 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
           />
         ))}
         <Toggle checked={cfg.workflow.emailNotifications} onChange={v => set('workflow','emailNotifications',v)} label="Email notifications" description="Notify approvers and travellers by email (requires email provider setup)" />
+
+        {/* B5: Approval escalation */}
+        <Toggle
+          checked={cfg.workflow.escalationEnabled ?? false}
+          onChange={v => set('workflow','escalationEnabled',v)}
+          label="Approval escalation"
+          description="Automatically send reminders and escalate pending approvals that have been waiting too long"
+        />
+        {cfg.workflow.escalationEnabled && (
+          <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+            <Field label="Send reminder after (days)">
+              <input
+                type="number"
+                min="1"
+                max="30"
+                className={inp}
+                value={cfg.workflow.escalationReminderDays ?? 3}
+                onChange={e => set('workflow','escalationReminderDays',parseInt(e.target.value) || 3)}
+                placeholder="3"
+              />
+            </Field>
+            <Field label="Escalate to STX after (days)">
+              <input
+                type="number"
+                min="1"
+                max="60"
+                className={inp}
+                value={cfg.workflow.escalationEscalateDays ?? 7}
+                onChange={e => set('workflow','escalationEscalateDays',parseInt(e.target.value) || 7)}
+                placeholder="7"
+              />
+            </Field>
+            <p className="text-xs text-gray-600">
+              Reminders are sent to the original approver. Escalations are forwarded to all STX staff.
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section title="Features">
@@ -593,6 +631,75 @@ export default function ClientForm({ existing, onSaved, onCancel }) {
             </div>
           )}
         </div>
+      </Section>
+
+      {/* B3: Travel Budgets */}
+      <Section title="Travel Budgets">
+        <p className="text-xs text-gray-700 -mt-2">
+          Set FY travel budgets per cost centre. A dashboard widget shows spend vs budget when configured.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Financial year (FY start year)">
+            <input
+              type="number"
+              min="2020"
+              max="2040"
+              className={inp}
+              value={cfg.budgets?.fiscalYear ?? new Date().getFullYear()}
+              onChange={e => setCfg(prev => ({ ...prev, budgets: { ...(prev.budgets || {}), fiscalYear: parseInt(e.target.value) || new Date().getFullYear() } }))}
+              placeholder={String(new Date().getFullYear())}
+            />
+          </Field>
+          <Field label="Overall FY budget ($ incl. GST)">
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              className={inp}
+              value={cfg.budgets?.overall ?? ''}
+              onChange={e => setCfg(prev => ({ ...prev, budgets: { ...(prev.budgets || {}), overall: parseFloat(e.target.value) || 0 } }))}
+              placeholder="e.g. 100000"
+            />
+          </Field>
+          <Field label="Alert threshold (% of budget)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              className={inp}
+              value={cfg.budgets?.alertThreshold ?? 80}
+              onChange={e => setCfg(prev => ({ ...prev, budgets: { ...(prev.budgets || {}), alertThreshold: parseInt(e.target.value) || 80 } }))}
+              placeholder="80"
+            />
+          </Field>
+        </div>
+        {cfg.dropdowns.costCentres?.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Per cost centre budgets ($ incl. GST)</label>
+            <div className="space-y-2">
+              {cfg.dropdowns.costCentres.map(cc => (
+                <div key={cc} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-700 w-40 shrink-0">{cc}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36 placeholder:text-gray-500"
+                    value={cfg.budgets?.byCostCentre?.[cc] ?? ''}
+                    onChange={e => setCfg(prev => ({
+                      ...prev,
+                      budgets: {
+                        ...(prev.budgets || {}),
+                        byCostCentre: { ...(prev.budgets?.byCostCentre || {}), [cc]: parseFloat(e.target.value) || 0 },
+                      },
+                    }))}
+                    placeholder="e.g. 25000"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Section>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}

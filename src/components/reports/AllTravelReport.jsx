@@ -133,22 +133,38 @@ export default function AllTravelReport({ trips }) {
   const toggleType = (t) =>
     setTypeFilter(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
+  const hasActuals = sorted.some(t => t.actualsRecorded);
+
   const handleExport = () => {
     const headers = ['Trip Ref','Traveller','Trip Type','Cost Centre','Origin','Destination',
-      'Start Date','Status','Booking Window (days)','Total (Inc GST)','Total (Ex GST)'];
-    const rows = sorted.map(t => [
-      t.tripRef || t.id,
-      t.travellerName || '',
-      t.tripType || '',
-      t.costCentre || '',
-      t.originCity || '',
-      t.destinationCity || '',
-      t.startDate || '',
-      STATUS_LABEL[getDisplayStatus(t)] || getDisplayStatus(t),
-      bookingWindow(t) ?? '',
-      tripInclGST(t).toFixed(2),
-      tripExGST(t).toFixed(2),
-    ]);
+      'Start Date','Status','Booking Window (days)','Total (Inc GST)','Total (Ex GST)',
+      'Support Workers / Carers',
+      ...(hasActuals ? ['Actual (Inc GST)'] : []),
+    ];
+    const rows = sorted.map(t => {
+      const supporters = (t.additionalPassengers || [])
+        .filter(p => ['support_worker', 'carer'].includes(p.role))
+        .map(p => `${p.name} (${p.role === 'support_worker' ? 'Support worker' : 'Carer'})`)
+        .join('; ');
+      const actualTotal = t.actualsRecorded
+        ? (t.sectors || []).reduce((sum, s) => sum + (parseFloat(s.actualCost) ?? parseFloat(s.cost) ?? 0), 0)
+        : null;
+      return [
+        t.tripRef || t.id,
+        t.travellerName || '',
+        t.tripType || '',
+        t.costCentre || '',
+        t.originCity || '',
+        t.destinationCity || '',
+        t.startDate || '',
+        STATUS_LABEL[getDisplayStatus(t)] || getDisplayStatus(t),
+        bookingWindow(t) ?? '',
+        tripInclGST(t).toFixed(2),
+        tripExGST(t).toFixed(2),
+        supporters,
+        ...(hasActuals ? [actualTotal != null ? actualTotal.toFixed(2) : ''] : []),
+      ];
+    });
     exportCSV([headers, ...rows], `all_travel_${from}_to_${to}.csv`);
   };
 

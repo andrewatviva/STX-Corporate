@@ -47,6 +47,8 @@ export default function ProviderRatings() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [accessibilityOnly, setAccessibilityOnly] = useState(false);
+
   const { providers, processRatings, generalComments, types } = useMemo(() => {
     const pMap = {};
     const processRatings = [];
@@ -58,9 +60,17 @@ export default function ProviderRatings() {
 
       (d.providerRatings || []).forEach(r => {
         const key = `${r.type}::${r.name}`;
-        if (!pMap[key]) pMap[key] = { name: r.name, type: r.type, stars: [], comments: [] };
+        if (!pMap[key]) pMap[key] = {
+          name: r.name, type: r.type, stars: [], comments: [],
+          accessibilityStars: [], accessibilityMetCount: { yes: 0, no: 0 }, wouldUseAgainCount: { yes: 0, no: 0 },
+        };
         if (r.stars > 0) pMap[key].stars.push(r.stars);
         if (r.comment?.trim()) pMap[key].comments.push(r.comment.trim());
+        if (r.accessibilityStars > 0) pMap[key].accessibilityStars.push(r.accessibilityStars);
+        if (r.accessibilityMet === true)  pMap[key].accessibilityMetCount.yes++;
+        if (r.accessibilityMet === false) pMap[key].accessibilityMetCount.no++;
+        if (r.wouldUseAgain === true)  pMap[key].wouldUseAgainCount.yes++;
+        if (r.wouldUseAgain === false) pMap[key].wouldUseAgainCount.no++;
       });
     });
 
@@ -74,8 +84,11 @@ export default function ProviderRatings() {
     if (typeFilter !== 'all' && p.type !== typeFilter) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (minRating > 0 && avg(p.stars) < minRating) return false;
+    if (accessibilityOnly && p.accessibilityStars.length === 0) return false;
     return true;
   });
+
+  const hasAnyAccessibilityRatings = providers.some(p => p.accessibilityStars.length > 0);
   const processAvg = avg(processRatings);
 
   if (loading) {
@@ -181,7 +194,19 @@ export default function ProviderRatings() {
                   </button>
                 ))}
               </div>
-              {(search || minRating > 0) && (
+              {hasAnyAccessibilityRatings && (
+                <button
+                  onClick={() => setAccessibilityOnly(v => !v)}
+                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                    accessibilityOnly
+                      ? 'bg-amber-400 text-white border-amber-400'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Accessibility rated only
+                </button>
+              )}
+              {(search || minRating > 0 || accessibilityOnly) && (
                 <span className="text-xs text-gray-600">
                   {filtered.length} of {providers.length}
                 </span>
@@ -237,6 +262,28 @@ export default function ProviderRatings() {
                       {p.comments.map((c, i) => (
                         <p key={i} className="text-xs text-gray-600 italic leading-relaxed">"{c}"</p>
                       ))}
+                    </div>
+                  )}
+
+                  {p.accessibilityStars.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-amber-100 space-y-1.5">
+                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Accessibility</p>
+                      <div className="flex items-center gap-2">
+                        <Stars value={Math.round(avg(p.accessibilityStars))} size={12} />
+                        <span className="text-xs text-gray-700">{avg(p.accessibilityStars).toFixed(1)} avg ({p.accessibilityStars.length} rated)</span>
+                      </div>
+                      {(p.accessibilityMetCount.yes + p.accessibilityMetCount.no) > 0 && (
+                        <p className="text-xs text-gray-600">
+                          Needs met: <span className="font-medium text-green-700">{p.accessibilityMetCount.yes} yes</span>
+                          {p.accessibilityMetCount.no > 0 && <span className="font-medium text-red-600 ml-1">{p.accessibilityMetCount.no} no</span>}
+                        </p>
+                      )}
+                      {(p.wouldUseAgainCount.yes + p.wouldUseAgainCount.no) > 0 && (
+                        <p className="text-xs text-gray-600">
+                          Would use again: <span className="font-medium text-green-700">{p.wouldUseAgainCount.yes} yes</span>
+                          {p.wouldUseAgainCount.no > 0 && <span className="font-medium text-red-600 ml-1">{p.wouldUseAgainCount.no} no</span>}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
