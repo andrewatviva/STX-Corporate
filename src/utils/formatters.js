@@ -20,3 +20,46 @@ export const formatDateTime = (timestamp) => {
     hour: '2-digit', minute: '2-digit',
   });
 };
+
+export const generateICS = (trip) => {
+  const toICSDate = (str) => (str || '').replace(/-/g, '');
+
+  const start = toICSDate(trip.startDate);
+
+  const end = (() => {
+    const base = trip.endDate || trip.startDate;
+    if (!base) return start;
+    const d = new Date(base);
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}${m}${day}`;
+  })();
+
+  const esc = (str) => (str || '').replace(/[\\;,]/g, ch => `\\${ch}`).replace(/\n/g, '\\n');
+
+  const location = [trip.originCity, trip.destinationCity].filter(Boolean).join(' to ');
+  const description = [
+    trip.travellerName && `Traveller: ${trip.travellerName}`,
+    trip.tripType       && `Type: ${trip.tripType}`,
+    trip.costCentre     && `Cost centre: ${trip.costCentre}`,
+  ].filter(Boolean).join('\\n');
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//STX Corporate//STX Connect//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${trip.id || ''}@stx-connect`,
+    `DTSTART;VALUE=DATE:${start}`,
+    `DTEND;VALUE=DATE:${end}`,
+    `SUMMARY:${esc(trip.title || 'Business Trip')}`,
+    description && `DESCRIPTION:${description}`,
+    location    && `LOCATION:${esc(location)}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+};

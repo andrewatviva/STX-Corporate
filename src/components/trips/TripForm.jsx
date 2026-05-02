@@ -8,6 +8,7 @@ import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { CITIES } from '../../data/cities';
+import TravellerAccessibilityCard from './TravellerAccessibilityCard';
 
 const SECTOR_TYPES = {
   flight:        { label: 'Flight',        Icon: Plane },
@@ -1075,6 +1076,12 @@ export default function TripForm({ trip, clientId: clientIdProp, onSave, onCance
             </div>
           )}
         </div>
+
+        {matchedPassenger && (
+          <div className="col-span-2">
+            <TravellerAccessibilityCard passenger={matchedPassenger} collapsible defaultExpanded={false} />
+          </div>
+        )}
 
         <div>
           <label className={lbl}>Trip type</label>

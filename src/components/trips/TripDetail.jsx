@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Edit2, CheckCircle, XCircle, Ban, Send,
   Plane, Hotel, Car, ParkingSquare, ArrowLeftRight, UtensilsCrossed, MoreHorizontal,
-  Lock, Clock, Trash2, Receipt, Star, AlertTriangle,
+  Lock, Clock, Trash2, Receipt, Star, AlertTriangle, Calendar,
 } from 'lucide-react';
-import { doc, getDoc, arrayRemove, arrayUnion, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, arrayRemove, arrayUnion, collection, addDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -12,6 +12,8 @@ import { useApprovalScope, matchesApprovalScope } from '../../hooks/useApprovalS
 import { StatusBadge, getDisplayStatus, leadTimeDays, LeadTimeBadge } from './TripList';
 import Attachments from './Attachments';
 import TripRatingModal from './TripRatingModal';
+import TravellerAccessibilityCard from './TravellerAccessibilityCard';
+import { generateICS } from '../../utils/formatters';
 
 const SECTOR_ICONS = {
   flight:        Plane,
@@ -212,6 +214,7 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [existingRating, setExistingRating]   = useState(null);
   const [ratingLoaded, setRatingLoaded]       = useState(false);
+  const [travellerPassenger, setTravellerPassenger] = useState(null);
 
   useEffect(() => {
     if (trip?.title) document.title = `${trip.title} — STX Connect`;
@@ -226,6 +229,19 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
       .catch(() => {})
       .finally(() => setRatingLoaded(true));
   }, [trip?.id, userProfile?.uid]);
+
+  useEffect(() => {
+    if (!trip?.travellerId || !clientId) { setTravellerPassenger(null); return; }
+    getDocs(query(
+      collection(db, 'clients', clientId, 'passengers'),
+      where('userId', '==', trip.travellerId)
+    ))
+      .then(snap => {
+        const d = snap.docs[0];
+        setTravellerPassenger(d ? { id: d.id, ...d.data() } : null);
+      })
+      .catch(() => {});
+  }, [trip?.travellerId, clientId]);
 
   const role = userProfile?.role;
   const canEdit = ['stx_admin', 'stx_ops', 'client_ops', 'client_traveller'].includes(role);
@@ -409,6 +425,27 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
             >
               <Star size={13} fill={existingRating ? 'currentColor' : 'none'} />
               {existingRating ? 'Update rating' : 'Rate providers'}
+            </button>
+          )}
+
+          {/* Add to calendar — approved / booked / travelling trips */}
+          {['approved', 'booked', 'travelling'].includes(getDisplayStatus(trip)) && (
+            <button
+              onClick={() => {
+                const ics = generateICS(trip);
+                const blob = new Blob([ics], { type: 'text/calendar' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${(trip.title || 'trip').replace(/[^a-z0-9]/gi, '-')}.ics`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              <Calendar size={13} aria-hidden="true" /> Add to calendar
             </button>
           )}
 
@@ -911,6 +948,12 @@ export default function TripDetail({ trip, clientId, onBack, onEdit, onAmend, on
           </div>
         )}
       </div>
+
+      {travellerPassenger && (
+        <div className="mb-4">
+          <TravellerAccessibilityCard passenger={travellerPassenger} />
+        </div>
+      )}
 
       {/* Sectors */}
       {(trip.sectors || []).length > 0 && (
